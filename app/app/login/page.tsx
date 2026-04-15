@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,11 +15,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
 
     const fn = mode === "signin" ? signInWithEmail : signUpWithEmail;
@@ -29,7 +32,7 @@ export default function LoginPage() {
       setLoading(false);
     } else {
       if (mode === "signup") {
-        setError("Check your email to confirm your account.");
+        setSuccess("Check your email to confirm your account.");
         setLoading(false);
       } else {
         router.push("/app");
@@ -43,9 +46,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen">
       {/* Left: Form */}
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <div className="flex flex-1 items-center justify-center px-6 py-12 gradient-mesh">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -54,12 +57,13 @@ export default function LoginPage() {
         >
           {/* Logo */}
           <div className="mb-8">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                </svg>
-              </div>
+            <div className="flex items-center gap-2.5 mb-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/postflow-icon.png"
+                alt="PostFlow"
+                className="w-10 h-10 rounded-xl shadow-sm"
+              />
               <span className="text-lg font-semibold text-zinc-900 tracking-tight">PostFlow</span>
             </div>
             <h1
@@ -73,10 +77,29 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Guest mode — prominent */}
+          <button
+            onClick={handleGuest}
+            className="btn-scale flex w-full items-center justify-between rounded-2xl border-2 border-dashed border-[#7C3AED]/30 bg-[#7C3AED]/[0.03] px-5 py-4 text-left transition-all hover:border-[#7C3AED]/60 hover:bg-[#7C3AED]/[0.06] mb-5 group"
+          >
+            <div>
+              <p className="text-sm font-semibold text-zinc-800">Try without an account</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Start creating carousels instantly</p>
+            </div>
+            <ArrowRight size={18} className="text-[#7C3AED] opacity-50 group-hover:opacity-100 transition-opacity" />
+          </button>
+
+          {/* Divider */}
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-200" />
+            <span className="text-xs text-zinc-400 uppercase tracking-wider">or sign in</span>
+            <div className="h-px flex-1 bg-zinc-200" />
+          </div>
+
           {/* Google Sign In */}
           <button
             onClick={signInWithGoogle}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-md"
+            className="btn-scale flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-sm font-medium text-zinc-700 shadow-sm transition-all hover:bg-zinc-50 hover:border-zinc-300 hover:shadow-md"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path
@@ -100,7 +123,7 @@ export default function LoginPage() {
           </button>
 
           {/* Divider */}
-          <div className="my-6 flex items-center gap-3">
+          <div className="my-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-zinc-200" />
             <span className="text-xs text-zinc-400 uppercase tracking-wider">or</span>
             <div className="h-px flex-1 bg-zinc-200" />
@@ -117,7 +140,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20"
                 placeholder="you@example.com"
               />
             </div>
@@ -130,22 +153,47 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20"
                 placeholder="Your password"
                 minLength={6}
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, y: -8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: -8, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    {error}
+                  </p>
+                </motion.div>
+              )}
+              {success && (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: -8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: -8, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <p className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-2.5 flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    {success}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[#7C3AED] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#6D28D9] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-scale w-full rounded-xl bg-[#7C3AED] px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#6D28D9] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading
                 ? "Loading..."
@@ -164,6 +212,7 @@ export default function LoginPage() {
                   onClick={() => {
                     setMode("signup");
                     setError("");
+                    setSuccess("");
                   }}
                   className="font-medium text-[#7C3AED] hover:text-[#6D28D9]"
                 >
@@ -177,6 +226,7 @@ export default function LoginPage() {
                   onClick={() => {
                     setMode("signin");
                     setError("");
+                    setSuccess("");
                   }}
                   className="font-medium text-[#7C3AED] hover:text-[#6D28D9]"
                 >
@@ -185,26 +235,20 @@ export default function LoginPage() {
               </>
             )}
           </p>
-
-          {/* Guest */}
-          <div className="mt-6 text-center">
-            <button
-              onClick={handleGuest}
-              className="text-sm text-zinc-400 hover:text-zinc-600 transition-colors underline underline-offset-2"
-            >
-              Continue without account
-            </button>
-          </div>
         </motion.div>
       </div>
 
       {/* Right: Carousel mockup decoration */}
-      <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-[#7C3AED]/5 to-[#7C3AED]/10 p-12">
+      <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-[#7C3AED]/5 to-[#7C3AED]/10 p-12 relative overflow-hidden">
+        {/* Decorative blobs */}
+        <div className="absolute top-20 right-20 w-64 h-64 rounded-full bg-[#7C3AED]/5 blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-48 h-48 rounded-full bg-[#7C3AED]/8 blur-3xl" />
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, delay: 0.2 }}
-          className="w-full max-w-sm"
+          className="w-full max-w-sm relative z-10"
         >
           {/* Fake carousel mockup */}
           <div className="space-y-4">
@@ -218,7 +262,7 @@ export default function LoginPage() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 0.4 + i * 0.15 }}
-                className={`rounded-2xl p-6 shadow-sm border ${
+                className={`card-lift rounded-2xl p-6 shadow-sm border ${
                   slide.accent
                     ? "bg-[#7C3AED] text-white border-[#7C3AED]"
                     : "bg-white text-zinc-700 border-zinc-100"

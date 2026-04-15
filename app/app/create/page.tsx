@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import CarouselPreview from "@/components/app/carousel-preview";
 import { toPng } from "html-to-image";
 
@@ -27,37 +28,42 @@ const SOURCE_OPTIONS: {
   icon: string;
   label: string;
   desc: string;
+  emoji: string;
 }[] = [
   {
     type: "ai",
     icon: "sparkles",
     label: "AI Suggestions",
-    desc: "Let AI suggest trending topics",
+    desc: "Let AI suggest trending topics for you",
+    emoji: "✨",
   },
   {
     type: "link",
     icon: "link",
     label: "From a Link",
     desc: "Paste any article or blog URL",
+    emoji: "🔗",
   },
   {
     type: "video",
     icon: "play",
     label: "From a Video",
     desc: "Paste a YouTube video URL",
+    emoji: "🎬",
   },
   {
     type: "idea",
     icon: "lightbulb",
     label: "My Idea",
     desc: "Write your own topic or idea",
+    emoji: "💡",
   },
 ];
 
-const STYLE_BADGES: Record<string, { label: string; color: string }> = {
-  data: { label: "Data-Driven", color: "#2563eb" },
-  story: { label: "Story-Driven", color: "#16a34a" },
-  provocative: { label: "Provocative", color: "#dc2626" },
+const STYLE_BADGES: Record<string, { label: string; color: string; emoji: string }> = {
+  data: { label: "Data-Driven", color: "#2563eb", emoji: "📊" },
+  story: { label: "Story-Driven", color: "#16a34a", emoji: "📖" },
+  provocative: { label: "Provocative", color: "#dc2626", emoji: "🔥" },
 };
 
 const DEFAULT_PROFILE = {
@@ -158,6 +164,17 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
           <polyline points="20 6 9 17 4 12" />
         </svg>
       );
+    case "grip":
+      return (
+        <svg {...props}>
+          <circle cx="9" cy="6" r="1" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="6" r="1" fill="currentColor" stroke="none" />
+          <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+          <circle cx="9" cy="18" r="1" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="18" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -178,6 +195,7 @@ export default function CreatePage() {
   const [slideStyle, setSlideStyle] = useState<"white" | "dark">("white");
   const [error, setError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -246,7 +264,13 @@ export default function CreatePage() {
 
   const handleRemoveSlide = (index: number) => {
     if (editSlides.length <= 2) return;
+    if (deleteConfirm !== index) {
+      setDeleteConfirm(index);
+      setTimeout(() => setDeleteConfirm(null), 3000);
+      return;
+    }
     setEditSlides((prev) => prev.filter((_, i) => i !== index));
+    setDeleteConfirm(null);
   };
 
   const handleMoveSlide = (index: number, direction: "up" | "down") => {
@@ -280,7 +304,6 @@ export default function CreatePage() {
         link.href = dataUrl;
         link.click();
 
-        // Small delay between downloads
         await new Promise((r) => setTimeout(r, 300));
       }
     } catch (err) {
@@ -290,7 +313,24 @@ export default function CreatePage() {
     setIsExporting(false);
   };
 
-  // ─── Render Helpers ─────────────────────────────────────────────
+  const handleSaveDraft = () => {
+    const id = `carousel-${Date.now()}`;
+    const draft = {
+      id,
+      title: variations[selectedVariation]?.title || editSlides[0]?.heading || "Untitled",
+      slides: editSlides,
+      style: slideStyle,
+      variation: variations[selectedVariation],
+      savedAt: new Date().toISOString(),
+      status: "draft",
+    };
+    const existing = JSON.parse(localStorage.getItem("postflow_carousels") || "[]");
+    existing.unshift(draft);
+    localStorage.setItem("postflow_carousels", JSON.stringify(existing));
+    localStorage.setItem("postflow-draft", JSON.stringify(draft));
+  };
+
+  // ─── Render ──────────────────────────────────────────────────────
   const stepNumber =
     step === "input"
       ? 1
@@ -305,7 +345,7 @@ export default function CreatePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Top bar */}
-      <div className="border-b border-[var(--border)] bg-white sticky top-0 z-20">
+      <div className="border-b border-[var(--border)] bg-white/80 backdrop-blur-xl sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {step !== "input" && (
@@ -332,7 +372,7 @@ export default function CreatePage() {
             </h1>
           </div>
           {/* Step indicator */}
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             {[1, 2, 3, 4, 5].map((n) => (
               <div
                 key={n}
@@ -380,21 +420,34 @@ export default function CreatePage() {
 
       <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Error banner */}
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
-            <span>{error}</span>
-            <button
-              onClick={() => setError("")}
-              className="text-red-400 hover:text-red-600"
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className="mb-6 overflow-hidden"
             >
-              &times;
-            </button>
-          </div>
-        )}
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
+                <span>{error}</span>
+                <button
+                  onClick={() => setError("")}
+                  className="text-red-400 hover:text-red-600 ml-4"
+                >
+                  &times;
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ─── STEP 1: INPUT ──────────────────────────────────────── */}
         {step === "input" && (
-          <div className="animate-fade-in-up">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
             <div className="text-center mb-10">
               <h2
                 className="text-3xl font-bold mb-3"
@@ -414,35 +467,20 @@ export default function CreatePage() {
             {/* Source type cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {SOURCE_OPTIONS.map((opt) => (
-                <button
+                <motion.button
                   key={opt.type}
                   onClick={() => setSourceType(opt.type)}
-                  className="p-5 rounded-xl border-2 text-left transition-all hover:shadow-md"
-                  style={{
-                    borderColor:
-                      sourceType === opt.type
-                        ? "var(--accent)"
-                        : "var(--border)",
-                    background:
-                      sourceType === opt.type
-                        ? "rgba(124, 58, 237, 0.04)"
-                        : "var(--card)",
-                  }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`card-lift p-5 rounded-xl border-2 text-left transition-all ${
+                    sourceType === opt.type
+                      ? "border-[var(--accent)] bg-[var(--accent)]/[0.04] shadow-md shadow-purple-500/5"
+                      : "border-[var(--border)] bg-[var(--card)] hover:border-zinc-300"
+                  }`}
                 >
-                  <div
-                    className="mb-3"
-                    style={{
-                      color:
-                        sourceType === opt.type
-                          ? "var(--accent)"
-                          : "var(--muted)",
-                    }}
-                  >
-                    <Icon name={opt.icon} size={24} />
-                  </div>
+                  <div className="text-2xl mb-3">{opt.emoji}</div>
                   <div className="font-semibold text-sm mb-1">{opt.label}</div>
-                  <div className="text-xs text-[var(--muted)]">{opt.desc}</div>
-                </button>
+                  <div className="text-xs text-[var(--muted)] leading-relaxed">{opt.desc}</div>
+                </motion.button>
               ))}
             </div>
 
@@ -458,7 +496,7 @@ export default function CreatePage() {
                     value={sourceUrl}
                     onChange={(e) => setSourceUrl(e.target.value)}
                     placeholder="https://example.com/article..."
-                    className="w-full px-4 py-3 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 transition-all"
+                    className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 transition-all"
                   />
                 </div>
               )}
@@ -473,7 +511,7 @@ export default function CreatePage() {
                     value={sourceUrl}
                     onChange={(e) => setSourceUrl(e.target.value)}
                     placeholder="https://youtube.com/watch?v=..."
-                    className="w-full px-4 py-3 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 transition-all"
+                    className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 transition-all"
                   />
                 </div>
               )}
@@ -492,7 +530,7 @@ export default function CreatePage() {
                         : "e.g., Focus on the key takeaways about growth hacking..."
                     }
                     rows={3}
-                    className="w-full px-4 py-3 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 transition-all resize-none"
+                    className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 transition-all resize-none"
                   />
                 </div>
               )}
@@ -565,60 +603,105 @@ export default function CreatePage() {
                       ? true
                       : false
                 }
-                className="w-full py-3.5 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+                className="btn-scale btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                 style={{ background: "var(--accent)" }}
               >
                 Generate 3 Variations
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* ─── STEP 2: GENERATING ─────────────────────────────────── */}
         {step === "generating" && (
-          <div className="flex flex-col items-center justify-center py-32 animate-fade-in">
-            {/* Pulse animation */}
-            <div className="relative mb-8">
+          <div className="flex flex-col items-center justify-center py-32">
+            {/* Animated orbiting circles */}
+            <div className="relative mb-8" style={{ width: 80, height: 80 }}>
               <div
-                className="w-20 h-20 rounded-full"
+                className="absolute inset-0 rounded-full"
                 style={{
                   background: "var(--accent)",
-                  animation: "pulse 1.5s ease-in-out infinite",
+                  opacity: 0.15,
+                  animation: "pulse-ring 2s ease-out infinite",
                 }}
               />
               <div
-                className="absolute inset-0 w-20 h-20 rounded-full"
+                className="absolute inset-0 rounded-full"
                 style={{
                   background: "var(--accent)",
-                  animation: "pulse 1.5s ease-in-out infinite 0.3s",
-                  opacity: 0.5,
+                  opacity: 0.1,
+                  animation: "pulse-ring 2s ease-out infinite 0.5s",
+                }}
+              />
+              <div
+                className="absolute rounded-full"
+                style={{
+                  width: 12,
+                  height: 12,
+                  background: "var(--accent)",
+                  animation: "orbit-1 1.8s linear infinite",
+                  top: "50%",
+                  left: "50%",
+                  marginTop: -6,
+                  marginLeft: -6,
+                }}
+              />
+              <div
+                className="absolute rounded-full"
+                style={{
+                  width: 10,
+                  height: 10,
+                  background: "var(--accent-light)",
+                  animation: "orbit-2 1.8s linear infinite",
+                  top: "50%",
+                  left: "50%",
+                  marginTop: -5,
+                  marginLeft: -5,
+                }}
+              />
+              <div
+                className="absolute rounded-full"
+                style={{
+                  width: 8,
+                  height: 8,
+                  background: "var(--accent-dark)",
+                  animation: "orbit-3 1.8s linear infinite",
+                  top: "50%",
+                  left: "50%",
+                  marginTop: -4,
+                  marginLeft: -4,
                 }}
               />
             </div>
-            <h2
+            <motion.h2
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               className="text-xl font-bold mb-2"
               style={{
                 fontFamily:
                   "var(--font-serif), 'DM Serif Display', Georgia, serif",
               }}
             >
-              Creating 3 variations for you...
-            </h2>
-            <p className="text-[var(--muted)] text-sm">
+              Creating 3 variations...
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="text-[var(--muted)] text-sm"
+            >
               Analyzing content and crafting carousel slides
-            </p>
-            <style>{`
-              @keyframes pulse {
-                0%, 100% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.3); opacity: 0.3; }
-              }
-            `}</style>
+            </motion.p>
           </div>
         )}
 
         {/* ─── STEP 3: PICK VARIATION ─────────────────────────────── */}
         {step === "pick" && (
-          <div className="animate-fade-in-up">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
             <div className="text-center mb-10">
               <h2
                 className="text-3xl font-bold mb-3"
@@ -639,21 +722,26 @@ export default function CreatePage() {
                 const badge = STYLE_BADGES[variation.style] || {
                   label: variation.style,
                   color: "#7C3AED",
+                  emoji: "✨",
                 };
                 return (
-                  <div
+                  <motion.div
                     key={index}
-                    className="border border-[var(--border)] rounded-2xl p-6 hover:shadow-lg transition-all hover:border-[var(--accent)] cursor-pointer group"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="card-lift border border-[var(--border)] rounded-2xl p-6 hover:border-[var(--accent)] cursor-pointer group"
                     onClick={() => handleSelectVariation(index)}
                   >
                     {/* Badge */}
                     <span
-                      className="inline-block px-3 py-1 rounded-full text-xs font-semibold mb-4"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-4"
                       style={{
                         background: badge.color + "14",
                         color: badge.color,
                       }}
                     >
+                      <span>{badge.emoji}</span>
                       {badge.label}
                     </span>
 
@@ -668,7 +756,7 @@ export default function CreatePage() {
                       {variation.title}
                     </h3>
 
-                    {/* Preview — first 3 slide headings */}
+                    {/* Preview -- first 3 slide headings */}
                     <div className="space-y-2 mb-6">
                       {variation.slides.slice(0, 3).map((slide, si) => (
                         <div
@@ -698,32 +786,24 @@ export default function CreatePage() {
 
                     {/* Select button */}
                     <button
-                      className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all border-2 group-hover:text-white"
-                      style={{
-                        borderColor: "var(--accent)",
-                        color: "var(--accent)",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "var(--accent)";
-                        e.currentTarget.style.color = "#fff";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "var(--accent)";
-                      }}
+                      className="btn-scale w-full py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-[var(--accent)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white"
                     >
                       Select This Style
                     </button>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* ─── STEP 4: EDIT SLIDES ────────────────────────────────── */}
         {step === "edit" && (
-          <div className="animate-fade-in-up">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2
@@ -776,7 +856,7 @@ export default function CreatePage() {
                 </div>
                 <button
                   onClick={() => setStep("export")}
-                  className="px-5 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
+                  className="btn-scale px-5 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
                   style={{ background: "var(--accent)" }}
                 >
                   Continue to Export
@@ -788,19 +868,25 @@ export default function CreatePage() {
               {/* Slide editor list */}
               <div className="space-y-4">
                 {editSlides.map((slide, index) => (
-                  <div
+                  <motion.div
                     key={index}
-                    className="border border-[var(--border)] rounded-xl p-5 hover:shadow-sm transition-all"
+                    layout
+                    className="border border-[var(--border)] rounded-xl p-5 hover:shadow-sm transition-all bg-white"
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
-                        Slide {index + 1}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="text-zinc-300 cursor-grab">
+                          <Icon name="grip" size={16} />
+                        </div>
+                        <span className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">
+                          Slide {index + 1}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleMoveSlide(index, "up")}
                           disabled={index === 0}
-                          className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
                           title="Move up"
                         >
                           <Icon name="arrow-up" size={14} />
@@ -808,14 +894,14 @@ export default function CreatePage() {
                         <button
                           onClick={() => handleMoveSlide(index, "down")}
                           disabled={index === editSlides.length - 1}
-                          className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
                           title="Move down"
                         >
                           <Icon name="arrow-down" size={14} />
                         </button>
                         <button
                           onClick={() => handleAddSlide(index)}
-                          className="p-1 rounded hover:bg-gray-100 transition-colors text-[var(--accent)]"
+                          className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors text-[var(--accent)]"
                           title="Add slide after"
                         >
                           <Icon name="plus" size={14} />
@@ -823,8 +909,12 @@ export default function CreatePage() {
                         <button
                           onClick={() => handleRemoveSlide(index)}
                           disabled={editSlides.length <= 2}
-                          className="p-1 rounded hover:bg-red-50 disabled:opacity-30 transition-colors text-red-500"
-                          title="Remove slide"
+                          className={`p-1.5 rounded-lg disabled:opacity-30 transition-all ${
+                            deleteConfirm === index
+                              ? "bg-red-100 text-red-600"
+                              : "hover:bg-red-50 text-red-400"
+                          }`}
+                          title={deleteConfirm === index ? "Click again to confirm" : "Remove slide"}
                         >
                           <Icon name="trash" size={14} />
                         </button>
@@ -837,7 +927,7 @@ export default function CreatePage() {
                       onChange={(e) =>
                         handleUpdateSlide(index, "heading", e.target.value)
                       }
-                      className="w-full font-semibold text-base mb-2 px-0 border-0 border-b border-transparent focus:border-[var(--accent)] focus:outline-none bg-transparent transition-colors"
+                      className="w-full font-semibold text-base mb-2 px-3 py-2 rounded-lg border border-transparent focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 focus:outline-none bg-transparent hover:bg-zinc-50 transition-colors"
                       placeholder="Slide heading..."
                     />
                     <textarea
@@ -846,7 +936,7 @@ export default function CreatePage() {
                         handleUpdateSlide(index, "body", e.target.value)
                       }
                       rows={2}
-                      className="w-full text-sm text-gray-600 px-0 border-0 border-b border-transparent focus:border-[var(--accent)] focus:outline-none bg-transparent resize-none transition-colors"
+                      className="w-full text-sm text-gray-600 px-3 py-2 rounded-lg border border-transparent focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 focus:outline-none bg-transparent resize-none hover:bg-zinc-50 transition-colors"
                       placeholder="Slide body text..."
                     />
                     <div className="mt-2 flex items-center gap-2">
@@ -863,11 +953,11 @@ export default function CreatePage() {
                             e.target.value
                           )
                         }
-                        className="flex-1 text-xs px-2 py-1 rounded border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] bg-transparent"
+                        className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] bg-transparent hover:bg-zinc-50 transition-colors"
                         placeholder="Search term for image..."
                       />
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
 
@@ -876,19 +966,25 @@ export default function CreatePage() {
                 <div className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-3">
                   Preview
                 </div>
-                <CarouselPreview
-                  slides={editSlides}
-                  profile={DEFAULT_PROFILE}
-                  style={slideStyle}
-                />
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
+                  <CarouselPreview
+                    slides={editSlides}
+                    profile={DEFAULT_PROFILE}
+                    style={slideStyle}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* ─── STEP 5: EXPORT ─────────────────────────────────────── */}
         {step === "export" && (
-          <div className="animate-fade-in-up">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
             <div className="text-center mb-10">
               <h2
                 className="text-3xl font-bold mb-3"
@@ -919,7 +1015,7 @@ export default function CreatePage() {
               <button
                 onClick={handleExportPng}
                 disabled={isExporting}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                className="btn-scale flex items-center gap-2 px-6 py-3 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: "var(--accent)" }}
               >
                 <Icon name="download" size={16} />
@@ -927,13 +1023,12 @@ export default function CreatePage() {
               </button>
 
               <button
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 text-sm font-semibold transition-all hover:bg-gray-50"
+                className="btn-scale flex items-center gap-2 px-6 py-3 rounded-xl border-2 text-sm font-semibold transition-all hover:bg-gray-50"
                 style={{
                   borderColor: "var(--border)",
                   color: "var(--foreground)",
                 }}
                 onClick={() => {
-                  // PDF — for now just alert
                   alert(
                     "PDF export coming soon! Use PNG for now."
                   );
@@ -965,23 +1060,13 @@ export default function CreatePage() {
               </button>
 
               <button
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 text-sm font-semibold transition-all hover:bg-gray-50"
+                className="btn-scale flex items-center gap-2 px-6 py-3 rounded-xl border-2 text-sm font-semibold transition-all hover:bg-gray-50"
                 style={{
                   borderColor: "var(--border)",
                   color: "var(--foreground)",
                 }}
                 onClick={() => {
-                  // Save draft to localStorage for now
-                  const draft = {
-                    slides: editSlides,
-                    style: slideStyle,
-                    variation: variations[selectedVariation],
-                    savedAt: new Date().toISOString(),
-                  };
-                  localStorage.setItem(
-                    "postflow-draft",
-                    JSON.stringify(draft)
-                  );
+                  handleSaveDraft();
                   alert("Draft saved!");
                 }}
               >
@@ -998,7 +1083,7 @@ export default function CreatePage() {
                 Back to editing
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

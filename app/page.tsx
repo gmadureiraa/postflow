@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Sparkles,
   Link2,
@@ -19,6 +19,14 @@ import {
   Globe,
   Play,
 } from "lucide-react";
+
+/* ─────────────────── HOOKS ─────────────────── */
+
+function useScrollReveal(margin: string = "-80px") {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: margin as `${number}px` });
+  return { ref, isInView };
+}
 
 /* ─────────────────── DATA ─────────────────── */
 
@@ -140,6 +148,49 @@ const plans = [
   },
 ];
 
+const testimonials = [
+  {
+    quote:
+      "PostFlow mudou como eu produzo conteudo. De 2h por carrossel para 5 minutos.",
+    name: "Ana Silva",
+    handle: "@anamarketing",
+    role: "Content Creator",
+    initials: "AS",
+  },
+  {
+    quote:
+      "As 3 variacoes sao geniais. Sempre tem uma que eu nao teria pensado.",
+    name: "Pedro Mendes",
+    handle: "@pedrotech",
+    role: "Tech Creator",
+    initials: "PM",
+  },
+  {
+    quote:
+      "Finalmente um gerador de carrossel que entende tom de voz brasileiro.",
+    name: "Lucas Ferreira",
+    handle: "@lucascripto",
+    role: "Crypto Educator",
+    initials: "LF",
+  },
+];
+
+const comparisonFeatures = [
+  { name: "Carrosseis com IA", free: true, pro: true, max: true },
+  { name: "3 variacoes por ideia", free: true, pro: true, max: true },
+  { name: "Export PNG", free: true, pro: true, max: true },
+  { name: "Marca d'agua removida", free: false, pro: true, max: true },
+  { name: "Todos os estilos", free: false, pro: true, max: true },
+  { name: "Export PDF", free: false, pro: true, max: true },
+  { name: "Publicacao direta", free: false, pro: true, max: true },
+  { name: "Imagens com IA", free: false, pro: true, max: true },
+  { name: "Multiplos perfis", free: false, pro: true, max: true },
+  { name: "API de integracao", free: false, pro: false, max: true },
+  { name: "Analytics avancado", free: false, pro: false, max: true },
+  { name: "Custom branding", free: false, pro: false, max: true },
+  { name: "Suporte prioritario", free: false, pro: false, max: true },
+];
+
 const faqs = [
   {
     question: "Preciso saber design para usar o PostFlow?",
@@ -214,9 +265,13 @@ function NavBar() {
       <div className="mx-auto max-w-6xl px-6 flex items-center justify-between h-16">
         <a
           href="#"
-          className="font-[family-name:var(--font-serif)] text-xl tracking-tight"
+          className="flex items-center gap-2"
         >
-          PostFlow
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/postflow-icon.png" alt="PostFlow" className="w-8 h-8 rounded-lg" />
+          <span className="font-[family-name:var(--font-serif)] text-xl tracking-tight">
+            PostFlow
+          </span>
         </a>
 
         {/* Desktop links */}
@@ -243,8 +298,8 @@ function NavBar() {
 
         <div className="hidden md:block">
           <a
-            href="#pricing"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-dark)] transition-colors"
+            href="/app/login"
+            className="btn-scale inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-dark)] transition-colors"
           >
             Get Started Free
           </a>
@@ -267,7 +322,7 @@ function NavBar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-[var(--border)] overflow-hidden"
+            className="md:hidden bg-white/95 backdrop-blur-xl border-b border-[var(--border)] overflow-hidden"
           >
             <div className="px-6 py-4 flex flex-col gap-4">
               <a
@@ -292,7 +347,7 @@ function NavBar() {
                 FAQ
               </a>
               <a
-                href="#pricing"
+                href="/app/login"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[var(--accent)] text-white text-sm font-medium"
                 onClick={() => setMobileOpen(false)}
               >
@@ -342,10 +397,10 @@ function CarouselMockup() {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.35 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
             >
               <h3 className="font-[family-name:var(--font-serif)] text-xl leading-snug mb-3">
                 {slide.heading}
@@ -364,10 +419,10 @@ function CarouselMockup() {
               <button
                 key={i}
                 onClick={() => setCurrentSlide(i)}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                className={`h-2 rounded-full transition-all duration-500 ease-out ${
                   i === currentSlide
                     ? "bg-[var(--accent)] w-6"
-                    : "bg-[var(--border)]"
+                    : "bg-[var(--border)] w-2"
                 }`}
                 aria-label={`Go to slide ${i + 1}`}
               />
@@ -395,14 +450,16 @@ function FAQItem({
     <div className="border-b border-[var(--border)]">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-5 text-left"
+        className="w-full flex items-center justify-between py-5 text-left group"
       >
-        <span className="font-medium pr-4">{question}</span>
-        {open ? (
-          <ChevronUp size={18} className="text-[var(--muted)] shrink-0" />
-        ) : (
-          <ChevronDown size={18} className="text-[var(--muted)] shrink-0" />
-        )}
+        <span className="font-medium pr-4 group-hover:text-[var(--accent)] transition-colors">{question}</span>
+        <motion.div
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="text-[var(--muted)] shrink-0"
+        >
+          <ChevronDown size={18} />
+        </motion.div>
       </button>
       <AnimatePresence>
         {open && (
@@ -425,15 +482,99 @@ function FAQItem({
 
 /* ─────────────────── SECTIONS ─────────────────── */
 
+function SocialProof() {
+  return (
+    <section className="py-12 border-b border-[var(--border)]">
+      <div className="mx-auto max-w-6xl px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center"
+        >
+          <p className="text-[var(--muted)] text-sm mb-6">
+            Trusted by content creators who want to grow faster
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-16 opacity-40">
+            <span className="text-lg font-semibold tracking-tight">@anamarketing</span>
+            <span className="text-lg font-semibold tracking-tight">@pedrotech</span>
+            <span className="text-lg font-semibold tracking-tight">@lucascripto</span>
+            <span className="text-lg font-semibold tracking-tight">@rafadesign</span>
+            <span className="text-lg font-semibold tracking-tight">@brunogrowth</span>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function Testimonials() {
+  return (
+    <section className="py-24 md:py-32">
+      <div className="mx-auto max-w-6xl px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <h2 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl tracking-tight mb-4">
+            O que criadores dizem
+          </h2>
+          <p className="text-[var(--muted)] text-lg max-w-xl mx-auto">
+            Quem usa PostFlow nao volta pro metodo manual.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {testimonials.map((t, i) => (
+            <motion.div
+              key={t.handle}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.4, delay: i * 0.1 }}
+              className="p-6 rounded-2xl border border-[var(--border)] bg-white"
+            >
+              <p className="text-[var(--foreground)] leading-relaxed mb-6">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-light)] flex items-center justify-center text-white text-xs font-semibold">
+                  {t.initials}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold leading-tight">
+                    {t.name}
+                  </p>
+                  <p className="text-xs text-[var(--muted)]">
+                    {t.handle} &middot; {t.role}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+      {/* Grid pattern background */}
+      <div className="absolute inset-0 hero-grid" />
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-purple-50/50 via-white to-white pointer-events-none" />
+      {/* Floating purple gradient blob */}
+      <div className="hero-blob top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/4 animate-float" />
 
       <div className="relative mx-auto max-w-6xl px-6 py-20 md:py-32">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left — Copy */}
+          {/* Left -- Copy */}
           <div>
             <motion.div
               initial={{ opacity: 0, y: 24 }}
@@ -460,15 +601,15 @@ function Hero() {
 
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
-                  href="#pricing"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent-dark)] transition-colors text-sm"
+                  href="/app/login"
+                  className="btn-scale btn-glow inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent-dark)] transition-colors text-sm"
                 >
                   Criar meu primeiro carrossel — gratis
                   <ArrowRight size={16} />
                 </a>
                 <a
                   href="#how-it-works"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full border border-[var(--border)] text-[var(--foreground)] font-medium hover:bg-[var(--card)] transition-colors text-sm"
+                  className="btn-scale inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full border border-[var(--border)] text-[var(--foreground)] font-medium hover:bg-[var(--card)] transition-colors text-sm"
                 >
                   <Play size={14} />
                   Ver como funciona
@@ -477,11 +618,13 @@ function Hero() {
             </motion.div>
           </div>
 
-          {/* Right — Carousel mockup */}
+          {/* Right -- Carousel mockup */}
           <motion.div
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
+            className="animate-float"
+            style={{ animationDuration: "6s" }}
           >
             <CarouselMockup />
           </motion.div>
@@ -492,13 +635,14 @@ function Hero() {
 }
 
 function Features() {
+  const { ref, isInView } = useScrollReveal();
+
   return (
-    <section id="features" className="py-24 md:py-32">
+    <section id="features" className="py-24 md:py-32" ref={ref}>
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
@@ -517,10 +661,9 @@ function Features() {
             <motion.div
               key={feature.title}
               initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="group p-6 rounded-2xl border border-[var(--border)] bg-white hover:border-[var(--accent)]/30 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300"
+              className="card-lift group p-6 rounded-2xl border border-[var(--border)] bg-white hover:border-[var(--accent)]/30 transition-all duration-300"
             >
               <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[var(--accent)] mb-4 group-hover:bg-[var(--accent)] group-hover:text-white transition-colors duration-300">
                 <feature.icon size={20} />
@@ -538,13 +681,14 @@ function Features() {
 }
 
 function HowItWorks() {
+  const { ref, isInView } = useScrollReveal();
+
   return (
-    <section id="how-it-works" className="py-24 md:py-32 bg-[var(--card)]">
+    <section id="how-it-works" className="py-24 md:py-32 bg-[var(--card)]" ref={ref}>
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
@@ -561,9 +705,8 @@ function HowItWorks() {
             <motion.div
               key={step.number}
               initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.4, delay: i * 0.12 }}
               className="relative"
             >
               {/* Connector line */}
@@ -587,13 +730,14 @@ function HowItWorks() {
 }
 
 function Pricing() {
+  const { ref, isInView } = useScrollReveal();
+
   return (
-    <section id="pricing" className="py-24 md:py-32">
+    <section id="pricing" className="py-24 md:py-32" ref={ref}>
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
@@ -610,10 +754,9 @@ function Pricing() {
             <motion.div
               key={plan.name}
               initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.4, delay: i * 0.1 }}
-              className={`relative p-6 rounded-2xl border ${
+              className={`card-lift relative p-6 rounded-2xl border ${
                 plan.highlighted
                   ? "border-[var(--accent)] bg-white shadow-xl shadow-purple-500/10"
                   : "border-[var(--border)] bg-white"
@@ -662,7 +805,7 @@ function Pricing() {
               </ul>
 
               <button
-                className={`w-full py-3 rounded-full text-sm font-medium transition-colors ${
+                className={`btn-scale w-full py-3 rounded-full text-sm font-medium transition-colors ${
                   plan.highlighted
                     ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)]"
                     : "border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--card)]"
@@ -670,22 +813,99 @@ function Pricing() {
               >
                 {plan.cta}
               </button>
+
+              {!plan.highlighted && plan.name === "Free" && (
+                <p className="text-xs text-[var(--muted)] text-center mt-3">
+                  Sem cartao de credito
+                </p>
+              )}
             </motion.div>
           ))}
         </div>
+
+        {/* Comparison Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-16 max-w-4xl mx-auto"
+        >
+          <h3 className="font-[family-name:var(--font-serif)] text-2xl tracking-tight text-center mb-8">
+            Compare os planos
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)]">
+                  <th className="text-left py-3 pr-4 font-medium text-[var(--muted)]">
+                    Recurso
+                  </th>
+                  <th className="text-center py-3 px-4 font-medium">Free</th>
+                  <th className="text-center py-3 px-4 font-medium text-[var(--accent)]">
+                    Pro
+                  </th>
+                  <th className="text-center py-3 px-4 font-medium">Max</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonFeatures.map((feat) => (
+                  <tr
+                    key={feat.name}
+                    className="border-b border-[var(--border)]/50"
+                  >
+                    <td className="py-3 pr-4 text-[var(--muted)]">
+                      {feat.name}
+                    </td>
+                    <td className="text-center py-3 px-4">
+                      {feat.free ? (
+                        <Check
+                          size={16}
+                          className="inline-block text-[var(--success)]"
+                        />
+                      ) : (
+                        <span className="text-[var(--border)]">&mdash;</span>
+                      )}
+                    </td>
+                    <td className="text-center py-3 px-4">
+                      {feat.pro ? (
+                        <Check
+                          size={16}
+                          className="inline-block text-[var(--accent)]"
+                        />
+                      ) : (
+                        <span className="text-[var(--border)]">&mdash;</span>
+                      )}
+                    </td>
+                    <td className="text-center py-3 px-4">
+                      {feat.max ? (
+                        <Check
+                          size={16}
+                          className="inline-block text-[var(--success)]"
+                        />
+                      ) : (
+                        <span className="text-[var(--border)]">&mdash;</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
 }
 
-function CarouselPreview() {
+function CarouselPreviewSection() {
+  const { ref, isInView } = useScrollReveal();
+
   return (
-    <section className="py-24 md:py-32 bg-[var(--card)]">
+    <section className="py-24 md:py-32 bg-[var(--card)]" ref={ref}>
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
@@ -699,9 +919,8 @@ function CarouselPreview() {
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={{ duration: 0.5 }}
+          animate={isInView ? { opacity: 1, scale: 1 } : {}}
+          transition={{ duration: 0.5, delay: 0.1 }}
         >
           <CarouselMockup />
         </motion.div>
@@ -711,13 +930,14 @@ function CarouselPreview() {
 }
 
 function FAQ() {
+  const { ref, isInView } = useScrollReveal();
+
   return (
-    <section id="faq" className="py-24 md:py-32">
+    <section id="faq" className="py-24 md:py-32" ref={ref}>
       <div className="mx-auto max-w-2xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
@@ -728,9 +948,8 @@ function FAQ() {
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={{ duration: 0.5 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.1 }}
         >
           {faqs.map((faq) => (
             <FAQItem
@@ -746,13 +965,14 @@ function FAQ() {
 }
 
 function FinalCTA() {
+  const { ref, isInView } = useScrollReveal();
+
   return (
-    <section className="py-24 md:py-32 bg-[var(--foreground)]">
+    <section className="py-24 md:py-32 bg-[var(--foreground)]" ref={ref}>
       <div className="mx-auto max-w-3xl px-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
         >
           <h2 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl md:text-5xl tracking-tight text-white mb-6">
@@ -764,8 +984,8 @@ function FinalCTA() {
             Sem cadastro complicado. Cole um link, escolha o estilo e exporte.
           </p>
           <a
-            href="#pricing"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent-light)] transition-colors"
+            href="/app/login"
+            className="btn-scale inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent-light)] transition-colors"
           >
             Comecar agora — gratis
             <ArrowRight size={18} />
@@ -783,10 +1003,14 @@ function Footer() {
         <div className="grid sm:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="sm:col-span-1">
-            <span className="font-[family-name:var(--font-serif)] text-lg">
-              PostFlow
-            </span>
-            <p className="text-sm text-[var(--muted)] mt-2 leading-relaxed">
+            <div className="flex items-center gap-2 mb-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/postflow-icon.png" alt="PostFlow" className="w-6 h-6 rounded" />
+              <span className="font-[family-name:var(--font-serif)] text-lg">
+                PostFlow
+              </span>
+            </div>
+            <p className="text-sm text-[var(--muted)] leading-relaxed">
               Transforme ideias em carrosseis virais com IA.
             </p>
           </div>
@@ -828,7 +1052,7 @@ function Footer() {
             <ul className="space-y-2 text-sm text-[var(--muted)]">
               <li>
                 <a
-                  href="#"
+                  href="/blog"
                   className="hover:text-[var(--foreground)] transition-colors"
                 >
                   Blog
@@ -906,10 +1130,12 @@ export default function Home() {
       <NavBar />
       <main>
         <Hero />
+        <SocialProof />
         <Features />
         <HowItWorks />
+        <Testimonials />
         <Pricing />
-        <CarouselPreview />
+        <CarouselPreviewSection />
         <FAQ />
         <FinalCTA />
       </main>

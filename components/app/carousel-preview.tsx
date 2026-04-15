@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import CarouselSlide from "./carousel-slide";
 
 interface Slide {
@@ -24,15 +24,36 @@ export default function CarouselPreview({
   slideRefs,
 }: CarouselPreviewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   const scrollTo = (direction: "left" | "right") => {
     if (!scrollRef.current) return;
-    const amount = 384; // slide width + gap
+    const amount = 384;
     scrollRef.current.scrollBy({
       left: direction === "left" ? -amount : amount,
       behavior: "smooth",
     });
   };
+
+  const scrollToSlide = (index: number) => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({
+      left: index * 384,
+      behavior: "smooth",
+    });
+  };
+
+  // Track active slide on scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const idx = Math.round(el.scrollLeft / 384);
+      setActiveSlide(idx);
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <div className="relative">
@@ -41,7 +62,7 @@ export default function CarouselPreview({
         <>
           <button
             onClick={() => scrollTo("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-white border border-[var(--border)] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-9 h-9 rounded-full bg-white border border-[var(--border)] shadow-md flex items-center justify-center hover:bg-gray-50 hover:shadow-lg transition-all"
             aria-label="Previous slide"
           >
             <svg
@@ -59,7 +80,7 @@ export default function CarouselPreview({
           </button>
           <button
             onClick={() => scrollTo("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-white border border-[var(--border)] shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-9 h-9 rounded-full bg-white border border-[var(--border)] shadow-md flex items-center justify-center hover:bg-gray-50 hover:shadow-lg transition-all"
             aria-label="Next slide"
           >
             <svg
@@ -81,7 +102,7 @@ export default function CarouselPreview({
       {/* Scrollable container */}
       <div
         ref={scrollRef}
-        className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory"
+        className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory preview-scroll"
         style={{
           scrollbarWidth: "thin",
           scrollbarColor: "#d1d5db transparent",
@@ -107,6 +128,24 @@ export default function CarouselPreview({
           </div>
         ))}
       </div>
+
+      {/* Slide indicator dots */}
+      {slides.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-3">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => scrollToSlide(i)}
+              className={`rounded-full transition-all duration-300 ${
+                i === activeSlide
+                  ? "w-6 h-2 bg-[var(--accent)]"
+                  : "w-2 h-2 bg-zinc-200 hover:bg-zinc-300"
+              }`}
+              aria-label={`Go to slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

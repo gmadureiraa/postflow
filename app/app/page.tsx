@@ -9,16 +9,53 @@ import {
   CalendarDays,
   Crown,
   Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+interface SavedCarousel {
+  id: string;
+  title: string;
+  slides: { heading: string; body: string }[];
+  style: string;
+  savedAt: string;
+  status?: string;
+}
+
+function getSavedCarousels(): SavedCarousel[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("postflow_carousels");
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [];
+}
 
 export default function DashboardPage() {
   const { profile } = useAuth();
+  const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
+
+  useEffect(() => {
+    setCarousels(getSavedCarousels());
+  }, []);
 
   const name = profile?.name?.split(" ")[0] || "there";
-  const carouselCount = profile?.usage_count ?? 0;
+  const carouselCount = profile?.usage_count ?? carousels.length;
   const plan = profile?.plan ?? "free";
   const limit = profile?.usage_limit ?? 5;
+  const greeting = getGreeting();
+
+  const recentCarousels = carousels.slice(0, 4);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -32,7 +69,7 @@ export default function DashboardPage() {
           className="text-3xl font-bold text-zinc-900 mb-1"
           style={{ fontFamily: "'DM Serif Display', serif" }}
         >
-          Hey {name}, ready to create?
+          {greeting}, {name}
         </h1>
         <p className="text-zinc-500 mb-8">
           Your carousel studio awaits.
@@ -73,23 +110,26 @@ export default function DashboardPage() {
       >
         <Link
           href="/app/create"
-          className="group flex items-center gap-4 rounded-2xl bg-[#7C3AED] p-6 text-white transition-all hover:bg-[#6D28D9] hover:shadow-lg"
+          className="group relative flex items-center gap-4 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] p-6 text-white transition-all hover:shadow-xl hover:shadow-purple-500/20 btn-glow overflow-hidden"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
-            <PlusCircle size={24} />
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+            <PlusCircle size={26} />
           </div>
           <div>
-            <p className="text-lg font-semibold">New Carousel</p>
+            <p className="text-lg font-bold">New Carousel</p>
             <p className="text-sm text-white/70">
               Create from text, link, or ideas
             </p>
           </div>
+          <ArrowRight size={20} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
         </Link>
         <Link
           href="/app/carousels"
-          className="group flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-6 transition-all hover:border-zinc-300 hover:shadow-md"
+          className="card-lift group flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-6 transition-all hover:border-zinc-300"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600 group-hover:bg-[#7C3AED]/10 group-hover:text-[#7C3AED] transition-colors">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600 group-hover:bg-[#7C3AED]/10 group-hover:text-[#7C3AED] transition-colors">
             <FolderOpen size={24} />
           </div>
           <div>
@@ -101,7 +141,7 @@ export default function DashboardPage() {
         </Link>
       </motion.div>
 
-      {/* Recent carousels — empty state */}
+      {/* Recent carousels */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -110,9 +150,57 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold text-zinc-900 mb-4">
           Recent Carousels
         </h2>
-        <EmptyState />
+        {recentCarousels.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {recentCarousels.map((c) => (
+              <RecentCarouselCard key={c.id} carousel={c} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState />
+        )}
       </motion.div>
     </div>
+  );
+}
+
+function RecentCarouselCard({ carousel }: { carousel: SavedCarousel }) {
+  const date = new Date(carousel.savedAt);
+  const formatted = date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  });
+
+  return (
+    <Link
+      href={`/app/create?draft=${carousel.id}`}
+      className="card-lift flex items-start gap-4 rounded-2xl border border-zinc-200 bg-white p-5 transition-all hover:border-zinc-300"
+    >
+      {/* Thumbnail preview */}
+      <div
+        className={`flex-shrink-0 w-14 h-18 rounded-lg flex items-center justify-center text-xs font-bold ${
+          carousel.style === "dark"
+            ? "bg-zinc-900 text-white border border-zinc-700"
+            : "bg-zinc-50 text-zinc-600 border border-zinc-200"
+        }`}
+        style={{ height: 72 }}
+      >
+        {carousel.slides.length}
+        <br />
+        slides
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-zinc-900 truncate">
+          {carousel.title || carousel.slides[0]?.heading || "Untitled"}
+        </p>
+        <p className="text-xs text-zinc-500 mt-0.5">
+          {formatted} &middot; {carousel.slides.length} slides
+        </p>
+        <p className="text-xs text-zinc-400 mt-1 line-clamp-1">
+          {carousel.slides[0]?.body || ""}
+        </p>
+      </div>
+    </Link>
   );
 }
 
@@ -128,11 +216,11 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
+    <div className="card-lift flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <div
-        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+        className={`flex h-11 w-11 items-center justify-center rounded-xl ${
           accent
-            ? "bg-[#7C3AED]/10 text-[#7C3AED]"
+            ? "bg-gradient-to-br from-[#7C3AED]/15 to-[#8B5CF6]/10 text-[#7C3AED]"
             : "bg-zinc-100 text-zinc-600"
         }`}
       >
@@ -149,7 +237,17 @@ function StatCard({
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/50 py-16 px-6">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#7C3AED]/10">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/postflow-empty.png"
+        alt="No carousels yet"
+        className="w-32 h-32 mb-4 opacity-80"
+        onError={(e) => {
+          // Fallback to icon if image doesn't load
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#7C3AED]/15 to-[#8B5CF6]/10">
         <Sparkles size={24} className="text-[#7C3AED]" />
       </div>
       <p className="text-base font-medium text-zinc-700 mb-1">
@@ -160,7 +258,7 @@ function EmptyState() {
       </p>
       <Link
         href="/app/create"
-        className="inline-flex items-center gap-2 rounded-xl bg-[#7C3AED] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#6D28D9] hover:shadow-md"
+        className="btn-scale btn-glow inline-flex items-center gap-2 rounded-xl bg-[#7C3AED] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#6D28D9] hover:shadow-md"
       >
         <PlusCircle size={16} />
         Create Your First
