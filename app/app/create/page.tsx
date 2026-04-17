@@ -561,10 +561,21 @@ function CreatePageContent() {
         }),
       });
 
-      const data = await response.json();
+      let data: { variations?: any[]; error?: string };
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text.slice(0, 200) || `Servidor retornou ${response.status}`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Falha na geracao");
+        throw new Error(data.error || "Falha na geração. Tente novamente.");
+      }
+
+      if (!data.variations || data.variations.length === 0) {
+        throw new Error("A IA não retornou variações. Tente com outro tópico.");
       }
 
       setVariations(data.variations);

@@ -531,6 +531,36 @@ function SettingsPageContent() {
           </button>
         </motion.div>
 
+        {/* Refazer Onboarding */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"
+        >
+          <h2 className="text-base font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+            <Sparkles size={18} className="text-[var(--accent)]" />
+            Perfil de Conteúdo
+          </h2>
+          <p className="text-sm text-[var(--muted)] mb-4">
+            Refaça o onboarding para atualizar seu perfil de marca, nicho, tom de voz e pilares de conteúdo.
+            Isso melhora a qualidade dos carrosséis gerados.
+          </p>
+          <button
+            onClick={() => {
+              localStorage.removeItem("sequencia-viral_onboarding");
+              if (profile && updateProfile) {
+                updateProfile({ onboarding_completed: false });
+              }
+              window.location.href = "/app/onboarding";
+            }}
+            className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
+          >
+            <Sparkles size={14} />
+            Refazer onboarding
+          </button>
+        </motion.section>
+
         {/* Danger Zone */}
         <motion.section
           initial={{ opacity: 0, y: 12 }}
