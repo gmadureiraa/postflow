@@ -332,7 +332,9 @@ Be honest and critical. Most carousels should score 60-80. Only truly exceptiona
     // 3. Call Claude API
     // Model: Sonnet 4.6 = best cost/quality balance for this task.
     // Opus 4.6 (claude-opus-4-6) is available if you want max quality; it's slower and pricier.
-    const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+    // Haiku 4.5 is fast enough for Vercel Hobby (10s limit).
+    // Switch to sonnet-4-6 or opus-4-6 on Vercel Pro for higher quality.
+    const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -343,7 +345,7 @@ Be honest and critical. Most carousels should score 60-80. Only truly exceptiona
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 6000,
+        max_tokens: 4096,
         temperature: 0.95,
         system: systemPrompt,
         messages: [{ role: "user", content: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]` }],
