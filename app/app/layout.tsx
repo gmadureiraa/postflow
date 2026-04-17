@@ -15,6 +15,7 @@ import {
   BarChart3,
   Send,
   BookOpen,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 import { Toaster } from "@/components/ui/sonner";
@@ -24,11 +25,13 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   comingSoon?: boolean;
+  badge?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/create", label: "Criar", icon: PlusCircle },
+  { href: "/app/create-v2", label: "Carrossel 2.0", icon: Layers, badge: "NEW" },
   { href: "/app/help", label: "Guia", icon: BookOpen },
   { href: "/app/carousels", label: "Meus carrosséis", icon: FolderOpen },
   { href: "/app/metrics", label: "Métricas", icon: BarChart3, comingSoon: true },
@@ -153,7 +156,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 px-4 space-y-1.5">
-          {NAV_ITEMS.map(({ href, label, icon: Icon, comingSoon }) => {
+          {NAV_ITEMS.map(({ href, label, icon: Icon, comingSoon, badge }) => {
             const active = pathname === href;
             if (comingSoon) {
               return (
@@ -185,7 +188,16 @@ function AppShell({ children }: { children: React.ReactNode }) {
                 style={active ? { boxShadow: "3px 3px 0 0 #0A0A0A" } : {}}
               >
                 <Icon size={18} />
-                {label}
+                <span className="flex-1">{label}</span>
+                {badge && (
+                  <span className={`text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 ${
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-[var(--accent)]/10 text-[var(--accent)]"
+                  }`}>
+                    {badge}
+                  </span>
+                )}
               </Link>
             );
           })}
