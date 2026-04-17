@@ -40,13 +40,23 @@ export async function POST(request: Request) {
 
     const prompt = `Generate 5 carousel concepts. ${langNote} Niche: ${niche || "general"}. Tone: ${tone || "casual"}.
 
-RULES: title max 40 chars. hook max 8 words. angle max 15 words. Keep it SHORT.
+Each concept must have a DIFFERENT narrative angle — like a journalist pitching 5 completely different stories from the same fact.
 
-5 angles: data, story, contrarian, howto, mythbust.
+For each concept:
+- hook: 2 lines. Line 1 = scroll-stopping question or statement (max 8 words). Line 2 = anchoring context (max 12 words). Separate with "|".
+- angle: 1 sentence explaining the narrative tension and why this matters (max 25 words).
+- style: data | story | provocative | howto | mythbust
+
+5 angles to cover:
+1. Data/reenquadramento: reframe the topic with surprising numbers
+2. Story/conflito oculto: personal narrative revealing hidden tension
+3. Provocative/contradição: challenge what everyone assumes is true
+4. Howto/mecanismo: explain the hidden mechanism behind the phenomenon
+5. Mythbust/inversão: debunk a common belief about this topic
 
 Topic: ${topic}
 
-JSON: {"concepts":[{"title":"...","hook":"...","style":"data|story|provocative|howto|mythbust","angle":"..."}]}`;
+JSON: {"concepts":[{"title":"max 45 chars","hook":"line1 | line2","style":"data|story|provocative|howto|mythbust","angle":"narrative tension explanation"}]}`;
 
     const ai = new GoogleGenAI({ apiKey: geminiKey });
     const result = await ai.models.generateContent({
