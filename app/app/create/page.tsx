@@ -14,6 +14,16 @@ import { toast } from "sonner";
 import { useAuth, type UserProfile } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import {
+  buildContentMachinePluginExport,
+  DESIGN_TEMPLATES,
+  type CreationMode,
+  type DesignTemplateId,
+  getDesignTemplateMeta,
+  pluginExportToPrettyText,
+  usesTweetStylePreview,
+  V2_TEMPLATE_COLORS,
+} from "@/lib/carousel-templates";
+import {
   bumpCarouselUsage,
   fetchUserCarousel,
   isCarouselUuid,
@@ -26,7 +36,6 @@ import {
 // ─── Types ──────────────────────────────────────────────────────────
 type SourceType = "ai" | "link" | "video" | "instagram" | "idea";
 type Step = "input" | "generating" | "pick" | "edit";
-type TemplatePick = "twitter" | "principal" | "futurista" | "autoral";
 
 // V2 flow types (Content Machine)
 interface V2TriagemData {
@@ -121,25 +130,6 @@ const STYLE_BADGES: Record<string, { label: string; color: string; emoji: string
   provocative: { label: "Provocativo", color: "#dc2626", emoji: "🔥" },
 };
 
-const TEMPLATE_OPTIONS: {
-  id: TemplatePick;
-  emoji: string;
-  name: string;
-  desc: string;
-  color: string;
-}[] = [
-  { id: "twitter", emoji: "\uD83D\uDC26", name: "Twitter", desc: "Estilo tweet screenshot \u2022 6-8 slides", color: "#0ea5e9" },
-  { id: "principal", emoji: "\uD83D\uDCF0", name: "Principal", desc: "Imagem hero + texto bold \u2022 18 blocos", color: "#EC6000" },
-  { id: "futurista", emoji: "\uD83D\uDD2E", name: "Futurista", desc: "Editorial limpo \u2022 14 textos", color: "#2563eb" },
-  { id: "autoral", emoji: "\u270D\uFE0F", name: "Autoral", desc: "Narrativa continua \u2022 18 blocos", color: "#16a34a" },
-];
-
-const V2_TEMPLATE_COLORS: Record<Exclude<TemplatePick, "twitter">, { bg: string; accent: string }> = {
-  principal: { bg: "#0A0A0A", accent: "#EC6000" },
-  futurista: { bg: "#F8FAFC", accent: "#2563eb" },
-  autoral: { bg: "#0A0A0A", accent: "#16a34a" },
-};
-
 const DEFAULT_PROFILE = {
   name: "Seu nome",
   handle: "@seuhandle",
@@ -182,11 +172,28 @@ function hydrateFromSavedCarousel(
     setVariations: (v: Variation[]) => void;
     setSelectedVariation: (n: number) => void;
     setStep: (s: Step) => void;
+    setDesignTemplate: (t: DesignTemplateId) => void;
+    setCreationMode: (m: CreationMode) => void;
+    setV2EditedBlocks: (b: string[]) => void;
+    setV2SubStep: (s: V2SubStep) => void;
   }
 ) {
   setters.setCarouselRecordId(c.id);
   setters.setEditSlides(c.slides);
   setters.setSlideStyle(c.style === "dark" ? "dark" : "white");
+  setters.setDesignTemplate(c.designTemplate ?? "twitter");
+  setters.setCreationMode(c.creationMode ?? "quick");
+  if (c.creationMode === "guided" && c.slides.length > 0) {
+    const blocks = c.slides.map((s, i) => {
+      const raw = s.body || "";
+      return /^texto\s+\d+/i.test(raw) ? raw : `texto ${i + 1} - ${raw}`;
+    });
+    setters.setV2EditedBlocks(blocks);
+    setters.setV2SubStep("none");
+  } else {
+    setters.setV2EditedBlocks([]);
+    setters.setV2SubStep("none");
+  }
   if (c.variation) {
     setters.setVariations([
       {
@@ -404,9 +411,12 @@ function CreatePageContent() {
   const [niche, setNiche] = useState("marketing");
   const [tone, setTone] = useState("casual");
   const [language, setLanguage] = useState("pt-br");
-  const [templatePick, setTemplatePick] = useState<TemplatePick>("twitter");
+  /** Visual / Figma template — independent from creation pipeline. */
+  const [designTemplate, setDesignTemplate] = useState<DesignTemplateId>("twitter");
+  /** quick = conceitos + geração única; guided = Content Machine (etapas). */
+  const [creationMode, setCreationMode] = useState<CreationMode>("quick");
 
-  // V2 Content Machine state (used when template !== "twitter")
+  // Content Machine guided flow (triagem → … → render)
   const [v2SubStep, setV2SubStep] = useState<V2SubStep>("none");
   const [v2Triagem, setV2Triagem] = useState<V2TriagemData | null>(null);
   const [v2Headlines, setV2Headlines] = useState<V2HeadlinesData | null>(null);
@@ -490,6 +500,10 @@ function CreatePageContent() {
             setVariations,
             setSelectedVariation,
             setStep,
+            setDesignTemplate,
+            setCreationMode,
+            setV2EditedBlocks,
+            setV2SubStep,
           });
           return;
         }
@@ -508,6 +522,10 @@ function CreatePageContent() {
           setVariations,
           setSelectedVariation,
           setStep,
+          setDesignTemplate,
+          setCreationMode,
+          setV2EditedBlocks,
+          setV2SubStep,
         });
       } catch (e) {
         if (!cancelled) {
@@ -523,9 +541,9 @@ function CreatePageContent() {
     };
   }, [searchParams, user, isGuest]);
 
-  // ─── Keyboard navigation ─────────────────────────────────────────
+  // ─── Keyboard navigation (slides rápidos; modo guiado usa editor de blocos) ──
   useEffect(() => {
-    if (step !== "edit") return;
+    if (step !== "edit" || creationMode === "guided" || editSlides.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only when not focused on an input/textarea
       const target = e.target as HTMLElement;
@@ -541,7 +559,7 @@ function CreatePageContent() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [step, editSlides.length]);
+  }, [step, editSlides.length, creationMode]);
 
   // Scroll editor card into view when active slide changes
   useEffect(() => {
@@ -569,7 +587,13 @@ function CreatePageContent() {
       fetch("/api/images", {
         method: "POST",
         headers: jsonWithAuth(session),
-        body: JSON.stringify({ query: slide.imageQuery, mode: "search" }),
+        body: JSON.stringify({
+          query: slide.imageQuery,
+          mode: "search",
+          niche,
+          tone,
+          designTemplate,
+        }),
       })
         .then((r) => r.json())
         .then((data) => {
@@ -600,17 +624,19 @@ function CreatePageContent() {
   const callV2API = useCallback(
     async (
       apiStep: string,
-      extra: Record<string, unknown> = {}
+      extra: Record<string, unknown> = {},
+      topicOverride?: string
     ): Promise<Record<string, unknown> | null> => {
       setV2Loading(true);
       try {
+        const effectiveTopic = topicOverride ?? topic;
         const res = await fetch("/api/generate-v2", {
           method: "POST",
           headers: jsonWithAuth(session),
           body: JSON.stringify({
             step: apiStep,
-            topic,
-            template: templatePick,
+            topic: effectiveTopic,
+            template: designTemplate,
             niche: niche || "geral",
             tone: tone || "informal",
             language,
@@ -633,7 +659,7 @@ function CreatePageContent() {
         setV2Loading(false);
       }
     },
-    [session, topic, templatePick, niche, tone, language, v2Context]
+    [session, topic, designTemplate, niche, tone, language, v2Context]
   );
 
   const handleV2StartTriagem = useCallback(async () => {
@@ -699,10 +725,40 @@ function CreatePageContent() {
       setV2Blocks(r.blocks);
       setV2EditedBlocks([...r.blocks]);
       setStep("edit");
+
+      // Auto-save V2 carousel immediately
+      const title = r.blocks[0]?.slice(0, 60) || "Carrossel V2";
+      try {
+        if (user && !isGuest && supabase) {
+          const slides: Slide[] = r.blocks.map((b, i) => ({
+            heading: i === 0 ? title : `Bloco ${i + 1}`,
+            body: b,
+            imageQuery: "",
+          }));
+          const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
+            id: carouselRecordId,
+            title,
+            slides,
+            slideStyle,
+            variation: { title, style: designTemplate },
+            status: "draft",
+            designTemplate,
+            creationMode: "guided",
+          });
+          setCarouselRecordId(row.id);
+          if (inserted) {
+            await bumpCarouselUsage(supabase, user.id);
+            await refreshProfile();
+          }
+          toast.success("Carrossel salvo automaticamente.");
+        }
+      } catch (e) {
+        console.error("[V2 auto-save] Erro:", e);
+      }
     } else {
       setV2SubStep("backbone");
     }
-  }, [callV2API, v2Context]);
+  }, [callV2API, v2Context, user, isGuest, supabase, carouselRecordId, slideStyle, refreshProfile, designTemplate]);
 
   // Reset v2 state when going back to input
   const resetV2State = useCallback(() => {
@@ -716,7 +772,7 @@ function CreatePageContent() {
     setV2Context("");
   }, []);
 
-  // STEP 1: Generate 5 concepts (cheap, fast ~1-2s)
+  // STEP 1: Generate 5 concepts (quick) OR start guided Content Machine
   const handleGenerate = useCallback(async () => {
     setError("");
     if (isGuest || !session?.access_token) {
@@ -724,18 +780,44 @@ function CreatePageContent() {
       return;
     }
 
-    // V2 templates go through Content Machine flow (triagem -> headlines -> backbone -> render)
-    if (templatePick !== "twitter") {
+    // Guided mode: Content Machine (triagem -> headlines -> backbone -> render) — any design template
+    if (creationMode === "guided") {
       resetV2State();
       setStep("generating");
-      // Use topic directly (for V2, we pass the raw topic to the triagem step)
-      const data = await callV2API("triagem");
+      let triagemTopic = sourceType === "ai" ? "trending topics in " + niche : topic;
+      if ((sourceType === "link" || sourceType === "video" || sourceType === "instagram") && sourceUrl.trim()) {
+        try {
+          const extractRes = await fetch("/api/extract-source", {
+            method: "POST",
+            headers: jsonWithAuth(session),
+            body: JSON.stringify({ sourceType, sourceUrl }),
+          });
+          if (extractRes.ok) {
+            const extractData = await extractRes.json();
+            if (extractData.content) {
+              triagemTopic = topic.trim()
+                ? `${topic}\n\nConteúdo extraído da fonte:\n${String(extractData.content).slice(0, 2000)}`
+                : String(extractData.content).slice(0, 2000);
+            }
+          } else {
+            const errData = await extractRes.json().catch(() => ({ error: "Falha na extração" }));
+            setError(errData.error || "Não foi possível extrair o conteúdo da URL. Cole o texto no campo 'Minha ideia'.");
+            setStep("input");
+            return;
+          }
+        } catch {
+          setError("Não foi possível acessar a URL. Cole o conteúdo manualmente no campo 'Minha ideia'.");
+          setStep("input");
+          return;
+        }
+      }
+      const data = await callV2API("triagem", {}, triagemTopic);
       if (data) {
         const t = data as unknown as V2TriagemData;
         setV2Triagem(t);
         setV2Context(JSON.stringify(t));
         setV2SubStep("triagem");
-        setStep("pick"); // We reuse "pick" step to show v2 sub-steps
+        setStep("pick");
       } else {
         setStep("input");
       }
@@ -808,7 +890,7 @@ function CreatePageContent() {
       setError(err instanceof Error ? err.message : "Algo deu errado. Tente de novo.");
       setStep("input");
     }
-  }, [sourceType, sourceUrl, topic, niche, tone, language, isGuest, session, templatePick, callV2API, resetV2State]);
+  }, [sourceType, sourceUrl, topic, niche, tone, language, isGuest, session, creationMode, callV2API, resetV2State]);
 
   // STEP 2: Generate full carousel from chosen concept (~5-8s)
   const handlePickConcept = useCallback(async (conceptIndex: number) => {
@@ -833,6 +915,7 @@ function CreatePageContent() {
           niche,
           tone,
           language,
+          designTemplate,
         }),
       });
 
@@ -848,59 +931,84 @@ function CreatePageContent() {
       if (!data.variations?.length) throw new Error("Nenhum carrossel gerado.");
 
       setVariations(data.variations);
-      // Go straight to edit with the first (and only) variation
-      const slides = [...data.variations[0].slides];
-      setSelectedVariation(0);
-      setEditSlides(slides);
-      setActiveSlideIndex(0);
-      setStep("edit");
+      
+      // If only 1 variation, go straight to edit (backward compat)
+      if (data.variations.length === 1) {
+        const slides = [...data.variations[0].slides];
+        setSelectedVariation(0);
+        setEditSlides(slides);
+        setActiveSlideIndex(0);
+        setStep("edit");
 
-      // Auto-save
-      const title = data.variations[0]?.title || slides[0]?.heading || "Sem título";
-      const variationMeta = { title, style: data.variations[0].style };
-      try {
-        if (user && !isGuest && supabase) {
-          try {
-            const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
-              id: carouselRecordId,
-              title,
-              slides,
-              slideStyle,
-              variation: variationMeta,
-              status: "draft",
-            });
-            setCarouselRecordId(row.id);
-            if (inserted) {
-              await bumpCarouselUsage(supabase, user.id);
-              await refreshProfile();
+        // Auto-save
+        const title = data.variations[0]?.title || slides[0]?.heading || "Sem título";
+        const variationMeta = { title, style: data.variations[0].style };
+        try {
+          if (user && !isGuest && supabase) {
+            try {
+              const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
+                id: carouselRecordId,
+                title,
+                slides,
+                slideStyle,
+                variation: variationMeta,
+                status: "draft",
+                designTemplate,
+                creationMode: "quick",
+              });
+              setCarouselRecordId(row.id);
+              if (inserted) {
+                await bumpCarouselUsage(supabase, user.id);
+                await refreshProfile();
+              }
+              lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+              toast.success("Carrossel salvo automaticamente.");
+            } catch (supaErr) {
+              console.error("[auto-save] Supabase erro:", supaErr);
+              const id = carouselRecordId ?? `carousel-${Date.now()}`;
+              setCarouselRecordId(id);
+              upsertGuestCarousel({
+                id,
+                title,
+                slides,
+                style: slideStyle,
+                variation: variationMeta,
+                savedAt: new Date().toISOString(),
+                status: "draft",
+                designTemplate,
+                creationMode: "quick",
+              });
+              lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+              toast.warning("Salvo localmente — nuvem indisponível.");
             }
-            lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
-            console.log("[auto-save] Salvo no Supabase, id:", row.id);
-            toast.success("Carrossel salvo automaticamente.");
-          } catch (supaErr) {
-            // Supabase failed — fall back to localStorage
-            console.error("[auto-save] Supabase erro:", supaErr);
+          } else {
             const id = carouselRecordId ?? `carousel-${Date.now()}`;
             setCarouselRecordId(id);
-            upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
+            upsertGuestCarousel({
+              id,
+              title,
+              slides,
+              style: slideStyle,
+              variation: variationMeta,
+              savedAt: new Date().toISOString(),
+              status: "draft",
+              designTemplate,
+              creationMode: "quick",
+            });
             lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
-            toast.warning("Salvo localmente — nuvem indisponível.");
           }
-        } else {
-          const id = carouselRecordId ?? `carousel-${Date.now()}`;
-          setCarouselRecordId(id);
-          upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
-          lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
-          console.log("[auto-save] Salvo localmente, id:", id);
+        } catch (e) {
+          console.error("[auto-save] Erro inesperado:", e);
         }
-      } catch (e) {
-        console.error("[auto-save] Erro inesperado:", e);
+      } else {
+        // Show variation picker — user chooses 1 of 3
+        setStep("pick");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao gerar carrossel.");
       setStep("pick"); // Go back to concept picker
     }
-  }, [concepts, session, niche, tone, language, user, isGuest, supabase, carouselRecordId, slideStyle, refreshProfile, sourceType, sourceUrl]);
+  }, [concepts, session, niche, tone, language, user, isGuest, supabase, carouselRecordId, slideStyle, refreshProfile, sourceType, sourceUrl, designTemplate]);
 
   const handleSelectVariation = async (index: number) => {
     setSelectedVariation(index);
@@ -922,6 +1030,8 @@ function CreatePageContent() {
             slideStyle: slideStyle,
             variation: variationMeta,
             status: "draft",
+            designTemplate,
+            creationMode: "quick",
           });
           setCarouselRecordId(row.id);
           if (inserted) {
@@ -935,7 +1045,17 @@ function CreatePageContent() {
           console.error("[auto-save] Supabase erro:", supaErr);
           const id = carouselRecordId ?? `carousel-${Date.now()}`;
           setCarouselRecordId(id);
-          upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
+          upsertGuestCarousel({
+            id,
+            title,
+            slides,
+            style: slideStyle,
+            variation: variationMeta,
+            savedAt: new Date().toISOString(),
+            status: "draft",
+            designTemplate,
+            creationMode: "quick",
+          });
           lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
           toast.warning("Salvo localmente — nuvem indisponível.");
         }
@@ -950,6 +1070,8 @@ function CreatePageContent() {
           variation: variationMeta,
           savedAt: new Date().toISOString(),
           status: "draft",
+          designTemplate,
+          creationMode: "quick",
         });
         lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
         console.log("[auto-save] Variacao salva localmente, id:", id);
@@ -1059,7 +1181,14 @@ function CreatePageContent() {
       const res = await fetch("/api/images", {
         method: "POST",
         headers: jsonWithAuth(session),
-        body: JSON.stringify({ query, count: 8, mode: currentMode }),
+        body: JSON.stringify({
+          query,
+          count: 8,
+          mode: currentMode,
+          niche,
+          tone,
+          designTemplate,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Falha na busca de imagem");
@@ -1223,6 +1352,10 @@ function CreatePageContent() {
   };
 
   const handleExportPng = async () => {
+    if (!usesTweetStylePreview(designTemplate)) {
+      toast.error("Export PNG só está disponível no template visual Twitter (preview tweet). Use copiar JSON para os outros layouts.");
+      return;
+    }
     setIsExporting(true);
     setError("");
     setExportProgress("Preparando export...");
@@ -1267,6 +1400,10 @@ function CreatePageContent() {
   };
 
   const handleExportPdf = async () => {
+    if (!usesTweetStylePreview(designTemplate)) {
+      toast.error("PDF só está disponível no template visual Twitter.");
+      return;
+    }
     setIsExporting(true);
     setError("");
     setExportProgress("Preparando PDF...");
@@ -1323,6 +1460,8 @@ function CreatePageContent() {
             slideStyle: slideStyle,
             variation: variationMeta,
             status: "draft",
+            designTemplate,
+            creationMode,
           });
           setCarouselRecordId(row.id);
           if (inserted) {
@@ -1344,6 +1483,8 @@ function CreatePageContent() {
             variation: variationMeta ?? undefined,
             savedAt: new Date().toISOString(),
             status: "draft",
+            designTemplate,
+            creationMode,
           });
           toast.warning("Salvo localmente — nuvem indisponível.");
           return id;
@@ -1362,6 +1503,8 @@ function CreatePageContent() {
         variation: variationMeta ?? undefined,
         savedAt: new Date().toISOString(),
         status: "draft",
+        designTemplate,
+        creationMode,
       });
       return id;
     } catch (e) {
@@ -1465,7 +1608,7 @@ function CreatePageContent() {
                     resetV2State();
                   }
                   if (step === "edit") {
-                    if (templatePick !== "twitter") {
+                    if (creationMode === "guided") {
                       setStep("pick");
                       setV2SubStep("backbone");
                     } else {
@@ -1523,8 +1666,8 @@ function CreatePageContent() {
             ))}
           </div>
 
-          {/* Edit-step toolbar actions (inline) */}
-          {step === "edit" && templatePick === "twitter" && (
+          {/* Edit-step toolbar — preview estilo tweet + export PNG/PDF */}
+          {step === "edit" && creationMode === "quick" && usesTweetStylePreview(designTemplate) && (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-[var(--card)] rounded-lg p-0.5 border border-[var(--border)]">
                 <button
@@ -1591,18 +1734,6 @@ function CreatePageContent() {
                         <div>
                           <div className="font-semibold">Baixar PDF</div>
                           <div className="text-[11px] text-[var(--muted)]">Todos slides em PDF</div>
-                        </div>
-                      </button>
-                      <div className="h-px bg-[var(--border)] my-1" />
-                      <button
-                        onClick={() => { void handleSaveExportsToCloud(); setShowExportPanel(false); }}
-                        disabled={isExporting || isGuest || !session?.access_token}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-50 transition-colors text-left disabled:opacity-50"
-                      >
-                        <Icon name="cloud" size={16} />
-                        <div>
-                          <div className="font-semibold">Salvar na nuvem</div>
-                          <div className="text-[11px] text-[var(--muted)]">PNG + PDF no Storage</div>
                         </div>
                       </button>
                     </motion.div>
@@ -1868,20 +1999,70 @@ function CreatePageContent() {
                 </div>
               </div>
 
-              {/* Template picker */}
+              {/* Modo de criação (independente do template visual) */}
               <div>
                 <label className="block text-xs font-medium mb-2 text-[var(--muted)]">
-                  Escolha o template
+                  Modo de criação
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {TEMPLATE_OPTIONS.map((t) => {
-                    const selected = templatePick === t.id;
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCreationMode("quick")}
+                    className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                      creationMode === "quick"
+                        ? "border-[var(--accent)] bg-[var(--accent)]/[0.04]"
+                        : "border-[var(--border)] bg-[var(--card)] hover:border-zinc-300"
+                    }`}
+                  >
+                    {creationMode === "quick" && (
+                      <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-white text-[10px]" style={{ background: "var(--accent)" }}>
+                        <Icon name="check" size={10} />
+                      </div>
+                    )}
+                    <p className="text-sm font-bold text-[var(--foreground)]">Rápido</p>
+                    <p className="text-[11px] text-[var(--muted)] mt-1 leading-relaxed">
+                      5 ângulos → carrossel completo. Ideal para iterar rápido.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreationMode("guided")}
+                    className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                      creationMode === "guided"
+                        ? "border-[var(--accent)] bg-[var(--accent)]/[0.04]"
+                        : "border-[var(--border)] bg-[var(--card)] hover:border-zinc-300"
+                    }`}
+                  >
+                    {creationMode === "guided" && (
+                      <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-white text-[10px]" style={{ background: "var(--accent)" }}>
+                        <Icon name="check" size={10} />
+                      </div>
+                    )}
+                    <p className="text-sm font-bold text-[var(--foreground)] flex items-center gap-1">
+                      <Icon name="sparkles" size={14} />
+                      Guiado (Content Machine)
+                    </p>
+                    <p className="text-[11px] text-[var(--muted)] mt-1 leading-relaxed">
+                      Triagem, headlines, espinha — mais controle editorial.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Template visual (Figma / export) — não altera o modo de criação */}
+              <div>
+                <label className="block text-xs font-medium mb-2 text-[var(--muted)]">
+                  Template visual (design)
+                </label>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {DESIGN_TEMPLATES.map((t) => {
+                    const selected = designTemplate === t.id;
                     return (
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setTemplatePick(t.id)}
-                        className={`relative rounded-xl border-2 p-4 text-left transition-all duration-200 active:scale-[0.97] ${
+                        onClick={() => setDesignTemplate(t.id)}
+                        className={`relative rounded-xl border-2 p-3 text-left transition-all duration-200 active:scale-[0.97] ${
                           selected
                             ? "border-[var(--accent)] bg-[var(--accent)]/[0.04] shadow-md shadow-orange-500/5"
                             : "border-[var(--border)] bg-[var(--card)] hover:border-zinc-300"
@@ -1892,11 +2073,11 @@ function CreatePageContent() {
                             <Icon name="check" size={10} />
                           </div>
                         )}
-                        <div className="text-xl mb-2">{t.emoji}</div>
-                        <p className="text-sm font-bold" style={{ color: selected ? "var(--accent)" : "var(--foreground)" }}>
+                        <div className="text-lg mb-1">{t.emoji}</div>
+                        <p className="text-xs font-bold" style={{ color: selected ? "var(--accent)" : "var(--foreground)" }}>
                           {t.name}
                         </p>
-                        <p className="text-[11px] text-[var(--muted)] mt-0.5 leading-relaxed">
+                        <p className="text-[10px] text-[var(--muted)] mt-0.5 leading-snug">
                           {t.desc}
                         </p>
                       </button>
@@ -1952,8 +2133,77 @@ function CreatePageContent() {
           </div>
         )}
 
-        {/* ─── STEP 3: PICK CONCEPT / V2 FLOW ───────────────────── */}
-        {step === "pick" && templatePick === "twitter" && (
+        {/* ─── STEP 3: PICK CONCEPT / PICK VARIATION / V2 FLOW ──── */}
+        {step === "pick" && creationMode === "quick" && variations.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="text-center mb-10">
+              <h2
+                className="text-3xl font-bold mb-3"
+                style={{ fontFamily: "var(--font-serif), 'DM Serif Display', Georgia, serif" }}
+              >
+                Escolha a variação
+              </h2>
+              <p className="text-[var(--muted)]">
+                3 abordagens diferentes para o mesmo tema. Escolha sua favorita.
+              </p>
+            </div>
+
+            <div className="grid gap-4 max-w-3xl mx-auto">
+              {variations.map((variation, index) => {
+                const badge = STYLE_BADGES[variation.style] || STYLE_BADGES.data;
+                return (
+                  <motion.button
+                    key={index}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    onClick={() => handleSelectVariation(index)}
+                    className="w-full text-left border border-[var(--border)] rounded-2xl p-6 hover:border-[var(--accent)] hover:bg-[var(--accent)]/[0.03] transition-all group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <span className="text-2xl">{badge.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-base font-bold text-[var(--foreground)] group-hover:text-[var(--accent)] transition-colors">
+                            {variation.title}
+                          </h3>
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+                            style={{ background: badge.color }}
+                          >
+                            {badge.label}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[var(--muted)] leading-relaxed line-clamp-2">
+                          {variation.slides[0]?.heading} — {variation.slides[0]?.body?.split("\n")[0]}
+                        </p>
+                        <p className="text-xs text-zinc-400 mt-2">
+                          {variation.slides.length} slides
+                          {variation.qualityScore ? ` · Score: ${variation.qualityScore}/10` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            <div className="text-center mt-6">
+              <button
+                onClick={() => { setStep("input"); setVariations([]); setConcepts([]); }}
+                className="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
+              >
+                &larr; Voltar e tentar outro topico
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {step === "pick" && creationMode === "quick" && variations.length <= 1 && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2012,8 +2262,8 @@ function CreatePageContent() {
           </motion.div>
         )}
 
-        {/* ─── V2 Content Machine sub-steps (non-twitter templates) ── */}
-        {step === "pick" && templatePick !== "twitter" && (
+        {/* ─── Content Machine (modo guiado) ── */}
+        {step === "pick" && creationMode === "guided" && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2232,8 +2482,8 @@ function CreatePageContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* ── V2 Block Editor (non-twitter templates) ── */}
-            {templatePick !== "twitter" && v2EditedBlocks.length > 0 && (
+            {/* ── Modo guiado: blocos Content Machine ── */}
+            {creationMode === "guided" && v2EditedBlocks.length > 0 && (
               <div className="max-w-3xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
@@ -2242,7 +2492,7 @@ function CreatePageContent() {
                       Editar blocos
                     </h2>
                     <p className="text-sm text-[var(--muted)] mt-1">
-                      Template {templatePick} &middot; {v2EditedBlocks.length} blocos
+                      Template {designTemplate} &middot; {v2EditedBlocks.length} blocos
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -2257,6 +2507,25 @@ function CreatePageContent() {
                       Copiar
                     </button>
                     <button
+                      type="button"
+                      onClick={() => {
+                        const raw = v2EditedBlocks.map((b) =>
+                          b.replace(/^texto\s+\d+\s*[-\u2013\u2014]\s*/i, "").trim()
+                        );
+                        const payload = buildContentMachinePluginExport({
+                          designTemplate,
+                          creationMode: "guided",
+                          blocks: raw,
+                        });
+                        void navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                        toast.success("JSON do plugin copiado!");
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[var(--border)] hover:bg-zinc-50 transition-all"
+                    >
+                      <Icon name="download" size={13} />
+                      JSON Figma
+                    </button>
+                    <button
                       onClick={async () => {
                         // Save v2 blocks as carousel
                         const title = v2Headlines?.headlines[v2SelectedHeadline ?? 0]?.line1 || v2EditedBlocks[0]?.replace(/^texto\s+\d+\s*[-\u2013\u2014]\s*/i, "") || "Carrossel v2";
@@ -2264,7 +2533,7 @@ function CreatePageContent() {
                           const content = block.replace(/^texto\s+\d+\s*[-\u2013\u2014]\s*/i, "");
                           return { heading: i === 0 ? title : `Slide ${i + 1}`, body: content, imageQuery: "" };
                         });
-                        const variationMeta = { title, style: templatePick };
+                        const variationMeta = { title, style: designTemplate };
                         try {
                           if (user && !isGuest && supabase) {
                             const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
@@ -2274,6 +2543,8 @@ function CreatePageContent() {
                               slideStyle: "dark",
                               variation: variationMeta,
                               status: "draft",
+                              designTemplate,
+                              creationMode: "guided",
                             });
                             setCarouselRecordId(row.id);
                             if (inserted) {
@@ -2284,7 +2555,17 @@ function CreatePageContent() {
                           } else {
                             const id = carouselRecordId ?? `carousel-v2-${Date.now()}`;
                             setCarouselRecordId(id);
-                            upsertGuestCarousel({ id, title, slides, style: "dark", variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
+                            upsertGuestCarousel({
+                              id,
+                              title,
+                              slides,
+                              style: "dark",
+                              variation: variationMeta,
+                              savedAt: new Date().toISOString(),
+                              status: "draft",
+                              designTemplate,
+                              creationMode: "guided",
+                            });
                             toast.success("Carrossel salvo localmente!");
                           }
                         } catch (e) {
@@ -2308,7 +2589,12 @@ function CreatePageContent() {
                       key={i}
                       index={i}
                       text={block}
-                      templateColor={V2_TEMPLATE_COLORS[templatePick as Exclude<TemplatePick, "twitter">]?.accent || "#EC6000"}
+                      templateColor={
+                        designTemplate === "twitter"
+                          ? "#0ea5e9"
+                          : V2_TEMPLATE_COLORS[designTemplate as Exclude<DesignTemplateId, "twitter">]?.accent ||
+                            "#EC6000"
+                      }
                       onChange={(val) => {
                         const next = [...v2EditedBlocks];
                         next[i] = val;
@@ -2331,8 +2617,8 @@ function CreatePageContent() {
               </div>
             )}
 
-            {/* ── Twitter Slide Editor (existing) ── */}
-            {templatePick === "twitter" && (
+            {/* ── Modo rápido: slides (tweet ou outros templates → export Figma se não for preview tweet) ── */}
+            {creationMode === "quick" && editSlides.length > 0 && (
             <>
             {/* Editor header */}
             <div className="flex items-center justify-between mb-6">
@@ -2698,18 +2984,72 @@ function CreatePageContent() {
                   </div>
                 </div>
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
-                  <CarouselPreview
-                    slides={editSlides}
-                    profile={previewProfile}
-                    style={slideStyle}
-                    slideRefs={slideRefs}
-                    activeSlideIndex={activeSlideIndex}
-                    onSlideSelect={setActiveSlideIndex}
-                    showThumbnails
-                  />
+                  {usesTweetStylePreview(designTemplate) ? (
+                    <CarouselPreview
+                      slides={editSlides}
+                      profile={previewProfile}
+                      style={slideStyle}
+                      slideRefs={slideRefs}
+                      activeSlideIndex={activeSlideIndex}
+                      onSlideSelect={setActiveSlideIndex}
+                      showThumbnails
+                    />
+                  ) : (
+                    <div className="space-y-4 text-sm text-[var(--foreground)]">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+                        Template Figma · {getDesignTemplateMeta(designTemplate).figmaLabel}
+                      </p>
+                      <p className="text-[13px] text-[var(--muted)] leading-relaxed">
+                        O preview estilo tweet não se aplica a este layout. Copie o JSON ou o texto para o plugin
+                        Content Machine no arquivo Figma duplicado (desktop).
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const blocks = editSlides.map((s) =>
+                              [s.heading, s.body].filter(Boolean).join("\n\n").trim()
+                            );
+                            const payload = buildContentMachinePluginExport({
+                              designTemplate,
+                              creationMode: "quick",
+                              blocks,
+                            });
+                            void navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                            toast.success("JSON copiado — cole no plugin.");
+                          }}
+                          className="w-full py-2.5 rounded-lg text-xs font-bold text-white"
+                          style={{ background: "var(--accent)" }}
+                        >
+                          Copiar JSON (plugin)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const blocks = editSlides.map((s) =>
+                              [s.heading, s.body].filter(Boolean).join("\n\n").trim()
+                            );
+                            const text = pluginExportToPrettyText(
+                              buildContentMachinePluginExport({
+                                designTemplate,
+                                creationMode: "quick",
+                                blocks,
+                              })
+                            );
+                            void navigator.clipboard.writeText(text);
+                            toast.success("Texto legível copiado.");
+                          }}
+                          className="w-full py-2.5 rounded-lg text-xs font-semibold border border-[var(--border)] hover:bg-zinc-50"
+                        >
+                          Copiar texto numerado
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Quick export bar below preview */}
+                {/* Export PNG/PDF — só faz sentido no preview estilo tweet */}
+                {usesTweetStylePreview(designTemplate) && (
                 <div className="mt-3 flex items-center gap-2">
                   <button
                     onClick={handleExportPng}
@@ -2727,13 +3067,16 @@ function CreatePageContent() {
                     <Icon name="file-text" size={13} />
                     {isExporting ? "..." : "PDF"}
                   </button>
-                  <button
-                    onClick={() => void handleSaveDraft()}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[var(--border)] hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 transition-all"
-                  >
-                    <Icon name="check" size={13} />
-                    Salvar
-                  </button>
+                </div>
+                )}
+                {/* Auto-save indicator */}
+                <div className="mt-2 text-center">
+                  {autosaveState === "saving" && (
+                    <span className="text-[10px] text-[var(--muted)] font-medium animate-pulse">Salvando...</span>
+                  )}
+                  {autosaveState === "saved" && (
+                    <span className="text-[10px] text-emerald-600 font-medium">✓ Salvo automaticamente</span>
+                  )}
                 </div>
               </div>
             </div>

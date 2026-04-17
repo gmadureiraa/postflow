@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CreationMode, DesignTemplateId } from "@/lib/carousel-templates";
 
 export type CarouselSlide = {
   heading: string;
@@ -30,6 +31,10 @@ export type SavedCarousel = {
   variation?: CarouselVariationMeta;
   exportAssets?: CarouselExportAssets;
   thumbnailUrl?: string | null;
+  /** Visual / Figma template (persisted in carousels.style JSON) */
+  designTemplate?: DesignTemplateId;
+  /** quick vs guided Content Machine (persisted in carousels.style JSON) */
+  creationMode?: CreationMode;
 };
 
 const GUEST_STORAGE_KEY = "sequencia-viral_carousels";
@@ -84,6 +89,15 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
         }
       : undefined;
 
+  const dt = styleObj.design_template;
+  const cm = styleObj.creation_mode;
+  const designTemplate: DesignTemplateId | undefined =
+    dt === "twitter" || dt === "principal" || dt === "futurista" || dt === "autoral"
+      ? dt
+      : undefined;
+  const creationMode: CreationMode | undefined =
+    cm === "quick" || cm === "guided" ? cm : undefined;
+
   return {
     id: row.id,
     title: row.title || slides[0]?.heading || "Sem título",
@@ -94,6 +108,8 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
     variation,
     exportAssets: parseExportAssets(row.export_assets),
     thumbnailUrl: row.thumbnail_url ?? null,
+    designTemplate,
+    creationMode,
   };
 }
 
@@ -139,14 +155,22 @@ export async function upsertUserCarousel(
     slideStyle: "white" | "dark";
     variation?: CarouselVariationMeta | null;
     status: "draft" | "published" | "archived";
+    designTemplate?: DesignTemplateId;
+    creationMode?: CreationMode;
   }
 ): Promise<{ row: CarouselRow; inserted: boolean }> {
-  const style = {
+  const style: Record<string, unknown> = {
     slideStyle: payload.slideStyle,
     variation: payload.variation
       ? { title: payload.variation.title, style: payload.variation.style }
       : undefined,
   };
+  if (payload.designTemplate) {
+    style.design_template = payload.designTemplate;
+  }
+  if (payload.creationMode) {
+    style.creation_mode = payload.creationMode;
+  }
 
   if (payload.id) {
     const { data, error } = await client
@@ -209,6 +233,12 @@ export async function bumpCarouselUsage(
   client: SupabaseClient,
   userId: string
 ) {
+  // Prefer atomic RPC — no race conditions between concurrent generates
+  const { error: rpcErr } = await client.rpc("increment_usage_count", { uid: userId });
+  if (!rpcErr) return;
+
+  // Fallback: read-then-write (e.g. if RPC not deployed yet)
+  console.warn("[bumpCarouselUsage] RPC failed, falling back to read-then-write:", rpcErr.message);
   const { data: prof, error: readErr } = await client
     .from("profiles")
     .select("usage_count")

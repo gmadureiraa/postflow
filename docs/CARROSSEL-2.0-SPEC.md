@@ -1,8 +1,10 @@
 # Carrossel 2.0 — Content Machine Integration
 
+> **2026-04:** O fluxo vive em **`/app/create`**. Escolha **Modo guiado (Content Machine)** e o **template visual** separadamente. A rota `/app/create-v2` redireciona para `/app/create`.
+
 ## Conceito
 
-Integrar o sistema Content Machine 5.4 (BrandsDecoded) no Sequência Viral como "Carrossel 2.0". O fluxo guiado de 5 etapas produz conteúdo narrativo profundo, muito superior ao gerador atual (que faz tudo de uma vez).
+Integrar o sistema Content Machine 5.4 (BrandsDecoded) no Sequência Viral. O fluxo guiado de etapas produz conteúdo narrativo profundo; o **modo rápido** continua disponível para iteração em uma tacada — ambos independentes do template visual (Figma).
 
 ## Fluxo de 5 Etapas (Máquina de Estados)
 
@@ -66,7 +68,7 @@ Integrar o sistema Content Machine 5.4 (BrandsDecoded) no Sequência Viral como 
 
 ## Implementação no App
 
-### Nova aba: "Carrossel 2.0" (/app/create-v2)
+### Tela unificada: `/app/create` (modo guiado)
 - Interface de chat guiado (não form)
 - Cada etapa mostra o output da IA e espera confirmação
 - Progress bar visual das 5 etapas

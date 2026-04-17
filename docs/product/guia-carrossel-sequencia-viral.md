@@ -14,6 +14,25 @@ Este guia explica **como tirar o máximo do produto**: o que configurar no perfi
 
 O Sequência Viral foi pensado para **um fluxo só**: menos cópia em um lugar, design em outro e legenda em outro.
 
+### Modo de criação vs template visual
+
+- **Modo rápido** — a IA gera vários ângulos e um carrossel completo em uma tacada. Bom para iterar rápido.
+- **Modo guiado (Content Machine)** — passos de triagem, headlines, espinha dorsal e render. Mais controle editorial.
+
+O **template visual** (Twitter, Principal, Futurista, Autoral) define o **design de destino** (incluindo contagem de blocos para o arquivo Figma) e **não** troca sozinho o modo de criação. Você pode combinar, por exemplo, modo guiado + template Principal.
+
+### Figma e plugin Content Machine (templates não estilo tweet)
+
+Para layouts **Principal, Futurista ou Autoral** (e também para export estruturado), use o arquivo oficial no Figma e o plugin da Branddecoded no **app desktop** do Figma:
+
+**[Templates | Content Machine 4.0](https://www.figma.com/design/K503FED5B8c6xQbwjgS9wp/Templates-%7C-Content-Machine-4.0?node-id=0-1)**
+
+1. Duplique o arquivo para os seus rascunhos (“Duplicate to your drafts”).  
+2. No Postflow, após gerar o texto, use **Copiar JSON (plugin)** ou **Copiar texto numerado** no painel lateral (templates que não usam preview estilo tweet).  
+3. No Figma desktop: **Plugins → Development → Import plugin from manifest…** (conforme o guia do pacote do plugin) e cole o conteúdo no fluxo do plugin.
+
+O export **PNG/PDF** com preview estilo post do X fica disponível quando o **template visual Twitter** está selecionado no modo rápido.
+
 ---
 
 ## 2. O que o perfil do cliente precisa ter (e por quê)

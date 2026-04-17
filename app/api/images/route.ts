@@ -1,3 +1,5 @@
+import type { DesignTemplateId } from "@/lib/carousel-templates";
+import { getDesignTemplateMeta } from "@/lib/carousel-templates";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 
@@ -27,7 +29,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { query, mode } = body as { query?: string; mode?: "search" | "generate" };
+    const {
+      query,
+      mode,
+      niche,
+      tone,
+      designTemplate,
+    } = body as {
+      query?: string;
+      mode?: "search" | "generate";
+      niche?: string;
+      tone?: string;
+      designTemplate?: DesignTemplateId;
+    };
 
     if (!query || typeof query !== "string") {
       return Response.json(
@@ -49,7 +63,22 @@ export async function POST(request: Request) {
         try {
           const { GoogleGenAI } = await import("@google/genai");
           const ai = new GoogleGenAI({ apiKey: geminiKey });
-          const imagePrompt = `Professional editorial photograph for social media carousel about: ${query}. Clean, modern, high quality, no text overlay.`;
+          const tmpl = designTemplate ? getDesignTemplateMeta(designTemplate) : null;
+          const styleHint = tmpl
+            ? `Visual tone aligned with "${tmpl.name}" carousel template (${tmpl.figmaLabel}): ${tmpl.desc}.`
+            : "";
+          const nicheHint = niche ? `Niche/context: ${niche}.` : "";
+          const toneHint = tone ? `Editorial tone: ${tone}.` : "";
+          const imagePrompt = [
+            "Professional editorial photograph for social media carousel.",
+            nicheHint,
+            toneHint,
+            styleHint,
+            `Subject/focus: ${query}.`,
+            "Clean, modern, high quality, no text overlay, no logos.",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
           const res = await ai.models.generateImages({
             model: "imagen-4.0-generate-001",

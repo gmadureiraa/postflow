@@ -1,3 +1,5 @@
+import type { DesignTemplateId } from "@/lib/carousel-templates";
+import { getDesignTemplateMeta } from "@/lib/carousel-templates";
 import { extractContentFromUrl } from "@/lib/url-extractor";
 import { getYouTubeTranscript } from "@/lib/youtube-transcript";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
@@ -13,6 +15,8 @@ interface GenerateRequest {
   niche: string;
   tone: string;
   language: string;
+  /** Visual template: drives slide count and layout intent (default: twitter). */
+  designTemplate?: DesignTemplateId;
 }
 
 interface Slide {
@@ -102,8 +106,11 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
 
     const body: GenerateRequest = await request.json();
     const { topic, sourceType, sourceUrl, niche, tone, language } = body;
+    const designTemplate: DesignTemplateId = body.designTemplate ?? "twitter";
+    const templateMeta = getDesignTemplateMeta(designTemplate);
+    const isTwitterLayout = designTemplate === "twitter";
 
-    if (!topic && sourceType === "idea") {
+    if (sourceType === "idea" && !topic) {
       return Response.json({ error: "Topic is required" }, { status: 400 });
     }
 
@@ -192,7 +199,11 @@ IMPORTANT: Don't just acknowledge these brand signals — WEAVE them into the co
 ` : ""}
 
 # YOUR MISSION
-Create 1 carousel (6-10 slides) built on NARRATIVE TENSION — a conflict between what people assume and what's actually true.
+${
+  isTwitterLayout
+    ? `Create 1 carousel (6-10 slides) built on NARRATIVE TENSION — a conflict between what people assume and what's actually true.`
+    : `Create 1 carousel for design template "${templateMeta.name}" (Content Machine / Figma: ${templateMeta.figmaLabel}). Use EXACTLY ${templateMeta.blockCount} slides — each slide maps to one text block in that template. The narrative must build NARRATIVE TENSION the same way as the tweet style, but slide count is fixed at ${templateMeta.blockCount}.`
+}
 
 Formula: surface reading → friction → reframe → mechanism → proof → implication → expanded closing
 
@@ -249,10 +260,17 @@ BANNED forever: "muitas pessoas", "resultados incriveis", "game-changer", "nesse
 REQUIRED: every claim has a number ("78%", "R$12k", "23 minutos", "3 em cada 10"), a name, or a concrete example. No exceptions.
 
 # STYLE
-Choose: data (statistics/proof-driven), story (narrative/personal), or provocative (contrarian/bold). Pick whichever creates the strongest emotional arc for THIS specific topic.
+${
+  isTwitterLayout
+    ? `Choose: data (statistics/proof-driven), story (narrative/personal), or provocative (contrarian/bold). Pick whichever creates the strongest emotional arc for THIS specific topic.`
+    : `Use style "story" only — one cohesive narrative across all ${templateMeta.blockCount} slides.`
+}
 
 # OUTPUT FORMAT
-Return valid JSON:
+${
+  isTwitterLayout
+    ? `Return valid JSON with exactly 3 variations — one in each style (data, story, provocative).
+Each variation is a DISTINCT creative approach to the same topic.
 {
   "variations": [
     {
@@ -268,28 +286,82 @@ Return valid JSON:
       ]
     }
   ]
+}`
+    : `Return valid JSON with exactly 1 variation (same JSON shape for compatibility).
+The single variation must use style "story".
+Slides array MUST contain exactly ${templateMeta.blockCount} items — no more, no less.
+{
+  "variations": [
+    {
+      "title": "carousel title (compelling, max 60 chars)",
+      "style": "story",
+      "ctaType": "save" | "comment" | "share",
+      "slides": [
+        {
+          "heading": "max 8 words, bold, scannable",
+          "body": "2-3 short lines\\nwith micro-cliffhanger ending\\nfor readability",
+          "imageQuery": "specific 2-3 word image search in English"
+        }
+        ... repeat until exactly ${templateMeta.blockCount} slides ...
+      ]
+    }
+  ]
+}`
 }`;
 
-    const userMessage = sourceContent
-      ? `Create 1 carousel based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
-      : `Create 1 carousel about: ${topic}`;
+    const userMessage =
+      sourceContent
+        ? isTwitterLayout
+          ? `Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
+          : `Create 1 carousel variation with exactly ${templateMeta.blockCount} slides for template "${templateMeta.name}" based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
+        : isTwitterLayout
+          ? `Create 3 carousel variations (data, story, provocative) about: ${topic}`
+          : `Create 1 carousel variation with exactly ${templateMeta.blockCount} slides for template "${templateMeta.name}" about: ${topic}`;
 
-    // 3. Call Gemini 2.0 Flash (fast enough for Vercel Hobby 10s limit)
+    // 3. Increment usage BEFORE calling AI — ensures quota is always counted
+    //    even if the response fails or user closes the tab.
+    if (sb) {
+      const { error: incErr } = await sb.rpc("increment_usage_count", { uid: user.id });
+      if (incErr) {
+        console.warn("[generate] RPC increment failed, falling back:", incErr.message);
+        const { data: currentProfile } = await sb
+          .from("profiles")
+          .select("usage_count")
+          .eq("id", user.id)
+          .single();
+        if (currentProfile) {
+          await sb
+            .from("profiles")
+            .update({ usage_count: (currentProfile.usage_count ?? 0) + 1 })
+            .eq("id", user.id);
+        }
+      }
+    }
+
+    // 4. Call Gemini 2.5 Flash
     const ai = new GoogleGenAI({ apiKey: geminiKey });
     let textResponse: string;
+    let inputTokens = 0;
+    let outputTokens = 0;
     try {
       const genResult = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
         config: {
           systemInstruction: systemPrompt,
-          temperature: 0.9,
-          maxOutputTokens: 4000,
+          temperature: 0.85,
+          maxOutputTokens: 10000,
           responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 0 },
+          thinkingConfig: { thinkingBudget: 1024 },
         },
       });
       textResponse = genResult.text || "";
+      // Capture real token usage for cost auditing
+      const usage = genResult.usageMetadata;
+      if (usage) {
+        inputTokens = usage.promptTokenCount ?? 0;
+        outputTokens = usage.candidatesTokenCount ?? 0;
+      }
     } catch (err) {
       console.error("[generate] Gemini API error:", err);
       return Response.json(
@@ -335,37 +407,23 @@ Return valid JSON:
       );
     }
 
-    // Increment usage_count server-side and record generation (fire-and-forget)
+    // Record generation with real token counts (usage already incremented above)
     if (sb) {
-      void (async () => {
-        try {
-          const { error: incErr } = await sb.rpc("increment_usage_count", { uid: user.id });
-          if (incErr) {
-            const { data: currentProfile } = await sb
-              .from("profiles")
-              .select("usage_count")
-              .eq("id", user.id)
-              .single();
-            if (currentProfile) {
-              await sb
-                .from("profiles")
-                .update({ usage_count: (currentProfile.usage_count ?? 0) + 1 })
-                .eq("id", user.id);
-            }
-          }
-          await sb.from("generations").insert({
-            user_id: user.id,
-            model: "gemini-2.5-flash",
-            provider: "google",
-            input_tokens: 0,
-            output_tokens: 0,
-            cost_usd: 0,
-            prompt_type: sourceType,
-          });
-        } catch (e) {
-          console.warn("[generate] Failed to track usage:", e);
-        }
-      })();
+      // Gemini 2.5 Flash pricing (approx): $0.15/1M input, $0.60/1M output
+      const costUsd = (inputTokens * 0.00000015) + (outputTokens * 0.0000006);
+      try {
+        await sb.from("generations").insert({
+          user_id: user.id,
+          model: "gemini-2.5-flash",
+          provider: "google",
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          cost_usd: Math.round(costUsd * 1_000_000) / 1_000_000, // 6 decimal places
+          prompt_type: sourceType,
+        });
+      } catch (e) {
+        console.warn("[generate] Failed to record generation:", e);
+      }
     }
 
     return Response.json(result);

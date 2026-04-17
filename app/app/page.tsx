@@ -35,18 +35,26 @@ function getGreeting(): string {
 export default function DashboardPage() {
   const { profile, user, isGuest } = useAuth();
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
+  const [carouselError, setCarouselError] = useState<string | null>(null);
+  const [carouselLoading, setCarouselLoading] = useState(true);
 
   const loadCarousels = useCallback(async () => {
-    if (user && !isGuest && supabase) {
-      try {
+    setCarouselError(null);
+    setCarouselLoading(true);
+    try {
+      if (user && !isGuest && supabase) {
         const list = await fetchUserCarousels(supabase);
         setCarousels(list);
-      } catch {
-        setCarousels([]);
+      } else {
+        setCarousels(readGuestCarousels());
       }
-      return;
+    } catch (err) {
+      console.error("[dashboard] Failed to load carousels:", err);
+      setCarouselError("Não foi possível carregar seus carrosséis. Tente novamente.");
+      setCarousels([]);
+    } finally {
+      setCarouselLoading(false);
     }
-    setCarousels(readGuestCarousels());
   }, [user, isGuest]);
 
   useEffect(() => {
@@ -259,7 +267,21 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {recentCarousels.length > 0 ? (
+        {carouselLoading ? (
+          <div className="text-center py-10">
+            <span className="text-sm text-[var(--muted)] animate-pulse">Carregando carrosséis...</span>
+          </div>
+        ) : carouselError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-center justify-between">
+            <span>{carouselError}</span>
+            <button
+              onClick={() => void loadCarousels()}
+              className="ml-3 px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-semibold text-xs transition-colors"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : recentCarousels.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {recentCarousels.map((c) => (
               <RecentCarouselCard key={c.id} carousel={c} />

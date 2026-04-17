@@ -1,0 +1,3 @@
+-- carousels.style JSONB may include (app-level convention, no DDL change):
+--   design_template: 'twitter' | 'principal' | 'futurista' | 'autoral'
+--   creation_mode: 'quick' | 'guided'

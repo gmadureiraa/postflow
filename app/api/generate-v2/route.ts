@@ -1,3 +1,5 @@
+import { CONTENT_MACHINE_RENDER_SPECS } from "@/lib/carousel-templates";
+import type { DesignTemplateId } from "@/lib/carousel-templates";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { GoogleGenAI } from "@google/genai";
@@ -7,7 +9,7 @@ export const maxDuration = 60;
 // ─── Types ──────────────────────────────────────────────────────────
 
 type StepName = "triagem" | "headlines" | "backbone" | "render";
-type TemplateName = "principal" | "futurista" | "autoral" | "twitter";
+type TemplateName = DesignTemplateId;
 
 interface GenerateV2Request {
   step: StepName;
@@ -190,26 +192,7 @@ ${topic}`;
 }
 
 function buildRenderPrompt(topic: string, context: string, template: TemplateName, niche: string, tone: string, language: string): string {
-  const templateSpec: Record<TemplateName, { blocks: number; rules: string }> = {
-    principal: {
-      blocks: 18,
-      rules: "Exatamente 18 blocos. Alternância entre blocos mais curtos e mais densos. A capa deve preservar reenquadramento + stake + mecanismo.",
-    },
-    futurista: {
-      blocks: 14,
-      rules: "Exatamente 14 textos para 10 slides. Compactação maior. Blocos densos e concisos.",
-    },
-    autoral: {
-      blocks: 18,
-      rules: "Exatamente 18 blocos. Progressão narrativa contínua. Preservar o mecanismo central ao longo do desenvolvimento.",
-    },
-    twitter: {
-      blocks: 21,
-      rules: "Exatamente 21 blocos. Estrutura fragmentada estilo thread. Manter continuidade lógica entre os blocos.",
-    },
-  };
-
-  const spec = templateSpec[template];
+  const spec = CONTENT_MACHINE_RENDER_SPECS[template];
 
   return `${CONTENT_MACHINE_SYSTEM}
 

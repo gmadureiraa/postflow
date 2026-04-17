@@ -23,6 +23,9 @@ create table if not exists public.profiles (
   usage_count int default 0,
   usage_limit int default 5,
   onboarding_completed boolean default false,
+  brand_analysis jsonb default null,
+  stripe_customer_id text,
+  stripe_subscription_id text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
