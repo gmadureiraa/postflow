@@ -185,18 +185,14 @@ NICHE: ${niche || "general"}
 ${brandContext}
 
 # YOUR MISSION
-Create 3 radically different carousel variations from the given topic/content. Each must be independently excellent — not just tone variations of the same text.
+Create 1 excellent carousel variation from the given topic/content. Make it the BEST possible version — compelling hook, deep content, strategic CTA.
 
 # CAROUSEL ARCHITECTURE (6-10 slides each)
 
 ## SLIDE 1 — THE HOOK (most critical slide)
 The hook MUST stop the scroll in under 0.7 seconds. Max 10 words in the heading.
 
-CRITICAL VARIATION RULES:
-- Variation A MUST open with a NUMBER/DATA hook (e.g., "78% dos creators...")
-- Variation B MUST open with a PERSONAL STORY hook (e.g., "Em 2024 eu perdi...")
-- Variation C MUST open with a CONTRARIAN/BOLD hook (e.g., "Pare de fazer conteudo educativo.")
-Each variation must feel like a COMPLETELY DIFFERENT carousel, not just a rewrite.
+Choose the BEST hook pattern for this specific topic. Make it impossible to scroll past.
 
 4 proven hook patterns to use:
 - **Number + Consequence**: "7 ferramentas de IA que substituem uma equipe de 5"
@@ -222,11 +218,8 @@ The CTA MUST match the content type and REFERENCE something from slide 1 (callba
 Example: if slide 1 says "7 erros que matam engajamento", CTA says "Agora que voce conhece os 7 erros, salva pra revisar antes de cada post".
 Never be generic "follow me". Include user's @handle + "siga para mais [niche topic]".
 
-# VARIATION STYLES
-
-**Variation A — DADOS & PROOF**: Lead with statistics, comparisons, specific tools/frameworks. Best CTA: Save-focused.
-**Variation B — STORYTELLING & NARRATIVE**: Personal/relatable story arc. "eu" perspective. Best CTA: Share/tag-focused.
-**Variation C — PROVOCATIVA & CONTRARIAN**: Challenge conventional wisdom. Bold opening. Best CTA: Comment-focused.
+# STYLE
+Choose the best style for this topic: data (statistics/proof), story (narrative/personal), or provocative (contrarian/bold). Pick whichever creates the strongest carousel.
 
 # COPYWRITING RULES
 1. Write like you talk. No academic language. No corporate jargon.
@@ -260,8 +253,8 @@ Return valid JSON with this structure:
 }`;
 
     const userMessage = sourceContent
-      ? `Create 3 carousel variations based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent}`
-      : `Create 3 carousel variations about: ${topic}`;
+      ? `Create 1 carousel based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
+      : `Create 1 carousel about: ${topic}`;
 
     // 3. Call Gemini 2.0 Flash (fast enough for Vercel Hobby 10s limit)
     const ai = new GoogleGenAI({ apiKey: geminiKey });
@@ -272,8 +265,8 @@ Return valid JSON with this structure:
         contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
         config: {
           systemInstruction: systemPrompt,
-          temperature: 0.95,
-          maxOutputTokens: 4096,
+          temperature: 0.9,
+          maxOutputTokens: 2000,
           responseMimeType: "application/json",
         },
       });

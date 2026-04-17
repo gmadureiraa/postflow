@@ -358,6 +358,7 @@ function CreatePageContent() {
   const [tone, setTone] = useState("casual");
   const [language, setLanguage] = useState("pt-br");
   const [variations, setVariations] = useState<Variation[]>([]);
+  const [concepts, setConcepts] = useState<Array<{ title: string; hook: string; style: string; angle: string }>>([]);
   const [selectedVariation, setSelectedVariation] = useState<number>(0);
   const [editSlides, setEditSlides] = useState<Slide[]>([]);
   const [slideStyle, setSlideStyle] = useState<"white" | "dark">("white");
@@ -536,56 +537,121 @@ function CreatePageContent() {
   }, [step, editSlides.length, session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Handlers ───────────────────────────────────────────────────
+  // STEP 1: Generate 5 concepts (cheap, fast ~1-2s)
   const handleGenerate = useCallback(async () => {
     setError("");
     if (isGuest || !session?.access_token) {
-      setError(
-        "Para gerar carrosseis com IA, entre na sua conta (modo convidado so edita rascunhos locais)."
-      );
+      setError("Para gerar carrosséis com IA, entre na sua conta.");
       return;
     }
 
     setCarouselRecordId(null);
+    setConcepts([]);
     setStep("generating");
 
     try {
-      const response = await fetch("/api/generate", {
+      const res = await fetch("/api/generate-concepts", {
         method: "POST",
         headers: jsonWithAuth(session),
         body: JSON.stringify({
           topic: sourceType === "ai" ? "trending topics in " + niche : topic,
-          sourceType,
-          sourceUrl: sourceUrl || undefined,
           niche,
           tone,
           language,
         }),
       });
 
-      let data: { variations?: any[]; error?: string };
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        data = await response.json();
+      let data: { concepts?: Array<{ title: string; hook: string; style: string; angle: string }>; error?: string };
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        data = await res.json();
       } else {
-        const text = await response.text();
-        throw new Error(text.slice(0, 200) || `Servidor retornou ${response.status}`);
+        throw new Error(await res.text().then(t => t.slice(0, 200)));
       }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Falha na geração. Tente novamente.");
-      }
+      if (!res.ok) throw new Error(data.error || "Falha ao gerar conceitos.");
+      if (!data.concepts?.length) throw new Error("Nenhum conceito gerado. Tente outro tópico.");
 
-      if (!data.variations || data.variations.length === 0) {
-        throw new Error("A IA não retornou variações. Tente com outro tópico.");
-      }
-
-      setVariations(data.variations);
+      setConcepts(data.concepts);
       setStep("pick");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Algo deu errado. Tente de novo.");
       setStep("input");
     }
-  }, [sourceType, topic, sourceUrl, niche, tone, language, isGuest, session]);
+  }, [sourceType, topic, niche, tone, language, isGuest, session]);
+
+  // STEP 2: Generate full carousel from chosen concept (~5-8s)
+  const handlePickConcept = useCallback(async (conceptIndex: number) => {
+    const concept = concepts[conceptIndex];
+    if (!concept || !session?.access_token) return;
+
+    setStep("generating");
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: jsonWithAuth(session),
+        body: JSON.stringify({
+          topic: `${concept.title}\n\nHook: ${concept.hook}\nAngle: ${concept.angle}\nStyle: ${concept.style}`,
+          sourceType: "idea",
+          niche,
+          tone,
+          language,
+        }),
+      });
+
+      let data: { variations?: Variation[]; error?: string };
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        data = await res.json();
+      } else {
+        throw new Error(await res.text().then(t => t.slice(0, 200)));
+      }
+
+      if (!res.ok) throw new Error(data.error || "Falha na geração.");
+      if (!data.variations?.length) throw new Error("Nenhum carrossel gerado.");
+
+      setVariations(data.variations);
+      // Go straight to edit with the first (and only) variation
+      const slides = [...data.variations[0].slides];
+      setSelectedVariation(0);
+      setEditSlides(slides);
+      setActiveSlideIndex(0);
+      setStep("edit");
+
+      // Auto-save
+      const title = data.variations[0]?.title || slides[0]?.heading || "Sem título";
+      const variationMeta = { title, style: data.variations[0].style };
+      try {
+        if (user && !isGuest && supabase) {
+          const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
+            id: carouselRecordId,
+            title,
+            slides,
+            slideStyle,
+            variation: variationMeta,
+            status: "draft",
+          });
+          setCarouselRecordId(row.id);
+          if (inserted) {
+            await bumpCarouselUsage(supabase, user.id);
+            await refreshProfile();
+          }
+          lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+        } else {
+          const id = carouselRecordId ?? `carousel-${Date.now()}`;
+          setCarouselRecordId(id);
+          upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
+          lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+        }
+      } catch (e) {
+        console.error("[auto-save]", e);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao gerar carrossel.");
+      setStep("pick"); // Go back to concept picker
+    }
+  }, [concepts, session, niche, tone, language, user, isGuest, supabase, carouselRecordId, slideStyle, refreshProfile]);
 
   const handleSelectVariation = async (index: number) => {
     setSelectedVariation(index);
@@ -1119,7 +1185,7 @@ function CreatePageContent() {
                 onClick={() => {
                   if (step === "generating") return;
                   if (step === "pick") setStep("input");
-                  if (step === "edit") setStep("pick");
+                  if (step === "edit") setStep("input");
                 }}
                 className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
               >
@@ -1534,7 +1600,7 @@ function CreatePageContent() {
                 className="btn-scale btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                 style={{ background: "var(--accent)" }}
               >
-                Gerar 3 variacoes
+                Gerar ideias
               </button>
             </div>
           </motion.div>
@@ -1545,27 +1611,25 @@ function CreatePageContent() {
           <div className="flex flex-col items-center justify-center py-20">
             <Loader
               size="lg"
-              title="Gerando seu carrossel..."
-              subtitle="A IA esta criando 3 variacoes com copy, imagens e branding"
+              title="Gerando..."
+              subtitle="A IA está trabalhando no seu conteúdo"
             />
             <div className="mt-4">
               <AITextLoading
                 className="!text-xl"
                 texts={[
-                  "Extraindo conteudo da fonte...",
-                  "Analisando estrutura e palavras-chave...",
-                  "Gerando 3 variacoes de copy...",
-                  "Escrevendo headline e body de cada slide...",
-                  "Buscando imagens relevantes...",
-                  "Aplicando tom de voz e idioma...",
-                  "Montando preview final...",
+                  "Analisando o tópico...",
+                  "Criando ângulos diferentes...",
+                  "Escrevendo copy dos slides...",
+                  "Aplicando tom de voz...",
+                  "Finalizando...",
                 ]}
               />
             </div>
           </div>
         )}
 
-        {/* ─── STEP 3: PICK VARIATION ─────────────────────────────── */}
+        {/* ─── STEP 3: PICK CONCEPT ─────────────────────────────── */}
         {step === "pick" && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -1575,137 +1639,52 @@ function CreatePageContent() {
             <div className="text-center mb-10">
               <h2
                 className="text-3xl font-bold mb-3"
-                style={{
-                  fontFamily:
-                    "var(--font-serif), 'DM Serif Display', Georgia, serif",
-                }}
+                style={{ fontFamily: "var(--font-serif), 'DM Serif Display', Georgia, serif" }}
               >
-                Escolha sua favorita
+                Escolha o ângulo
               </h2>
               <p className="text-[var(--muted)]">
-                Criamos 3 variacoes. Escolha uma pra personalizar.
+                5 abordagens diferentes. Escolha uma e geramos o carrossel completo.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6">
-              {variations.map((variation, index) => {
-                const badge = STYLE_BADGES[variation.style] || {
-                  label: variation.style,
-                  color: "var(--accent)",
-                  emoji: "✨",
-                };
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="card-lift border border-[var(--border)] rounded-2xl p-6 hover:border-[var(--accent)] cursor-pointer group"
-                    onClick={() => handleSelectVariation(index)}
-                  >
-                    {/* Badge */}
-                    <span
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-4"
-                      style={{
-                        background: badge.color + "14",
-                        color: badge.color,
-                      }}
-                    >
-                      <span>{badge.emoji}</span>
-                      {badge.label}
+            <div className="grid gap-3 max-w-2xl mx-auto">
+              {concepts.map((concept, index) => (
+                <motion.button
+                  key={index}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.08 }}
+                  onClick={() => handlePickConcept(index)}
+                  className="w-full text-left border border-[var(--border)] rounded-2xl p-5 hover:border-[var(--accent)] hover:bg-[var(--accent)]/[0.03] transition-all group"
+                >
+                  <div className="flex items-start gap-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-bold mt-0.5">
+                      {index + 1}
                     </span>
-
-                    {/* Quality Score */}
-                    {typeof variation.qualityScore === "number" && (
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                            Qualidade
-                          </span>
-                          <span
-                            className="text-sm font-bold"
-                            style={{
-                              color:
-                                variation.qualityScore >= 80
-                                  ? "#16a34a"
-                                  : variation.qualityScore >= 60
-                                    ? "#ca8a04"
-                                    : "#dc2626",
-                            }}
-                          >
-                            {variation.qualityScore}/100
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${variation.qualityScore}%`,
-                              background:
-                                variation.qualityScore >= 80
-                                  ? "#16a34a"
-                                  : variation.qualityScore >= 60
-                                    ? "#ca8a04"
-                                    : "#dc2626",
-                            }}
-                          />
-                        </div>
-                        {variation.qualityReasoning && (
-                          <p className="text-[10px] text-zinc-400 mt-1 leading-relaxed">
-                            {variation.qualityReasoning}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Title */}
-                    <h3
-                      className="text-lg font-bold mb-4"
-                      style={{
-                        fontFamily:
-                          "var(--font-serif), 'DM Serif Display', Georgia, serif",
-                      }}
-                    >
-                      {variation.title}
-                    </h3>
-
-                    {/* Preview -- first 3 slide headings */}
-                    <div className="space-y-2 mb-6">
-                      {variation.slides.slice(0, 3).map((slide, si) => (
-                        <div
-                          key={si}
-                          className="flex items-start gap-2 text-sm"
-                        >
-                          <span
-                            className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5"
-                            style={{
-                              background: "var(--card)",
-                              color: "var(--muted)",
-                            }}
-                          >
-                            {si + 1}
-                          </span>
-                          <span className="text-[var(--foreground)] leading-snug">
-                            {slide.heading}
-                          </span>
-                        </div>
-                      ))}
-                      {variation.slides.length > 3 && (
-                        <div className="text-xs text-[var(--muted)] pl-7">
-                          +{variation.slides.length - 3} slides a mais
-                        </div>
-                      )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold text-[var(--foreground)] mb-1 group-hover:text-[var(--accent)] transition-colors">
+                        {concept.hook}
+                      </h3>
+                      <p className="text-sm text-[var(--muted)] leading-relaxed">
+                        {concept.angle}
+                      </p>
+                      <span className="inline-block mt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)] bg-[var(--surface)] px-2 py-0.5 rounded-full">
+                        {concept.style}
+                      </span>
                     </div>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
 
-                    {/* Select button */}
-                    <button
-                      className="btn-scale w-full py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-[var(--accent)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white"
-                    >
-                      Escolher este estilo
-                    </button>
-                  </motion.div>
-                );
-              })}
+            <div className="text-center mt-6">
+              <button
+                onClick={() => { setStep("input"); setConcepts([]); }}
+                className="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
+              >
+                ← Voltar e tentar outro tópico
+              </button>
             </div>
           </motion.div>
         )}
