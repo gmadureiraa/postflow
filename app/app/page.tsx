@@ -100,7 +100,7 @@ export default function DashboardPage() {
             entre ou crie uma conta
           </Link>
           . (Importar @ no onboarding sem login é temporário — veja o{" "}
-          <Link href="/roadmap" className="font-bold underline underline-offset-2">
+          <Link href="/app/roadmap" className="font-bold underline underline-offset-2">
             roadmap
           </Link>
           .)
@@ -288,14 +288,14 @@ export default function DashboardPage() {
             <p className="mt-2 text-[var(--muted)] max-w-lg text-[15px] leading-relaxed">
               Quando as redes estiverem conectadas, você acompanha alcance, saves e engajamento por
               carrossel — igual à visão pública do{" "}
-              <Link href="/roadmap" className="font-semibold text-[var(--accent)] hover:underline">
+              <Link href="/app/roadmap" className="font-semibold text-[var(--accent)] hover:underline">
                 roadmap
               </Link>
               .
             </p>
           </div>
           <Link
-            href="/roadmap"
+            href="/app/roadmap"
             className="inline-flex items-center gap-2 self-start rounded-xl border border-[#0A0A0A] bg-[#FFFDF9] px-4 py-2.5 text-sm font-bold shadow-[3px_3px_0_0_#0A0A0A] hover:bg-white transition-colors"
           >
             <Map size={16} />

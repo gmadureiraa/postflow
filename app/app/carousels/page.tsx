@@ -416,7 +416,7 @@ function CarouselCard({
             className="btn-scale flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:bg-[#0A0A0A]/5 hover:text-[#0A0A0A] transition-colors"
           >
             <Download size={12} />
-            Export
+            Exportar
           </Link>
           <button
             onClick={onDelete}

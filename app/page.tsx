@@ -95,7 +95,7 @@ const TESTIMONIALS: Array<{
     ],
     reply: {
       name: "Sequência Viral",
-      handle: "sequencia-viralapp",
+      handle: "sequenciaviral",
       content: "Missão cumprida, Ana 🧡",
     },
   },
@@ -118,7 +118,7 @@ const TESTIMONIALS: Array<{
     ],
     reply: {
       name: "Sequência Viral",
-      handle: "sequencia-viralapp",
+      handle: "sequenciaviral",
       content: "Partiu escalar isso 🚀",
     },
   },
@@ -141,7 +141,7 @@ const TESTIMONIALS: Array<{
     ],
     reply: {
       name: "Sequência Viral",
-      handle: "sequencia-viralapp",
+      handle: "sequenciaviral",
       content: "Constância + velocidade = resultado 💪",
     },
   },
@@ -173,7 +173,7 @@ const TESTIMONIALS: Array<{
     ],
     reply: {
       name: "Sequência Viral",
-      handle: "sequencia-viralapp",
+      handle: "sequenciaviral",
       content: "Pixel por pixel, sempre 🎯",
     },
   },
@@ -999,7 +999,7 @@ function Footer() {
               </li>
               <li>
                 <a
-                  href="https://twitter.com/sequencia-viralapp"
+                  href="https://twitter.com/sequenciaviral"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[13px] text-[#0A0A0A]/70 hover:text-[#0A0A0A] transition-colors"
@@ -1009,7 +1009,7 @@ function Footer() {
               </li>
               <li>
                 <a
-                  href="https://instagram.com/sequencia-viralapp"
+                  href="https://instagram.com/sequenciaviral"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[13px] text-[#0A0A0A]/70 hover:text-[#0A0A0A] transition-colors"

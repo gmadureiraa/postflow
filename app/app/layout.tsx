@@ -192,20 +192,32 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Plan card */}
-        <div className="mx-4 mb-4 p-5 card-offset-orange">
-          <p className="text-[10px] font-mono uppercase tracking-widest opacity-80 mb-2">
-            Plano {profile?.plan ?? "free"}
-          </p>
-          <p className="editorial-serif text-xl leading-tight mb-3">
-            Upgrade pra Pro
-          </p>
-          <Link
-            href="/app/settings"
-            className="inline-flex items-center gap-1.5 text-[12px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition"
-          >
-            Ver planos →
-          </Link>
-        </div>
+        {(!profile?.plan || profile.plan === "free") && (
+          <div className="mx-4 mb-4 p-5 card-offset-orange">
+            <p className="text-[10px] font-mono uppercase tracking-widest opacity-80 mb-2">
+              Plano {profile?.plan ?? "free"}
+            </p>
+            <p className="editorial-serif text-xl leading-tight mb-3">
+              Upgrade pra Pro
+            </p>
+            <Link
+              href="/app/settings"
+              className="inline-flex items-center gap-1.5 text-[12px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition"
+            >
+              Ver planos →
+            </Link>
+          </div>
+        )}
+        {profile?.plan && profile.plan !== "free" && (
+          <div className="mx-4 mb-4 p-4 rounded-2xl border border-[#0A0A0A]/10 bg-[#FFFDF9]">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--muted)] mb-1">
+              Plano {profile.plan}
+            </p>
+            <p className="text-sm font-bold text-[#0A0A0A]">
+              {profile.plan === "pro" ? "Pro ativo" : "Business ativo"}
+            </p>
+          </div>
+        )}
 
         {/* User info */}
         <div className="border-t border-[#0A0A0A]/10 p-4">

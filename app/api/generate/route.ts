@@ -344,8 +344,9 @@ Be honest and critical. Most carousels should score 60-80. Only truly exceptiona
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 6000,
+        temperature: 0.95,
         system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
+        messages: [{ role: "user", content: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]` }],
       }),
     });
 
