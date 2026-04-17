@@ -550,11 +550,48 @@ function CreatePageContent() {
     setStep("generating");
 
     try {
+      // For link/video/instagram sources, extract content first so concepts are based on actual source
+      let conceptTopic = sourceType === "ai" ? "trending topics in " + niche : topic;
+      if ((sourceType === "link" || sourceType === "video" || sourceType === "instagram") && sourceUrl.trim()) {
+        try {
+          const extractRes = await fetch("/api/extract-source", {
+            method: "POST",
+            headers: jsonWithAuth(session),
+            body: JSON.stringify({ sourceType, sourceUrl }),
+          });
+          if (extractRes.ok) {
+            const extractData = await extractRes.json();
+            if (extractData.content) {
+              // Combine extracted content with user's topic/focus
+              conceptTopic = topic.trim()
+                ? `${topic}\n\nConteúdo extraído da fonte:\n${extractData.content.slice(0, 2000)}`
+                : extractData.content.slice(0, 2000);
+            }
+          } else {
+            const errData = await extractRes.json().catch(() => ({ error: "Falha na extração" }));
+            console.warn("[extract-source] Falhou:", errData.error);
+            // Don't block — fall back to just the topic text
+            if (!topic.trim()) {
+              setError(errData.error || "Não foi possível extrair o conteúdo da URL. Cole o texto no campo 'Minha ideia'.");
+              setStep("input");
+              return;
+            }
+          }
+        } catch (extractErr) {
+          console.warn("[extract-source] Erro:", extractErr);
+          if (!topic.trim()) {
+            setError("Não foi possível acessar a URL. Cole o conteúdo manualmente no campo 'Minha ideia'.");
+            setStep("input");
+            return;
+          }
+        }
+      }
+
       const res = await fetch("/api/generate-concepts", {
         method: "POST",
         headers: jsonWithAuth(session),
         body: JSON.stringify({
-          topic: sourceType === "ai" ? "trending topics in " + niche : topic,
+          topic: conceptTopic,
           niche,
           tone,
           language,
@@ -578,7 +615,7 @@ function CreatePageContent() {
       setError(err instanceof Error ? err.message : "Algo deu errado. Tente de novo.");
       setStep("input");
     }
-  }, [sourceType, topic, niche, tone, language, isGuest, session]);
+  }, [sourceType, sourceUrl, topic, niche, tone, language, isGuest, session]);
 
   // STEP 2: Generate full carousel from chosen concept (~5-8s)
   const handlePickConcept = useCallback(async (conceptIndex: number) => {
@@ -588,12 +625,18 @@ function CreatePageContent() {
     setStep("generating");
 
     try {
+      // Pass original sourceType and sourceUrl so the generate API can extract content
+      const effectiveSourceType = (sourceType === "link" || sourceType === "video" || sourceType === "instagram") && sourceUrl.trim()
+        ? sourceType
+        : "idea";
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: jsonWithAuth(session),
         body: JSON.stringify({
           topic: `${concept.title}\n\nHook: ${concept.hook}\nAngle: ${concept.angle}\nStyle: ${concept.style}`,
-          sourceType: "idea",
+          sourceType: effectiveSourceType,
+          sourceUrl: effectiveSourceType !== "idea" ? sourceUrl : undefined,
           niche,
           tone,
           language,
@@ -624,11 +667,66 @@ function CreatePageContent() {
       const variationMeta = { title, style: data.variations[0].style };
       try {
         if (user && !isGuest && supabase) {
+          try {
+            const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
+              id: carouselRecordId,
+              title,
+              slides,
+              slideStyle,
+              variation: variationMeta,
+              status: "draft",
+            });
+            setCarouselRecordId(row.id);
+            if (inserted) {
+              await bumpCarouselUsage(supabase, user.id);
+              await refreshProfile();
+            }
+            lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+            console.log("[auto-save] Salvo no Supabase, id:", row.id);
+            toast.success("Carrossel salvo automaticamente.");
+          } catch (supaErr) {
+            // Supabase failed — fall back to localStorage
+            console.error("[auto-save] Supabase falhou, salvando localmente:", supaErr);
+            const id = carouselRecordId ?? `carousel-${Date.now()}`;
+            setCarouselRecordId(id);
+            upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
+            lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+            toast.info("Salvo localmente (falha na nuvem).");
+          }
+        } else {
+          const id = carouselRecordId ?? `carousel-${Date.now()}`;
+          setCarouselRecordId(id);
+          upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
+          lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+          console.log("[auto-save] Salvo localmente, id:", id);
+        }
+      } catch (e) {
+        console.error("[auto-save] Erro inesperado:", e);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao gerar carrossel.");
+      setStep("pick"); // Go back to concept picker
+    }
+  }, [concepts, session, niche, tone, language, user, isGuest, supabase, carouselRecordId, slideStyle, refreshProfile, sourceType, sourceUrl]);
+
+  const handleSelectVariation = async (index: number) => {
+    setSelectedVariation(index);
+    const slides = [...variations[index].slides];
+    setEditSlides(slides);
+    setActiveSlideIndex(0);
+    setStep("edit");
+
+    // Auto-save immediately when variation is picked
+    const title = variations[index]?.title || slides[0]?.heading || "Sem titulo";
+    const variationMeta = { title: variations[index].title, style: variations[index].style };
+    try {
+      if (user && !isGuest && supabase) {
+        try {
           const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
             id: carouselRecordId,
             title,
             slides,
-            slideStyle,
+            slideStyle: slideStyle,
             variation: variationMeta,
             status: "draft",
           });
@@ -638,48 +736,16 @@ function CreatePageContent() {
             await refreshProfile();
           }
           lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
-        } else {
+          console.log("[auto-save] Variacao salva no Supabase, id:", row.id);
+          toast.success("Carrossel salvo automaticamente.");
+        } catch (supaErr) {
+          console.error("[auto-save] Supabase falhou, salvando localmente:", supaErr);
           const id = carouselRecordId ?? `carousel-${Date.now()}`;
           setCarouselRecordId(id);
           upsertGuestCarousel({ id, title, slides, style: slideStyle, variation: variationMeta, savedAt: new Date().toISOString(), status: "draft" });
           lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
+          toast.info("Salvo localmente (falha na nuvem).");
         }
-      } catch (e) {
-        console.error("[auto-save]", e);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao gerar carrossel.");
-      setStep("pick"); // Go back to concept picker
-    }
-  }, [concepts, session, niche, tone, language, user, isGuest, supabase, carouselRecordId, slideStyle, refreshProfile]);
-
-  const handleSelectVariation = async (index: number) => {
-    setSelectedVariation(index);
-    const slides = [...variations[index].slides];
-    setEditSlides(slides);
-    setActiveSlideIndex(0);
-    setStep("edit");
-
-    // ISSUE 1: Auto-save immediately when variation is picked
-    const title = variations[index]?.title || slides[0]?.heading || "Sem titulo";
-    const variationMeta = { title: variations[index].title, style: variations[index].style };
-    try {
-      if (user && !isGuest && supabase) {
-        const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
-          id: carouselRecordId,
-          title,
-          slides,
-          slideStyle: slideStyle,
-          variation: variationMeta,
-          status: "draft",
-        });
-        setCarouselRecordId(row.id);
-        if (inserted) {
-          await bumpCarouselUsage(supabase, user.id);
-          await refreshProfile();
-        }
-        lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
-        toast.success("Carrossel salvo automaticamente.");
       } else {
         const id = carouselRecordId ?? `carousel-${Date.now()}`;
         setCarouselRecordId(id);
@@ -693,10 +759,10 @@ function CreatePageContent() {
           status: "draft",
         });
         lastSerializedSlidesRef.current = JSON.stringify({ editSlides: slides, slideStyle });
-        toast.success("Carrossel salvo localmente.");
+        console.log("[auto-save] Variacao salva localmente, id:", id);
       }
     } catch (e) {
-      console.error("[auto-save] Erro:", e);
+      console.error("[auto-save] Erro inesperado:", e);
     }
   };
 
@@ -1056,21 +1122,39 @@ function CreatePageContent() {
     setError("");
     try {
       if (user && !isGuest && supabase) {
-        const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
-          id: carouselRecordId,
-          title,
-          slides: editSlides,
-          slideStyle: slideStyle,
-          variation: variationMeta,
-          status: "draft",
-        });
-        setCarouselRecordId(row.id);
-        if (inserted) {
-          await bumpCarouselUsage(supabase, user.id);
-          await refreshProfile();
+        try {
+          const { row, inserted } = await upsertUserCarousel(supabase, user.id, {
+            id: carouselRecordId,
+            title,
+            slides: editSlides,
+            slideStyle: slideStyle,
+            variation: variationMeta,
+            status: "draft",
+          });
+          setCarouselRecordId(row.id);
+          if (inserted) {
+            await bumpCarouselUsage(supabase, user.id);
+            await refreshProfile();
+          }
+          console.log("[save] Rascunho salvo na nuvem, id:", row.id);
+          return row.id;
+        } catch (supaErr) {
+          // Supabase failed — fall back to localStorage
+          console.error("[save] Supabase falhou, salvando localmente:", supaErr);
+          const id = carouselRecordId ?? `carousel-${Date.now()}`;
+          setCarouselRecordId(id);
+          upsertGuestCarousel({
+            id,
+            title,
+            slides: editSlides,
+            style: slideStyle,
+            variation: variationMeta ?? undefined,
+            savedAt: new Date().toISOString(),
+            status: "draft",
+          });
+          toast.info("Salvo localmente (falha na nuvem).");
+          return id;
         }
-        toast.success("Rascunho salvo na nuvem.");
-        return row.id;
       }
       if (!supabase) {
         console.warn("[save] Supabase nao configurado — salvando localmente.");
@@ -1086,7 +1170,6 @@ function CreatePageContent() {
         savedAt: new Date().toISOString(),
         status: "draft",
       });
-      toast.success(isGuest ? "Rascunho salvo localmente (entre na conta para sincronizar)." : "Rascunho salvo localmente.");
       return id;
     } catch (e) {
       console.error("[save] Erro ao salvar rascunho:", e);

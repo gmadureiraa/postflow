@@ -47,12 +47,21 @@ export default function CarouselsPage() {
     setIsLoading(true);
     if (user && !isGuest && supabase) {
       try {
-        const list = await fetchUserCarousels(supabase);
-        setCarousels(list);
+        const cloudList = await fetchUserCarousels(supabase);
+        // Merge with any locally saved carousels (from fallback saves)
+        const localList = readGuestCarousels();
+        if (localList.length > 0) {
+          const cloudIds = new Set(cloudList.map((c) => c.id));
+          const localOnly = localList.filter((c) => !cloudIds.has(c.id));
+          setCarousels([...cloudList, ...localOnly]);
+        } else {
+          setCarousels(cloudList);
+        }
       } catch (err) {
-        console.error("[carousels] Failed to load:", err);
-        setLoadError("Não foi possível carregar seus carrosséis. Tente recarregar a página.");
-        setCarousels([]);
+        console.error("[carousels] Supabase failed, falling back to local:", err);
+        setLoadError("Não foi possível carregar da nuvem. Mostrando salvos localmente.");
+        // Fall back to local carousels instead of empty
+        setCarousels(readGuestCarousels());
       }
       setIsLoading(false);
       return;

@@ -130,9 +130,10 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
       try {
         sourceContent = await extractContentFromUrl(sourceUrl);
       } catch (err) {
+        console.error("[generate] URL extraction failed:", err);
         return Response.json(
           {
-            error: `Failed to extract content from URL: ${err instanceof Error ? err.message : "Unknown error"}`,
+            error: `Não foi possível extrair conteúdo da URL: ${err instanceof Error ? err.message : "erro desconhecido"}. Dica: cole o texto manualmente no campo "Minha ideia".`,
           },
           { status: 400 }
         );
@@ -141,9 +142,10 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
       try {
         sourceContent = await getYouTubeTranscript(sourceUrl);
       } catch (err) {
+        console.error("[generate] YouTube transcript failed:", err);
         return Response.json(
           {
-            error: `Failed to extract YouTube transcript: ${err instanceof Error ? err.message : "Unknown error"}`,
+            error: `Não foi possível extrair a transcrição do YouTube: ${err instanceof Error ? err.message : "erro desconhecido"}. O vídeo pode não ter legendas disponíveis.`,
           },
           { status: 400 }
         );
@@ -155,6 +157,7 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
         );
         sourceContent = await extractInstagramContent(sourceUrl);
       } catch (err) {
+        console.error("[generate] Instagram extraction failed:", err);
         return Response.json(
           {
             error: `Falha ao extrair o post do Instagram: ${
