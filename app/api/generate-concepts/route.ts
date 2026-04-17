@@ -38,36 +38,25 @@ export async function POST(request: Request) {
       ? "Responda em português brasileiro coloquial."
       : language === "en" ? "Respond in English." : `Respond in ${language}.`;
 
-    const prompt = `You are a social media strategist. Generate 5 different carousel CONCEPTS for the topic below.
+    const prompt = `Generate 5 carousel concepts. ${langNote} Niche: ${niche || "general"}. Tone: ${tone || "casual"}.
 
-${langNote}
-Niche: ${niche || "general"}. Tone: ${tone || "casual"}.
+RULES: title max 40 chars. hook max 8 words. angle max 15 words. Keep it SHORT.
 
-Each concept must have a DIFFERENT angle/approach:
-1. Data/Statistics angle
-2. Personal story angle
-3. Contrarian/provocative angle
-4. Step-by-step/how-to angle
-5. Myth-busting angle
-
-For EACH concept return ONLY:
-- title: compelling carousel title (max 50 chars)
-- hook: the slide 1 headline (max 10 words, must stop the scroll)
-- style: "data" | "story" | "provocative" | "howto" | "mythbust"
-- angle: 1 sentence describing the approach
+5 angles: data, story, contrarian, howto, mythbust.
 
 Topic: ${topic}
 
-Return valid JSON: { "concepts": [ { "title", "hook", "style", "angle" } ] }`;
+JSON: {"concepts":[{"title":"...","hook":"...","style":"data|story|provocative|howto|mythbust","angle":"..."}]}`;
 
     const ai = new GoogleGenAI({ apiKey: geminiKey });
     const result = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
-        temperature: 0.95,
-        maxOutputTokens: 800,
+        temperature: 0.9,
+        maxOutputTokens: 2000,
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 

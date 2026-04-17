@@ -266,8 +266,9 @@ Return valid JSON with this structure:
         config: {
           systemInstruction: systemPrompt,
           temperature: 0.9,
-          maxOutputTokens: 2000,
+          maxOutputTokens: 4000,
           responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
       textResponse = genResult.text || "";
