@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      // Return fallback analysis without AI
+      console.warn("[brand-analysis] ANTHROPIC_API_KEY not set, returning fallback analysis");
       return Response.json(buildFallbackAnalysis(body));
     }
 
@@ -139,6 +139,7 @@ ${postsText || "(no posts available)"}`;
     );
 
     if (!textBlock?.text) {
+      console.warn("[brand-analysis] Claude returned no text content, using fallback");
       return Response.json(buildFallbackAnalysis(body));
     }
 
@@ -148,8 +149,14 @@ ${postsText || "(no posts available)"}`;
     } catch {
       const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
+        try {
+          result = JSON.parse(jsonMatch[0]);
+        } catch (innerErr) {
+          console.error("[brand-analysis] Failed to parse extracted JSON:", innerErr);
+          return Response.json(buildFallbackAnalysis(body));
+        }
       } else {
+        console.warn("[brand-analysis] No JSON found in Claude response, using fallback");
         return Response.json(buildFallbackAnalysis(body));
       }
     }

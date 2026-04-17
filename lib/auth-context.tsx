@@ -260,8 +260,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("sequencia-viral_guest_profile", JSON.stringify(updated));
         return;
       }
-      if (!supabase || !user) {
-        throw new Error("Supabase não está configurado ou usuário não autenticado.");
+      if (!supabase) {
+        console.error("[updateProfile] Supabase client is null — NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY missing");
+        throw new Error("Supabase não está configurado. Verifique as variáveis de ambiente.");
+      }
+      if (!user) {
+        console.error("[updateProfile] No authenticated user in context");
+        throw new Error("Usuário não autenticado. Faça login novamente.");
       }
       // Upsert handles both "profile exists" (update) and "profile doesn't exist yet"
       // (insert) in one call. The previous implementation used update().single() which
@@ -271,14 +276,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: user.email,
         ...data,
       };
+      console.log("[updateProfile] Upserting profile for user:", user.id);
       const { data: updated, error } = await supabase
         .from("profiles")
         .upsert(payload, { onConflict: "id" })
         .select()
         .maybeSingle();
       if (error) {
-        console.error("[updateProfile] upsert error:", error);
+        console.error("[updateProfile] upsert failed:", error.message, error.details, error.hint, error.code);
         throw new Error(error.message || "Erro ao salvar perfil.");
+      }
+      if (!updated) {
+        console.warn("[updateProfile] Upsert returned no data (possible RLS block). Payload:", JSON.stringify(payload));
       }
       if (updated) setProfile(updated as UserProfile);
     },

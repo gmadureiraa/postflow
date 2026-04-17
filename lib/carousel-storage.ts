@@ -108,7 +108,10 @@ export async function fetchUserCarousels(
     .select(CAROUSEL_LIST_FIELDS)
     .order("updated_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error("[fetchUserCarousels] error:", error.message, error.details, error.hint);
+    throw error;
+  }
   return (data || []).map((row) => rowToSavedCarousel(row as CarouselRow));
 }
 
@@ -159,7 +162,10 @@ export async function upsertUserCarousel(
       .select(CAROUSEL_LIST_FIELDS)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("[upsertUserCarousel] update error:", error.message, error.details, error.hint);
+      throw error;
+    }
     return { row: data as CarouselRow, inserted: false };
   }
 
@@ -175,7 +181,10 @@ export async function upsertUserCarousel(
     .select(CAROUSEL_LIST_FIELDS)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("[upsertUserCarousel] insert error:", error.message, error.details, error.hint);
+    throw error;
+  }
   return { row: data as CarouselRow, inserted: true };
 }
 
@@ -190,7 +199,10 @@ export async function deleteUserCarousel(
     .eq("id", id)
     .eq("user_id", userId);
 
-  if (error) throw error;
+  if (error) {
+    console.error("[deleteUserCarousel] error:", error.message, error.details, error.hint);
+    throw error;
+  }
 }
 
 export async function bumpCarouselUsage(
@@ -203,10 +215,20 @@ export async function bumpCarouselUsage(
     .eq("id", userId)
     .single();
 
-  if (readErr) return;
+  if (readErr) {
+    console.error("[bumpCarouselUsage] Failed to read profile:", readErr.message);
+    return;
+  }
 
   const next = (prof?.usage_count ?? 0) + 1;
-  await client.from("profiles").update({ usage_count: next }).eq("id", userId);
+  const { error: updateErr } = await client
+    .from("profiles")
+    .update({ usage_count: next })
+    .eq("id", userId);
+
+  if (updateErr) {
+    console.error("[bumpCarouselUsage] Failed to update usage_count:", updateErr.message);
+  }
 }
 
 export function readGuestCarousels(): SavedCarousel[] {

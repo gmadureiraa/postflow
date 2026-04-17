@@ -95,7 +95,7 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
         }
 
         // Record payment
-        await supabaseAdmin.from("payments").insert({
+        const { error: payErr } = await supabaseAdmin.from("payments").insert({
           user_id: userId,
           amount_usd: stripePaymentAmountUsd(planId),
           currency: "USD",
@@ -105,6 +105,9 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
           period_start: new Date().toISOString(),
           period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         });
+        if (payErr) {
+          console.error("[stripe webhook] Failed to record payment:", payErr.message);
+        }
       }
       break;
     }
@@ -115,13 +118,16 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
       const userId = subscription.metadata?.userId;
 
       if (userId) {
-        await supabaseAdmin
+        const { error: downgradeErr } = await supabaseAdmin
           .from("profiles")
           .update({
             plan: "free",
             usage_limit: FREE_PLAN_USAGE_LIMIT,
           })
           .eq("id", userId);
+        if (downgradeErr) {
+          console.error("[stripe webhook] Failed to downgrade user to free:", downgradeErr.message);
+        }
       }
       break;
     }

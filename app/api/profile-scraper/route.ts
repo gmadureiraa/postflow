@@ -263,6 +263,11 @@ export async function POST(request: Request) {
     // Call Apify
     let profile: ProfileData;
 
+    if (!process.env.APIFY_API_KEY) {
+      console.warn("[profile-scraper] APIFY_API_KEY not set, returning fallback profile");
+      return Response.json(fallbackProfile(handle, platform));
+    }
+
     try {
       const items = await callApify(platform, handle);
 

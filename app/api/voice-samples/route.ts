@@ -76,6 +76,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
+      console.warn("[voice-samples] ANTHROPIC_API_KEY not set, returning fallback samples");
       return Response.json(buildFallbackSamples(body));
     }
 
@@ -151,6 +152,7 @@ Generate 3 hook samples that feel like this creator would actually post them.`;
     );
 
     if (!textBlock?.text) {
+      console.warn("[voice-samples] Claude returned no text content, using fallback");
       return Response.json(buildFallbackSamples(body));
     }
 
@@ -160,8 +162,14 @@ Generate 3 hook samples that feel like this creator would actually post them.`;
     } catch {
       const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
+        try {
+          result = JSON.parse(jsonMatch[0]);
+        } catch (innerErr) {
+          console.error("[voice-samples] Failed to parse extracted JSON:", innerErr);
+          return Response.json(buildFallbackSamples(body));
+        }
       } else {
+        console.warn("[voice-samples] No JSON found in Claude response, using fallback");
         return Response.json(buildFallbackSamples(body));
       }
     }

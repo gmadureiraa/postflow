@@ -18,7 +18,11 @@ export function createServerSupabaseClient() {
 export function createServiceRoleSupabaseClient() {
   const url = getSupabaseUrl();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-  if (!url || !serviceRoleKey) return null;
+  if (!url || !serviceRoleKey) {
+    if (!url) console.warn("[auth] createServiceRoleSupabaseClient: NEXT_PUBLIC_SUPABASE_URL is missing");
+    if (!serviceRoleKey) console.warn("[auth] createServiceRoleSupabaseClient: SUPABASE_SERVICE_ROLE_KEY is missing");
+    return null;
+  }
   return createClient(url, serviceRoleKey);
 }
 
