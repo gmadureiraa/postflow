@@ -317,33 +317,38 @@ export default function OnboardingPage() {
   }, [step]);
 
   async function finish(mode: "ideas" | "link") {
-    const brand: BrandAnalysis = {
-      detected_niche: brandAnalysis?.detected_niche || data.niche,
-      tone_detected: brandAnalysis?.tone_detected || data.tone,
-      top_topics: brandAnalysis?.top_topics || [],
-      posting_frequency: brandAnalysis?.posting_frequency || "",
-      avg_engagement: brandAnalysis?.avg_engagement || { likes: 0, comments: 0 },
-      content_pillars: data.content_pillars,
-      audience_description: data.audience_description,
-      inspirations: data.inspirations,
-      voice_preference: data.voice_preference,
-    };
+    try {
+      const brand: BrandAnalysis = {
+        detected_niche: brandAnalysis?.detected_niche || data.niche,
+        tone_detected: brandAnalysis?.tone_detected || data.tone,
+        top_topics: brandAnalysis?.top_topics || [],
+        posting_frequency: brandAnalysis?.posting_frequency || "",
+        avg_engagement: brandAnalysis?.avg_engagement || { likes: 0, comments: 0 },
+        content_pillars: data.content_pillars || [],
+        audience_description: data.audience_description || "",
+        inspirations: data.inspirations || [],
+        voice_preference: data.voice_preference || "",
+      };
 
-    await updateProfile({
-      name: data.name,
-      avatar_url: data.avatar_url,
-      twitter_handle: data.twitter_handle,
-      instagram_handle: data.instagram_handle,
-      linkedin_url: data.linkedin_url,
-      niche: data.niche,
-      tone: data.tone,
-      language: data.language,
-      carousel_style: data.carousel_style,
-      onboarding_completed: true,
-      brand_analysis: brand,
-    });
+      await updateProfile({
+        name: data.name,
+        avatar_url: data.avatar_url,
+        twitter_handle: data.twitter_handle,
+        instagram_handle: data.instagram_handle,
+        linkedin_url: data.linkedin_url,
+        niche: data.niche,
+        tone: data.tone,
+        language: data.language,
+        carousel_style: data.carousel_style,
+        onboarding_completed: true,
+        brand_analysis: brand,
+      });
+    } catch (err) {
+      console.error("[onboarding] Failed to save profile:", err);
+    }
     localStorage.removeItem("sequencia-viral_onboarding");
-    router.push(`/app?action=create&source=${mode}`);
+    // Always navigate, even if profile save fails
+    window.location.href = `/app/create?source=${mode}`;
   }
 
   const variants = {
@@ -562,6 +567,8 @@ function StepSocial({
 }) {
   const [platform, setPlatform] = useState<"twitter" | "instagram">("instagram");
   const [handle, setHandle] = useState(data.instagram_handle || data.twitter_handle || "");
+  const [secondHandle, setSecondHandle] = useState("");
+  const [freeText, setFreeText] = useState("");
 
   return (
     <div>
@@ -610,12 +617,41 @@ function StepSocial({
         />
       </div>
 
+      {/* Second platform handle (optional) */}
+      <div className="relative mb-4">
+        <AtSign size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+        <input
+          type="text"
+          value={secondHandle}
+          onChange={(e) => setSecondHandle(e.target.value.replace(/^@/, ""))}
+          placeholder={platform === "instagram" ? "seu @ do Twitter (opcional)" : "seu @ do Instagram (opcional)"}
+          className="w-full rounded-xl border border-[#0A0A0A]/20 bg-[#FFFDF9] pl-11 pr-4 py-3 text-sm text-[#0A0A0A] outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]/30 placeholder:text-[var(--muted)]"
+        />
+      </div>
+
+      {/* Free text — tell us about you */}
+      <div className="mb-4">
+        <textarea
+          value={freeText}
+          onChange={(e) => setFreeText(e.target.value)}
+          placeholder="Conte um pouco sobre você, seu negócio, o que você faz, público-alvo... Isso ajuda a IA a entender seu contexto melhor."
+          rows={3}
+          className="w-full rounded-xl border border-[#0A0A0A]/20 bg-[#FFFDF9] px-4 py-3 text-sm text-[#0A0A0A] outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]/30 placeholder:text-[var(--muted)] resize-none"
+        />
+      </div>
+
       {scrapeError && (
         <p className="text-sm text-red-600 mb-4">{scrapeError}</p>
       )}
 
       <button
-        onClick={() => pullProfile(platform, handle)}
+        onClick={() => {
+          pullProfile(platform, handle);
+          if (freeText.trim()) {
+            // Store free text for brand analysis
+            localStorage.setItem("sequencia-viral_onboarding_context", freeText);
+          }
+        }}
         disabled={scraping || !handle.trim()}
         className="w-full inline-flex items-center justify-center gap-2 bg-[var(--accent)] text-white px-6 py-4 rounded-xl text-sm font-bold border border-[#0A0A0A] hover:bg-[var(--accent-dark)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         style={{ boxShadow: "4px 4px 0 0 #0A0A0A" }}
@@ -628,7 +664,7 @@ function StepSocial({
         ) : (
           <>
             <Sparkles size={16} />
-            Puxar meu perfil
+            Analisar meu perfil
           </>
         )}
       </button>

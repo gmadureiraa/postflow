@@ -58,11 +58,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // Single query: plan check + brand context
     const sb = createServiceRoleSupabaseClient();
+    let brandContext = "";
     if (sb) {
       const { data: prof } = await sb
         .from("profiles")
-        .select("usage_count, usage_limit, plan")
+        .select("usage_count, usage_limit, plan, brand_analysis")
         .eq("id", user.id)
         .single();
       if (prof) {
@@ -77,26 +79,16 @@ export async function POST(request: Request) {
             { status: 403 }
           );
         }
-      }
-    }
-
-    // Fetch user profile for brand_analysis context
-    let brandContext = "";
-    if (sb) {
-      const { data: profileData } = await sb
-        .from("profiles")
-        .select("brand_analysis")
-        .eq("id", user.id)
-        .single();
-      const ba = profileData?.brand_analysis;
-      if (ba && typeof ba === "object") {
-        const pillars = Array.isArray(ba.content_pillars) ? ba.content_pillars.join(", ") : "";
-        const topics = Array.isArray(ba.top_topics) ? ba.top_topics.join(", ") : "";
-        const tone_detected = ba.tone_detected || "";
-        const audience = ba.audience_description || "";
-        const voice = ba.voice_preference || "";
-        if (pillars || topics || tone_detected || audience || voice) {
-          brandContext = `
+        // Extract brand context from same query
+        const ba = prof.brand_analysis as Record<string, unknown> | null;
+        if (ba && typeof ba === "object") {
+          const pillars = Array.isArray(ba.content_pillars) ? (ba.content_pillars as string[]).join(", ") : "";
+          const topics = Array.isArray(ba.top_topics) ? (ba.top_topics as string[]).join(", ") : "";
+          const tone_detected = (ba.tone_detected as string) || "";
+          const audience = (ba.audience_description as string) || "";
+          const voice = (ba.voice_preference as string) || "";
+          if (pillars || topics || tone_detected || audience || voice) {
+            brandContext = `
 USER BRAND CONTEXT (use this to make content sound authentically like this creator, not generic AI):
 - Content pillars: ${pillars || "not specified"}
 - Typical topics: ${topics || "not specified"}
@@ -104,6 +96,7 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
 - Target audience: ${audience || "not specified"}
 - Voice preference: ${voice || "not specified"}
 `;
+          }
         }
       }
     }
@@ -415,62 +408,9 @@ Be honest and critical. Most carousels should score 60-80. Only truly exceptiona
       );
     }
 
-    // 6. Auto-fetch images for every slide IN PARALLEL.
-    // We hit Serper (Google Images) via our own /api/images route proxy using
-    // the imageQuery from each slide. Any slide that fails image fetch keeps
-    // its imageQuery but no imageUrl — the frontend will show a placeholder
-    // and the user can replace via upload/regenerate.
-    try {
-      const origin = new URL(request.url).origin;
-      const authHeader = request.headers.get("authorization") ?? "";
-
-      const allSlideQueries: Array<{ varIdx: number; slideIdx: number; query: string }> = [];
-      result.variations.forEach((variation, vi) => {
-        variation.slides.forEach((slide, si) => {
-          if (slide.imageQuery) {
-            allSlideQueries.push({ varIdx: vi, slideIdx: si, query: slide.imageQuery });
-          }
-        });
-      });
-
-      // De-duplicate queries to save API calls
-      const uniqueQueries = Array.from(new Set(allSlideQueries.map((q) => q.query)));
-      const queryToUrl = new Map<string, string>();
-
-      await Promise.allSettled(
-        uniqueQueries.map(async (q) => {
-          try {
-            const r = await fetch(`${origin}/api/images`, {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                ...(authHeader ? { authorization: authHeader } : {}),
-              },
-              body: JSON.stringify({ query: q, count: 1 }),
-            });
-            if (!r.ok) return;
-            const j = await r.json();
-            const first: string | undefined = j?.images?.[0]?.url || j?.results?.[0]?.url || j?.url;
-            if (first) queryToUrl.set(q, first);
-          } catch {
-            // swallow — slide keeps no imageUrl
-          }
-        })
-      );
-
-      // Stitch URLs back into slides
-      for (const { varIdx, slideIdx, query } of allSlideQueries) {
-        const url = queryToUrl.get(query);
-        if (url) {
-          const slide = result.variations[varIdx].slides[slideIdx] as Slide & {
-            imageUrl?: string;
-          };
-          slide.imageUrl = url;
-        }
-      }
-    } catch (imgErr) {
-      console.warn("[generate] auto-image fetch failed (non-fatal):", imgErr);
-    }
+    // NOTE: Image fetching moved to frontend (client-side) to avoid
+    // Vercel Hobby 10s function timeout. The frontend will fetch images
+    // after receiving the variations, using the imageQuery from each slide.
 
     // Increment usage_count server-side and record generation
     if (sb) {
