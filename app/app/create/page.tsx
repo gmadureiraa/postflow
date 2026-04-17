@@ -570,20 +570,16 @@ function CreatePageContent() {
           } else {
             const errData = await extractRes.json().catch(() => ({ error: "Falha na extração" }));
             console.warn("[extract-source] Falhou:", errData.error);
-            // Don't block — fall back to just the topic text
-            if (!topic.trim()) {
-              setError(errData.error || "Não foi possível extrair o conteúdo da URL. Cole o texto no campo 'Minha ideia'.");
-              setStep("input");
-              return;
-            }
-          }
-        } catch (extractErr) {
-          console.warn("[extract-source] Erro:", extractErr);
-          if (!topic.trim()) {
-            setError("Não foi possível acessar a URL. Cole o conteúdo manualmente no campo 'Minha ideia'.");
+            // Always block on extraction failure for URL sources — don't generate generic concepts
+            setError(errData.error || "Não foi possível extrair o conteúdo da URL. Cole o texto no campo 'Minha ideia'.");
             setStep("input");
             return;
           }
+        } catch (extractErr) {
+          console.warn("[extract-source] Erro:", extractErr);
+          setError("Não foi possível acessar a URL. Cole o conteúdo manualmente no campo 'Minha ideia'.");
+          setStep("input");
+          return;
         }
       }
 

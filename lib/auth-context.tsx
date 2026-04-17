@@ -127,7 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize auth
   useEffect(() => {
     if (!supabase) {
-      // Check if guest mode was previously active
+      console.warn("[auth] Supabase client is null — env vars may not be configured. Guest mode only.");
+      // Only enter guest if explicitly set (not auto-silent)
       const wasGuest = typeof window !== "undefined" && localStorage.getItem("sequencia-viral_guest") === "true";
       if (wasGuest) {
         setIsGuest(true);
