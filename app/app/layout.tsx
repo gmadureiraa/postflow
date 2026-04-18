@@ -15,6 +15,7 @@ import {
   BarChart3,
   Send,
   BookOpen,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { Toaster } from "@/components/ui/sonner";
@@ -38,11 +39,11 @@ function planShortLabel(plan: string | undefined): string {
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Início", icon: LayoutDashboard },
   { href: "/app/create", label: "Criar", icon: PlusCircle },
-  // create-v2 unified into /app/create with template picker
+  { href: "/app/carousels", label: "Carrosséis", icon: FolderOpen },
   { href: "/app/help", label: "Guia", icon: BookOpen },
-  { href: "/app/carousels", label: "Meus carrosséis", icon: FolderOpen },
   { href: "/app/metrics", label: "Métricas", icon: BarChart3, comingSoon: true },
   { href: "/app/publish", label: "Publicar", icon: Send, comingSoon: true },
+  { href: "/app/plans", label: "Assinar", icon: Sparkles, badge: "Pro" },
   { href: "/app/roadmap", label: "Roadmap", icon: Map },
   { href: "/app/settings", label: "Ajustes", icon: Settings },
 ];
@@ -165,13 +166,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
                   key={href}
                   role="link"
                   aria-disabled="true"
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-semibold border border-transparent text-[#0A0A0A]/40 cursor-not-allowed select-none"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold border border-transparent text-[#0A0A0A]/40 cursor-not-allowed select-none"
                   title={`${label} — Em breve`}
                 >
-                  <Icon size={18} />
-                  <span className="flex-1">{label}</span>
-                  <span className="text-[9px] font-black uppercase tracking-widest rounded-full bg-[#0A0A0A]/10 text-[#0A0A0A]/60 px-2 py-0.5">
-                    Em breve
+                  <Icon size={17} className="shrink-0" />
+                  <span className="flex-1 whitespace-nowrap">{label}</span>
+                  <span className="shrink-0 text-[9px] font-black uppercase tracking-wider rounded-full bg-[#0A0A0A]/10 text-[#0A0A0A]/60 px-2 py-0.5">
+                    Soon
                   </span>
                 </div>
               );
@@ -181,17 +182,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-semibold transition-all duration-200 border active:scale-[0.97] ${
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-semibold transition-all duration-200 border active:scale-[0.97] ${
                   active
                     ? "bg-[var(--accent)] text-white border-[#0A0A0A]"
                     : "text-[#0A0A0A]/70 border-transparent hover:bg-white hover:border-[#0A0A0A]/10 hover:text-[#0A0A0A]"
                 }`}
                 style={active ? { boxShadow: "3px 3px 0 0 #0A0A0A" } : {}}
               >
-                <Icon size={18} />
-                <span className="flex-1">{label}</span>
+                <Icon size={17} className="shrink-0" />
+                <span className="flex-1 whitespace-nowrap">{label}</span>
                 {badge && (
-                  <span className={`text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 ${
+                  <span className={`shrink-0 text-[9px] font-black uppercase tracking-wider rounded-full px-2 py-0.5 ${
                     active
                       ? "bg-white/20 text-white"
                       : "bg-[var(--accent)]/10 text-[var(--accent)]"
@@ -214,7 +215,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               Upgrade pra Pro
             </p>
             <Link
-              href="/app/settings"
+              href="/app/plans"
               className="inline-flex items-center gap-1.5 text-[12px] font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition"
             >
               Ver planos →
