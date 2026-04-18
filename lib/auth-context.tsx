@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (p) setProfile(p);
   }, [user, fetchProfile]);
 
-  // Initialize auth — somente sessão Supabase; sem modo convidado
+  // Initialize auth — somente sessão Supabase; sem modo convidado.
   useEffect(() => {
     clearLegacyGuestStorage();
 
@@ -103,56 +103,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn(
         "[auth] Supabase client is null — configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY."
       );
-      queueMicrotask(() => setLoading(false));
+      setLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        fetchProfile(s.user.id).then((p) => {
-          if (p) setProfile(p);
-          setLoading(false);
-        });
-      } else {
-        setProfile(null);
-        setLoading(false);
+    let cancelled = false;
+
+    // Fallback absoluto: mesmo que a promise trave, libera UI em 6s pra
+    // não deixar "Carregando sessão…" preso na tela.
+    const hardTimeout = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 6000);
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        const s = data.session;
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          try {
+            const p = await fetchProfile(s.user.id);
+            if (!cancelled && p) setProfile(p);
+          } catch (err) {
+            console.warn("[auth] fetchProfile falhou:", err);
+          }
+        } else {
+          setProfile(null);
+        }
+      } catch (err) {
+        console.error("[auth] getSession falhou:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    });
+    })();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, s) => {
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      if (cancelled) return;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
         clearLegacyGuestStorage();
-        const p = await fetchProfile(s.user.id);
-        if (p) setProfile(p);
-        // Dispara welcome email (idempotente no backend — 1x por user).
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-          try {
-            await fetch("/api/email/welcome", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${s.access_token}`,
-              },
-            });
-          } catch {
-            /* não bloqueia auth */
-          }
+        void fetchProfile(s.user.id).then((p) => {
+          if (!cancelled && p) setProfile(p);
+        });
+        // Welcome email é idempotente e fire-and-forget (não bloqueia auth).
+        if (event === "SIGNED_IN") {
+          void fetch("/api/email/welcome", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${s.access_token}`,
+            },
+          }).catch(() => {
+            /* ignora */
+          });
         }
-      } else {
+      } else if (event === "SIGNED_OUT") {
         setProfile(null);
-        if (event === "SIGNED_OUT") {
-          clearLegacyGuestStorage();
-        }
+        clearLegacyGuestStorage();
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(hardTimeout);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const signInWithGoogle = useCallback(async () => {

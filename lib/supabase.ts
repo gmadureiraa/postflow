@@ -16,27 +16,19 @@ if (!url || !key) {
  * Singleton do client do browser.
  *
  * Guardado em `globalThis` para sobreviver ao HMR do Next em dev e para não
- * criar mais de uma instância por página (rotas client-side trocam o módulo
- * em alguns edge cases). Duas instâncias competindo pelo mesmo localStorage
- * causam logout aleatório.
+ * criar mais de uma instância por página. Duas instâncias disputando o mesmo
+ * localStorage causam logout aleatório.
+ *
+ * IMPORTANTE: não customizar `auth.storageKey` ou `flowType` aqui — sessões
+ * antigas já estão no key padrão do Supabase, mudar isso invalida o login
+ * de todos os usuários existentes.
  */
 type GlobalWithSb = typeof globalThis & {
   __svSupabase?: SupabaseClient | null;
 };
 const g = globalThis as GlobalWithSb;
 
-function buildClient(): SupabaseClient | null {
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: "pkce",
-      storageKey: "sv-auth",
-    },
-  });
-}
-
 export const supabase: SupabaseClient | null =
-  g.__svSupabase ?? (g.__svSupabase = buildClient());
+  g.__svSupabase !== undefined
+    ? g.__svSupabase
+    : (g.__svSupabase = url && key ? createClient(url, key) : null);
