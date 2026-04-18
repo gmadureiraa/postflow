@@ -2738,22 +2738,6 @@ function CreatePageContent() {
                                   placeholder="Termo de busca"
                                   onClick={(e) => e.stopPropagation()}
                                 />
-                                <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                  <label className="text-[10px] text-zinc-500 shrink-0">Pessoas na foto</label>
-                                  <select
-                                    value={imagePeopleMode}
-                                    onChange={(e) =>
-                                      setImagePeopleMode(e.target.value as ImagePeopleMode)
-                                    }
-                                    className="text-[10px] px-2 py-1 rounded-md border border-[var(--border)] bg-white max-w-[min(100%,220px)]"
-                                    onClick={(e) => e.stopPropagation()}
-                                    title="Afeta busca (stock) e geração (IA)"
-                                  >
-                                    <option value="auto">Automático (tema do slide)</option>
-                                    <option value="with_people">Com pessoas</option>
-                                    <option value="no_people">Sem pessoas</option>
-                                  </select>
-                                </div>
                                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                                   <button
                                     type="button"

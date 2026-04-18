@@ -327,6 +327,9 @@ const CarouselSlide = forwardRef<HTMLDivElement, SlideProps>(
                       marginTop: 8,
                       minHeight: 0,
                       display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: bg,
                     }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -334,10 +337,11 @@ const CarouselSlide = forwardRef<HTMLDivElement, SlideProps>(
                       src={imageUrl}
                       alt={heading}
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        maxHeight: 560,
-                        objectFit: "cover",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        width: "auto",
+                        height: "auto",
+                        objectFit: "contain",
                         display: "block",
                         borderRadius: 24,
                       }}
