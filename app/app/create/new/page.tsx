@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { upsertUserCarousel } from "@/lib/carousel-storage";
-import { makeMockSlides } from "@/lib/create/types";
 
 /**
  * Tela 01 — Nova criação. User escreve brief → persiste rascunho com
@@ -169,13 +168,12 @@ export default function NewCarouselPage() {
     }
     setSubmitting(true);
     try {
-      // Persiste rascunho inicial com metadados (brief vai na variation.style
-      // como hint pra rota /concepts/ saber o tema, tom e idioma).
-      const mockSlides = makeMockSlides(idea, 8);
+      // Persiste rascunho vazio. /concepts auto-dispara Gemini no mount e
+      // popula os slides reais — nenhum mock fica visível pro usuário.
       const { row } = await upsertUserCarousel(supabase, user.id, {
         id: null,
         title: idea.slice(0, 80),
-        slides: mockSlides,
+        slides: [],
         slideStyle: "white",
         status: "draft",
         variation: {

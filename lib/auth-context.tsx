@@ -20,6 +20,10 @@ export interface BrandAnalysis {
   audience_description: string;
   inspirations: string[];
   voice_preference: string;
+  // Campos adicionais coletados no onboarding (opcionais pra retrocompat):
+  voice_samples?: string[];
+  tabus?: string[];
+  content_rules?: string[];
 }
 
 export interface UserProfile {

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import {
   requireAuthenticatedUser,
+  createServiceRoleSupabaseClient,
 } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { geminiWithRetry } from "@/lib/server/gemini-retry";
@@ -37,12 +38,65 @@ function sanitizeHashtag(raw: string): string | null {
   return cleaned;
 }
 
+interface BrandContextParts {
+  voiceSamples: string;
+  tabus: string;
+  contentRules: string;
+  voicePreference: string;
+  audience: string;
+  pillars: string;
+}
+
+function extractBrandParts(
+  ba: Record<string, unknown> | null
+): BrandContextParts {
+  const empty: BrandContextParts = {
+    voiceSamples: "",
+    tabus: "",
+    contentRules: "",
+    voicePreference: "",
+    audience: "",
+    pillars: "",
+  };
+  if (!ba || typeof ba !== "object") return empty;
+  const voiceSamples = Array.isArray(ba.voice_samples)
+    ? (ba.voice_samples as string[])
+        .map((s) => (typeof s === "string" ? s.slice(0, 240) : ""))
+        .filter(Boolean)
+        .join("\n---\n")
+    : "";
+  const tabus = Array.isArray(ba.tabus)
+    ? (ba.tabus as string[]).filter(Boolean).join(", ")
+    : "";
+  const contentRules = Array.isArray(ba.content_rules)
+    ? (ba.content_rules as string[]).filter(Boolean).join("; ")
+    : "";
+  const voicePreference = (ba.voice_preference as string) || "";
+  const audience = (ba.audience_description as string) || "";
+  const pillars = Array.isArray(ba.content_pillars)
+    ? (ba.content_pillars as string[]).filter(Boolean).join(", ")
+    : "";
+  return { voiceSamples, tabus, contentRules, voicePreference, audience, pillars };
+}
+
 function buildSystemPrompt(params: {
   tone: string;
   language: string;
   niche: string;
+  brand: BrandContextParts;
 }): string {
-  const { tone, language, niche } = params;
+  const { tone, language, niche, brand } = params;
+  const brandBlock =
+    brand.voiceSamples ||
+    brand.tabus ||
+    brand.contentRules ||
+    brand.voicePreference ||
+    brand.audience ||
+    brand.pillars
+      ? `
+CONTEXTO DE MARCA (siga religiosamente — melhor legenda genérica do que legenda fora da voz desse criador):
+${brand.pillars ? `- Pilares de conteúdo: ${brand.pillars}\n` : ""}${brand.audience ? `- Audiência-alvo: ${brand.audience}\n` : ""}${brand.voicePreference ? `- Preferência de voz: ${brand.voicePreference}\n` : ""}${brand.voiceSamples ? `- Exemplos de voz (imite ritmo, NÃO copie literalmente):\n${brand.voiceSamples}\n` : ""}${brand.tabus ? `- NUNCA use estas palavras/expressões: ${brand.tabus}\n` : ""}${brand.contentRules ? `- Regras obrigatórias: ${brand.contentRules}\n` : ""}`
+      : "";
   return `Você é um copywriter editorial brasileiro experiente em conteúdo de Instagram/LinkedIn.
 
 Dada uma sequência de slides de carrossel, escreva a LEGENDA do post seguindo:
@@ -67,7 +121,7 @@ BANIDO: emojis decorativos. "descubra como", "o segredo", "você precisa saber",
 TOM: ${tone || "profissional, direto, analítico"}
 IDIOMA: ${language || "pt-BR"}
 NICHO: ${niche || "geral"}
-
+${brandBlock}
 Retorne JSON: { "caption": "texto completo com quebras \\n", "hashtags": ["#a", "#b"] }
 
 Importante:
@@ -160,7 +214,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const systemPrompt = buildSystemPrompt({ tone, language, niche });
+    // Fetch brand context (opcional — se usuário não preencheu, buildSystemPrompt
+    // simplesmente omite o bloco de marca).
+    let brandParts: BrandContextParts = extractBrandParts(null);
+    const sb = createServiceRoleSupabaseClient();
+    if (sb) {
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("brand_analysis")
+        .eq("id", user.id)
+        .single();
+      brandParts = extractBrandParts(
+        (prof?.brand_analysis as Record<string, unknown> | null) ?? null
+      );
+    }
+
+    const systemPrompt = buildSystemPrompt({
+      tone,
+      language,
+      niche,
+      brand: brandParts,
+    });
     const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const userMessage = buildUserMessage(slides, title ?? "", seed);
 

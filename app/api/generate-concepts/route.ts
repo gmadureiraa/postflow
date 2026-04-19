@@ -1,7 +1,60 @@
-import { requireAuthenticatedUser } from "@/lib/server/auth";
+import {
+  requireAuthenticatedUser,
+  createServiceRoleSupabaseClient,
+} from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { geminiWithRetry } from "@/lib/server/gemini-retry";
 import { GoogleGenAI } from "@google/genai";
+
+/**
+ * Constrói o bloco "USER BRAND CONTEXT" a partir de profiles.brand_analysis.
+ * Pattern copiado de /api/generate/route.ts:87-104 + novos campos do onboarding
+ * (voice_samples / tabus / content_rules).
+ */
+function buildBrandContext(ba: Record<string, unknown> | null): string {
+  if (!ba || typeof ba !== "object") return "";
+  const pillars = Array.isArray(ba.content_pillars)
+    ? (ba.content_pillars as string[]).join(", ")
+    : "";
+  const topics = Array.isArray(ba.top_topics)
+    ? (ba.top_topics as string[]).join(", ")
+    : "";
+  const tone_detected = (ba.tone_detected as string) || "";
+  const audience = (ba.audience_description as string) || "";
+  const voice = (ba.voice_preference as string) || "";
+  const samples = Array.isArray(ba.voice_samples)
+    ? (ba.voice_samples as string[])
+        .map((s) => (typeof s === "string" ? s.slice(0, 240) : ""))
+        .filter(Boolean)
+        .join("\n---\n")
+    : "";
+  const tabus = Array.isArray(ba.tabus)
+    ? (ba.tabus as string[]).filter(Boolean).join(", ")
+    : "";
+  const rules = Array.isArray(ba.content_rules)
+    ? (ba.content_rules as string[]).filter(Boolean).join("; ")
+    : "";
+  if (
+    !pillars &&
+    !topics &&
+    !tone_detected &&
+    !audience &&
+    !voice &&
+    !samples &&
+    !tabus &&
+    !rules
+  ) {
+    return "";
+  }
+  return `
+USER BRAND CONTEXT (use this to make content sound authentically like this creator, not generic AI):
+- Content pillars: ${pillars || "not specified"}
+- Typical topics: ${topics || "not specified"}
+- Detected writing tone: ${tone_detected || "not specified"}
+- Target audience: ${audience || "not specified"}
+- Voice preference: ${voice || "not specified"}
+${samples ? `- Voice samples (imite ritmo e estrutura, não copie literalmente):\n${samples}\n` : ""}${tabus ? `- NEVER use these words or phrases: ${tabus}\n` : ""}${rules ? `- Rules to follow strictly: ${rules}\n` : ""}`;
+}
 
 export const maxDuration = 10;
 
@@ -35,6 +88,21 @@ export async function POST(request: Request) {
       return Response.json({ error: "IA não configurada." }, { status: 503 });
     }
 
+    // Brand context do profile (opcional — se usuário não completou onboarding,
+    // brandContext fica vazio e o prompt funciona normalmente).
+    let brandContext = "";
+    const sb = createServiceRoleSupabaseClient();
+    if (sb) {
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("brand_analysis")
+        .eq("id", user.id)
+        .single();
+      brandContext = buildBrandContext(
+        (prof?.brand_analysis as Record<string, unknown> | null) ?? null
+      );
+    }
+
     const langNote = (language || "pt-br").startsWith("pt")
       ? "Responda em português brasileiro coloquial."
       : language === "en" ? "Respond in English." : `Respond in ${language}.`;
@@ -43,7 +111,7 @@ export async function POST(request: Request) {
 
 NICHE: ${niche || "general"}
 TONE: ${tone || "casual"}
-
+${brandContext}
 TOPIC/INPUT: ${topic}
 
 # YOUR JOB

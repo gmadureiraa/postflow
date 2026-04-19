@@ -91,7 +91,19 @@ export async function POST(request: Request) {
           const tone_detected = (ba.tone_detected as string) || "";
           const audience = (ba.audience_description as string) || "";
           const voice = (ba.voice_preference as string) || "";
-          if (pillars || topics || tone_detected || audience || voice) {
+          const voiceSamples = Array.isArray(ba.voice_samples)
+            ? (ba.voice_samples as string[])
+                .map((s) => (typeof s === "string" ? s.slice(0, 240) : ""))
+                .filter(Boolean)
+                .join("\n---\n")
+            : "";
+          const tabus = Array.isArray(ba.tabus)
+            ? (ba.tabus as string[]).filter(Boolean).join(", ")
+            : "";
+          const contentRules = Array.isArray(ba.content_rules)
+            ? (ba.content_rules as string[]).filter(Boolean).join("; ")
+            : "";
+          if (pillars || topics || tone_detected || audience || voice || voiceSamples || tabus || contentRules) {
             brandContext = `
 USER BRAND CONTEXT (use this to make content sound authentically like this creator, not generic AI):
 - Content pillars: ${pillars || "not specified"}
@@ -99,7 +111,7 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
 - Detected writing tone: ${tone_detected || "not specified"}
 - Target audience: ${audience || "not specified"}
 - Voice preference: ${voice || "not specified"}
-`;
+${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalmente):\n${voiceSamples}\n` : ""}${tabus ? `- NEVER use these words or phrases: ${tabus}\n` : ""}${contentRules ? `- Rules to follow strictly: ${contentRules}\n` : ""}`;
           }
         }
       }

@@ -102,6 +102,9 @@ interface OnboardingData {
   inspirations: string[];
   voice_preference: string;
   niche_primary: string;
+  voice_samples: string[];
+  tabus: string[];
+  content_rules: string[];
 }
 
 function initialData(): OnboardingData {
@@ -120,6 +123,9 @@ function initialData(): OnboardingData {
     inspirations: [],
     voice_preference: "",
     niche_primary: "",
+    voice_samples: [],
+    tabus: [],
+    content_rules: [],
   };
 }
 
@@ -151,7 +157,7 @@ const VOICE_TO_TONE: Record<string, string> = {
 export default function OnboardingPage() {
   const router = useRouter();
   const { profile, user, session, updateProfile } = useAuth();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [direction, setDirection] = useState(1);
   const [scraping, setScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
@@ -278,7 +284,7 @@ export default function OnboardingPage() {
     }
   }
 
-  const goStep = useCallback((target: 1 | 2 | 3) => {
+  const goStep = useCallback((target: 1 | 2 | 3 | 4) => {
     setDirection(target > step ? 1 : -1);
     setStep(target);
   }, [step]);
@@ -301,6 +307,9 @@ export default function OnboardingPage() {
         audience_description: data.audience_description || "",
         inspirations: data.inspirations || [],
         voice_preference: data.voice_preference || "",
+        voice_samples: data.voice_samples || [],
+        tabus: data.tabus || [],
+        content_rules: data.content_rules || [],
       };
 
       await updateProfile({
@@ -402,13 +411,13 @@ export default function OnboardingPage() {
           className="hidden items-center gap-2 md:flex"
           aria-label="Progresso do onboarding"
         >
-          {[1, 2, 3].map((n, i) => {
+          {[1, 2, 3, 4].map((n, i) => {
             const state =
               n < step ? "done" : n === step ? "on" : "idle";
             return (
               <div key={n} className="flex items-center gap-2">
                 <button
-                  onClick={() => goStep(n as 1 | 2 | 3)}
+                  onClick={() => goStep(n as 1 | 2 | 3 | 4)}
                   className="flex items-center gap-2 uppercase"
                   style={{
                     fontFamily: "var(--sv-mono)",
@@ -442,7 +451,7 @@ export default function OnboardingPage() {
                   </span>
                   Nº 0{n}
                 </button>
-                {i < 2 && (
+                {i < 3 && (
                   <span
                     aria-hidden
                     style={{
@@ -474,7 +483,7 @@ export default function OnboardingPage() {
 
       {/* Mobile stepper */}
       <div className="md:hidden flex items-center justify-center gap-2 py-3 border-b border-[rgba(10,10,10,.08)]">
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4].map((n) => (
           <span
             key={n}
             style={{
@@ -527,9 +536,18 @@ export default function OnboardingPage() {
                 <StepVoice
                   data={data}
                   update={update}
-                  finishing={finishing}
                   onBack={() => goStep(2)}
+                  onContinue={() => goStep(4)}
+                />
+              )}
+              {step === 4 && (
+                <StepDetails
+                  data={data}
+                  update={update}
+                  finishing={finishing}
+                  onBack={() => goStep(3)}
                   onFinish={() => finish("ideas")}
+                  onSkip={() => finish("ideas")}
                 />
               )}
             </motion.div>
@@ -1171,15 +1189,13 @@ function MiniCard({
 function StepVoice({
   data,
   update,
-  finishing,
   onBack,
-  onFinish,
+  onContinue,
 }: {
   data: OnboardingData;
   update: (d: Partial<OnboardingData>) => void;
-  finishing: boolean;
   onBack: () => void;
-  onFinish: () => void;
+  onContinue: () => void;
 }) {
   const selected = data.voice_preference;
 
@@ -1284,11 +1300,274 @@ function StepVoice({
       <Footer
         back={{ label: "Voltar", onClick: onBack }}
         primary={{
-          label: finishing ? "Salvando…" : "Concluir →",
-          onClick: onFinish,
-          disabled: finishing || !selected,
+          label: "Continuar →",
+          onClick: onContinue,
+          disabled: !selected,
         }}
       />
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Step 4 — Voice Details (opcional, refina a voz da IA)
+// ──────────────────────────────────────────────────────────────────
+function StepDetails({
+  data,
+  update,
+  finishing,
+  onBack,
+  onFinish,
+  onSkip,
+}: {
+  data: OnboardingData;
+  update: (d: Partial<OnboardingData>) => void;
+  finishing: boolean;
+  onBack: () => void;
+  onFinish: () => void;
+  onSkip: () => void;
+}) {
+  const [samplesText, setSamplesText] = useState(
+    data.voice_samples.join("\n\n---\n\n")
+  );
+  const [tabusInput, setTabusInput] = useState("");
+  const [rulesText, setRulesText] = useState(data.content_rules.join("\n"));
+
+  function commitSamples(v: string) {
+    setSamplesText(v);
+    const arr = v
+      .split(/\n\s*---\s*\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    update({ voice_samples: arr });
+  }
+
+  function addTabu() {
+    const t = tabusInput.trim();
+    if (!t) return;
+    if (data.tabus.includes(t)) {
+      setTabusInput("");
+      return;
+    }
+    update({ tabus: [...data.tabus, t].slice(0, 20) });
+    setTabusInput("");
+  }
+
+  function removeTabu(t: string) {
+    update({ tabus: data.tabus.filter((x) => x !== t) });
+  }
+
+  function commitRules(v: string) {
+    setRulesText(v);
+    const arr = v
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    update({ content_rules: arr });
+  }
+
+  return (
+    <div>
+      <Eyebrow>● Nº 04 · Detalhes da voz (opcional)</Eyebrow>
+      <DisplayH1>
+        Ensine a IA a <em className="italic">imitar</em> você.
+      </DisplayH1>
+      <SubLine>
+        Três campos opcionais. Quanto mais você der, menos genérica a IA fica —
+        mas pode pular a qualquer hora.
+      </SubLine>
+
+      {/* Voice samples */}
+      <div className="mb-6">
+        <div
+          className="mb-2 uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Exemplos de voz · 1 a 3 posts que representam você bem
+        </div>
+        <textarea
+          value={samplesText}
+          onChange={(e) => commitSamples(e.target.value)}
+          placeholder="Cole um post inteiro que você curtiu de como saiu. Separe múltiplos com uma linha contendo apenas ---"
+          rows={6}
+          style={{
+            width: "100%",
+            padding: 14,
+            fontFamily: "var(--sv-sans)",
+            fontSize: 13,
+            lineHeight: 1.5,
+            background: "var(--sv-white)",
+            border: "1.5px solid var(--sv-ink)",
+            outline: 0,
+            boxShadow: "3px 3px 0 0 var(--sv-ink)",
+            color: "var(--sv-ink)",
+            resize: "vertical",
+            boxSizing: "border-box",
+          }}
+        />
+        <div
+          className="mt-1.5 uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9,
+            letterSpacing: "0.14em",
+            color: "var(--sv-muted)",
+          }}
+        >
+          {data.voice_samples.length} / 3 exemplos detectados
+        </div>
+      </div>
+
+      {/* Tabus */}
+      <div className="mb-6">
+        <div
+          className="mb-2 uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Palavras ou expressões que você NUNCA usa
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tabusInput}
+            onChange={(e) => setTabusInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTabu();
+              }
+            }}
+            placeholder="Ex: ninja, hack, mindset, game-changer"
+            className="sv-input flex-1"
+            style={{ padding: "10px 12px", fontSize: 13 }}
+          />
+          <button
+            type="button"
+            onClick={addTabu}
+            className="sv-btn sv-btn-ink"
+            style={{ padding: "8px 14px", fontSize: 11 }}
+          >
+            + Adicionar
+          </button>
+        </div>
+        {data.tabus.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.tabus.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => removeTabu(t)}
+                style={{
+                  padding: "5px 10px",
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 11,
+                  border: "1.5px solid var(--sv-ink)",
+                  background: "var(--sv-pink)",
+                  color: "var(--sv-ink)",
+                  cursor: "pointer",
+                }}
+                title="Clique pra remover"
+              >
+                {t} <span style={{ marginLeft: 4, opacity: 0.6 }}>×</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Content rules */}
+      <div className="mb-4">
+        <div
+          className="mb-2 uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Regras pra IA seguir · uma por linha
+        </div>
+        <textarea
+          value={rulesText}
+          onChange={(e) => commitRules(e.target.value)}
+          placeholder={"Sempre citar fonte no último slide.\nSem emojis em títulos.\nFrases curtas, uma ideia por slide.\nNunca começar com \"Você sabia\"."}
+          rows={5}
+          style={{
+            width: "100%",
+            padding: 14,
+            fontFamily: "var(--sv-sans)",
+            fontSize: 13,
+            lineHeight: 1.5,
+            background: "var(--sv-white)",
+            border: "1.5px solid var(--sv-ink)",
+            outline: 0,
+            boxShadow: "3px 3px 0 0 var(--sv-ink)",
+            color: "var(--sv-ink)",
+            resize: "vertical",
+            boxSizing: "border-box",
+          }}
+        />
+        <div
+          className="mt-1.5 uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9,
+            letterSpacing: "0.14em",
+            color: "var(--sv-muted)",
+          }}
+        >
+          {data.content_rules.length} / 10 regras
+        </div>
+      </div>
+
+      <div
+        className="mt-10 flex items-center justify-between gap-3"
+        style={{ borderTop: "1.5px solid var(--sv-ink)", paddingTop: 20 }}
+      >
+        <button
+          onClick={onBack}
+          disabled={finishing}
+          className="sv-btn sv-btn-ghost"
+          style={{ padding: "10px 14px", fontSize: 11, opacity: finishing ? 0.5 : 1 }}
+        >
+          ← Voltar
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onSkip}
+            disabled={finishing}
+            className="sv-btn sv-btn-ghost"
+            style={{ padding: "10px 14px", fontSize: 11, opacity: finishing ? 0.5 : 1 }}
+          >
+            Pular →
+          </button>
+          <button
+            onClick={onFinish}
+            disabled={finishing}
+            className="sv-btn sv-btn-primary"
+            style={{
+              padding: "14px 22px",
+              fontSize: 12,
+              opacity: finishing ? 0.5 : 1,
+            }}
+          >
+            {finishing ? "Salvando…" : "Concluir →"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
