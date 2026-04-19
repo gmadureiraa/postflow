@@ -4,6 +4,10 @@ import {
 } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { assertSafeAndResolve } from "@/lib/server/ssrf-guard";
+import {
+  costForTokens,
+  recordGeneration,
+} from "@/lib/server/generation-log";
 import { GoogleGenAI } from "@google/genai";
 
 export const maxDuration = 45;
@@ -183,6 +187,20 @@ A "aesthetic" vai ser colocada como prefix de prompts tipo: "<aesthetic>. Primar
         .update({ brand_analysis: prev })
         .eq("id", user.id);
     }
+
+    // Log de custo (Gemini Vision multimodal conta tokens input das imagens).
+    const usage = result.usageMetadata;
+    const inputTokens = usage?.promptTokenCount ?? 0;
+    const outputTokens = usage?.candidatesTokenCount ?? 0;
+    await recordGeneration({
+      userId: user.id,
+      model: "gemini-2.5-flash",
+      provider: "google",
+      inputTokens,
+      outputTokens,
+      costUsd: costForTokens("gemini-2.5-flash", inputTokens, outputTokens),
+      promptType: "brand-aesthetic",
+    });
 
     return Response.json({
       aesthetic,

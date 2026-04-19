@@ -8,6 +8,7 @@ import {
 } from "@/lib/carousel-templates";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
+import { costForImages, recordGeneration } from "@/lib/server/generation-log";
 
 const MAX_QUERY_LEN = 500;
 
@@ -179,6 +180,18 @@ export async function POST(request: Request) {
 
           const imageBytes = res.generatedImages?.[0]?.image?.imageBytes;
           if (imageBytes) {
+            // Registra custo Imagen ANTES do upload (se upload falhar, o
+            // custo da API já foi cobrado de qualquer jeito).
+            await recordGeneration({
+              userId: user.id,
+              model: "imagen-4.0-generate-001",
+              provider: "google",
+              inputTokens: 0,
+              outputTokens: 0,
+              costUsd: costForImages("imagen-4.0-generate-001", 1),
+              promptType: "image",
+            });
+
             // Try to upload to Supabase Storage
             const supabase = createServiceRoleSupabaseClient();
             if (supabase) {

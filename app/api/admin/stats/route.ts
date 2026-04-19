@@ -16,6 +16,8 @@ interface UserRow {
   created_at: string | null;
   instagram_handle: string | null;
   twitter_handle: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
 }
 
 interface GenerationRow {
@@ -35,9 +37,29 @@ interface CarouselRow {
   status: string | null;
 }
 
+interface PaymentRow {
+  id: string;
+  user_id: string | null;
+  amount_usd: number | string | null;
+  currency: string | null;
+  method: string | null;
+  status: string | null;
+  plan: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string | null;
+}
+
 /**
  * Dashboard admin — retorna agregados globais + listas recentes pra UI.
  * Acesso restrito a ADMIN_EMAILS (lib/server/auth.ts).
+ *
+ * Payload expandido pra suportar as 5 abas do /app/admin:
+ *  - Overview: summary + dailySeries (últimos 14d)
+ *  - Usuários: users[] com stats
+ *  - Gerações: recentGenerations[]
+ *  - APIs: apiHealth (env presentes + último uso)
+ *  - Assinaturas: subscriptions (MRR, churn, payments)
  */
 export async function GET(request: Request) {
   try {
@@ -52,32 +74,42 @@ export async function GET(request: Request) {
       );
     }
 
-    // Busca paralela: usuários + gerações recentes + carrosséis.
-    const [profilesRes, generationsRes, carouselsRes] = await Promise.all([
-      sb
-        .from("profiles")
-        .select(
-          "id,email,name,plan,usage_count,usage_limit,onboarding_completed,created_at,instagram_handle,twitter_handle"
-        )
-        .order("created_at", { ascending: false })
-        .limit(500),
-      sb
-        .from("generations")
-        .select(
-          "id,user_id,model,provider,input_tokens,output_tokens,cost_usd,prompt_type,created_at"
-        )
-        .order("created_at", { ascending: false })
-        .limit(200),
-      sb.from("carousels").select("user_id,status").limit(5000),
-    ]);
+    // Busca paralela.
+    const [profilesRes, generationsRes, carouselsRes, paymentsRes] =
+      await Promise.all([
+        sb
+          .from("profiles")
+          .select(
+            "id,email,name,plan,usage_count,usage_limit,onboarding_completed,created_at,instagram_handle,twitter_handle,stripe_customer_id,stripe_subscription_id"
+          )
+          .order("created_at", { ascending: false })
+          .limit(500),
+        sb
+          .from("generations")
+          .select(
+            "id,user_id,model,provider,input_tokens,output_tokens,cost_usd,prompt_type,created_at"
+          )
+          .order("created_at", { ascending: false })
+          .limit(1000),
+        sb.from("carousels").select("user_id,status").limit(10000),
+        sb
+          .from("payments")
+          .select(
+            "id,user_id,amount_usd,currency,method,status,plan,period_start,period_end,created_at"
+          )
+          .order("created_at", { ascending: false })
+          .limit(500),
+      ]);
 
     if (profilesRes.error) throw profilesRes.error;
     if (generationsRes.error) throw generationsRes.error;
     if (carouselsRes.error) throw carouselsRes.error;
+    if (paymentsRes.error) throw paymentsRes.error;
 
     const profiles = (profilesRes.data ?? []) as UserRow[];
     const generations = (generationsRes.data ?? []) as GenerationRow[];
     const carousels = (carouselsRes.data ?? []) as CarouselRow[];
+    const payments = (paymentsRes.data ?? []) as PaymentRow[];
 
     // Totais globais
     const totalUsers = profiles.length;
@@ -91,12 +123,15 @@ export async function GET(request: Request) {
     }
 
     const totalGenerations = generations.length;
-    const totalCostUsd = generations.reduce((acc, g) => {
-      const n = typeof g.cost_usd === "string"
-        ? parseFloat(g.cost_usd)
-        : g.cost_usd ?? 0;
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
+    const parseCost = (c: number | string | null | undefined): number => {
+      const n = typeof c === "string" ? parseFloat(c) : c ?? 0;
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const totalCostUsd = generations.reduce(
+      (acc, g) => acc + parseCost(g.cost_usd),
+      0
+    );
     const totalInputTokens = generations.reduce(
       (acc, g) => acc + (g.input_tokens ?? 0),
       0
@@ -106,22 +141,64 @@ export async function GET(request: Request) {
       0
     );
 
+    // Breakdown por provider
     const providerBreakdown: Record<
       string,
-      { count: number; cost: number; tokens: number }
+      { count: number; cost: number; tokens: number; lastUsedAt?: string }
     > = {};
     for (const g of generations) {
       const p = g.provider || "unknown";
-      const cost = typeof g.cost_usd === "string"
-        ? parseFloat(g.cost_usd)
-        : g.cost_usd ?? 0;
+      const cost = parseCost(g.cost_usd);
       const tokens = (g.input_tokens ?? 0) + (g.output_tokens ?? 0);
       if (!providerBreakdown[p]) {
         providerBreakdown[p] = { count: 0, cost: 0, tokens: 0 };
       }
       providerBreakdown[p].count += 1;
-      providerBreakdown[p].cost += Number.isFinite(cost) ? cost : 0;
+      providerBreakdown[p].cost += cost;
       providerBreakdown[p].tokens += tokens;
+      if (!providerBreakdown[p].lastUsedAt && g.created_at) {
+        providerBreakdown[p].lastUsedAt = g.created_at;
+      }
+    }
+
+    // Breakdown por prompt_type (caption, carousel, image, etc).
+    const typeBreakdown: Record<
+      string,
+      { count: number; cost: number; tokens: number }
+    > = {};
+    for (const g of generations) {
+      const t = g.prompt_type || "unknown";
+      const cost = parseCost(g.cost_usd);
+      const tokens = (g.input_tokens ?? 0) + (g.output_tokens ?? 0);
+      if (!typeBreakdown[t]) typeBreakdown[t] = { count: 0, cost: 0, tokens: 0 };
+      typeBreakdown[t].count += 1;
+      typeBreakdown[t].cost += cost;
+      typeBreakdown[t].tokens += tokens;
+    }
+
+    // Série diária de gerações (últimos 14 dias).
+    const dailySeries: Array<{
+      date: string;
+      count: number;
+      cost: number;
+    }> = [];
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today);
+      d.setUTCDate(d.getUTCDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      dailySeries.push({ date: iso, count: 0, cost: 0 });
+    }
+    const byDate = new Map(dailySeries.map((d) => [d.date, d]));
+    for (const g of generations) {
+      if (!g.created_at) continue;
+      const key = g.created_at.slice(0, 10);
+      const bucket = byDate.get(key);
+      if (bucket) {
+        bucket.count += 1;
+        bucket.cost += parseCost(g.cost_usd);
+      }
     }
 
     // Carrosséis por usuário + por status
@@ -132,10 +209,17 @@ export async function GET(request: Request) {
       carouselStatus[s] = (carouselStatus[s] || 0) + 1;
     }
 
-    // Por-usuário aggregates (top 50 mais ativos)
+    // Per-user aggregates
     const perUser: Record<
       string,
-      { carousels: number; generations: number; cost: number; tokens: number }
+      {
+        carousels: number;
+        generations: number;
+        cost: number;
+        tokens: number;
+        payments: number;
+        ltv: number;
+      }
     > = {};
     for (const c of carousels) {
       if (!c.user_id) continue;
@@ -144,6 +228,8 @@ export async function GET(request: Request) {
         generations: 0,
         cost: 0,
         tokens: 0,
+        payments: 0,
+        ltv: 0,
       };
       perUser[c.user_id].carousels += 1;
     }
@@ -154,14 +240,28 @@ export async function GET(request: Request) {
         generations: 0,
         cost: 0,
         tokens: 0,
+        payments: 0,
+        ltv: 0,
       };
-      const cost = typeof g.cost_usd === "string"
-        ? parseFloat(g.cost_usd)
-        : g.cost_usd ?? 0;
       perUser[g.user_id].generations += 1;
-      perUser[g.user_id].cost += Number.isFinite(cost) ? cost : 0;
+      perUser[g.user_id].cost += parseCost(g.cost_usd);
       perUser[g.user_id].tokens +=
         (g.input_tokens ?? 0) + (g.output_tokens ?? 0);
+    }
+    for (const pay of payments) {
+      if (!pay.user_id) continue;
+      perUser[pay.user_id] ??= {
+        carousels: 0,
+        generations: 0,
+        cost: 0,
+        tokens: 0,
+        payments: 0,
+        ltv: 0,
+      };
+      if (pay.status === "confirmed") {
+        perUser[pay.user_id].payments += 1;
+        perUser[pay.user_id].ltv += parseCost(pay.amount_usd);
+      }
     }
 
     const userRows = profiles.map((p) => ({
@@ -171,8 +271,62 @@ export async function GET(request: Request) {
         generations: 0,
         cost: 0,
         tokens: 0,
+        payments: 0,
+        ltv: 0,
       },
     }));
+
+    // Assinaturas / MRR
+    const PRO_PRICE = 89; // R$/mês
+    const BUSINESS_PRICE = 249; // R$/mês
+    const activePaid = profiles.filter(
+      (p) =>
+        (p.plan === "pro" || p.plan === "business") && p.stripe_subscription_id
+    );
+    const mrrBrl =
+      activePaid.filter((p) => p.plan === "pro").length * PRO_PRICE +
+      activePaid.filter((p) => p.plan === "business").length * BUSINESS_PRICE;
+
+    const confirmedPayments = payments.filter((p) => p.status === "confirmed");
+    const failedPayments = payments.filter((p) => p.status === "failed");
+    const totalRevenueUsd = confirmedPayments.reduce(
+      (acc, p) => acc + parseCost(p.amount_usd),
+      0
+    );
+
+    // Churn 30d: contagem de usuários que foram pra free com stripe_subscription_id
+    // ainda setado (indicio de cancelamento). Como downgrade já limpa o ID,
+    // isso ficaria imperfeito — melhor contar payments failed nos últimos 30d.
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const failedIn30d = failedPayments.filter((p) => {
+      if (!p.created_at) return false;
+      return new Date(p.created_at) >= thirtyDaysAgo;
+    }).length;
+
+    // API Health — checa env vars setadas no runtime.
+    const envKey = (name: string): "SET" | "MISSING" =>
+      process.env[name] ? "SET" : "MISSING";
+    const apiHealth = {
+      GEMINI_API_KEY: envKey("GEMINI_API_KEY"),
+      ANTHROPIC_API_KEY: envKey("ANTHROPIC_API_KEY"),
+      SUPABASE_URL: envKey("NEXT_PUBLIC_SUPABASE_URL"),
+      SUPABASE_SERVICE_ROLE_KEY: envKey("SUPABASE_SERVICE_ROLE_KEY"),
+      STRIPE_SECRET_KEY: envKey("STRIPE_SECRET_KEY"),
+      STRIPE_WEBHOOK_SECRET: envKey("STRIPE_WEBHOOK_SECRET"),
+      RESEND_API_KEY: envKey("RESEND_API_KEY"),
+      APIFY_API_KEY: envKey("APIFY_API_KEY"),
+      SERPER_API_KEY: envKey("SERPER_API_KEY"),
+      SUPADATA_API_KEY: envKey("SUPADATA_API_KEY"),
+      CRON_SECRET: envKey("CRON_SECRET"),
+    };
+
+    // Último uso de cada provider (do breakdown já computado).
+    const apiLastUsed: Record<string, string | null> = {
+      google: providerBreakdown.google?.lastUsedAt ?? null,
+      anthropic: providerBreakdown.anthropic?.lastUsedAt ?? null,
+      stripe: payments[0]?.created_at ?? null,
+    };
 
     return Response.json({
       summary: {
@@ -187,8 +341,19 @@ export async function GET(request: Request) {
         carouselStatus,
       },
       providerBreakdown,
+      typeBreakdown,
+      dailySeries,
       users: userRows,
       recentGenerations: generations.slice(0, 100),
+      subscriptions: {
+        activePaidCount: activePaid.length,
+        mrrBrl,
+        totalRevenueUsd: Math.round(totalRevenueUsd * 100) / 100,
+        failedIn30d,
+        recentPayments: payments.slice(0, 50),
+      },
+      apiHealth,
+      apiLastUsed,
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {

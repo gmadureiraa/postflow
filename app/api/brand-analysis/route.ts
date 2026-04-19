@@ -2,6 +2,10 @@ export const maxDuration = 60;
 
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
+import {
+  costForTokens,
+  recordGeneration,
+} from "@/lib/server/generation-log";
 
 interface RecentPost {
   text: string;
@@ -160,6 +164,23 @@ ${postsText || "(no posts available)"}`;
         return Response.json(buildFallbackAnalysis(body));
       }
     }
+
+    // Log de custo — Claude devolve usage no nível do response.
+    const usage = (data.usage ?? {}) as {
+      input_tokens?: number;
+      output_tokens?: number;
+    };
+    const inputTokens = usage.input_tokens ?? 0;
+    const outputTokens = usage.output_tokens ?? 0;
+    await recordGeneration({
+      userId: user.id,
+      model: "claude-sonnet-4-6",
+      provider: "anthropic",
+      inputTokens,
+      outputTokens,
+      costUsd: costForTokens("claude-sonnet-4-6", inputTokens, outputTokens),
+      promptType: "brand-analysis",
+    });
 
     return Response.json(result);
   } catch (error) {

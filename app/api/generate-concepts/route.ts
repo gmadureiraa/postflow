@@ -6,6 +6,10 @@ import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { geminiWithRetry } from "@/lib/server/gemini-retry";
 import { extractContentFromUrl } from "@/lib/url-extractor";
 import { getYouTubeTranscript } from "@/lib/youtube-transcript";
+import {
+  costForTokens,
+  recordGeneration,
+} from "@/lib/server/generation-log";
 import { GoogleGenAI } from "@google/genai";
 
 /**
@@ -241,6 +245,20 @@ Gere exatamente 5 conceitos. Faça cada um tão convincente que o leitor não co
       if (match) parsed = JSON.parse(match[0]);
       else return Response.json({ error: "Failed to parse concepts" }, { status: 502 });
     }
+
+    // Log de custo — concepts usa menos token que carrossel mas soma.
+    const usage = result.usageMetadata;
+    const inputTokens = usage?.promptTokenCount ?? 0;
+    const outputTokens = usage?.candidatesTokenCount ?? 0;
+    await recordGeneration({
+      userId: user.id,
+      model: "gemini-2.5-flash",
+      provider: "google",
+      inputTokens,
+      outputTokens,
+      costUsd: costForTokens("gemini-2.5-flash", inputTokens, outputTokens),
+      promptType: "concepts",
+    });
 
     return Response.json(parsed);
   } catch (error) {

@@ -6,6 +6,10 @@ import {
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { geminiWithRetry } from "@/lib/server/gemini-retry";
 import { getPostHogClient } from "@/lib/posthog-server";
+import {
+  costForTokens,
+  recordGeneration,
+} from "@/lib/server/generation-log";
 
 export const maxDuration = 45;
 
@@ -327,6 +331,17 @@ export async function POST(request: Request) {
 
     const response: CaptionResponse = { caption, hashtags };
 
+    const costUsd = costForTokens("gemini-2.5-flash", inputTokens, outputTokens);
+    await recordGeneration({
+      userId: user.id,
+      model: "gemini-2.5-flash",
+      provider: "google",
+      inputTokens,
+      outputTokens,
+      costUsd,
+      promptType: "caption",
+    });
+
     getPostHogClient().capture({
       distinctId: user.id,
       event: "caption_generated",
@@ -339,6 +354,7 @@ export async function POST(request: Request) {
         hashtag_count: hashtags.length,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
+        cost_usd: costUsd,
       },
     });
 
