@@ -198,7 +198,7 @@ export default function NewCarouselPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className="mx-auto w-full"
-      style={{ maxWidth: 1100, minWidth: 0 }}
+      style={{ maxWidth: 680, minWidth: 0 }}
     >
       {/* eyebrow */}
       <span className="sv-eyebrow">
@@ -238,9 +238,8 @@ export default function NewCarouselPage() {
         cinco ângulos diferentes pra você escolher o caminho.
       </p>
 
-      {/* Split: 2 cols no desktop, 1 col em mobile — min-width 0 impede overflow */}
-      <div className="mt-5 grid gap-5 lg:grid-cols-2" style={{ minWidth: 0 }}>
-        {/* LEFT — brief */}
+      {/* Single column centralizada — sem painel lateral */}
+      <div className="mt-5" style={{ minWidth: 0 }}>
         <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
           <textarea
             value={idea}
@@ -409,125 +408,6 @@ export default function NewCarouselPage() {
             {submitting ? "Preparando..." : "Ver caminhos possíveis →"}
           </button>
         </div>
-
-        {/* RIGHT — preview de como vai funcionar (estático, explicativo) */}
-        <aside
-          style={{
-            padding: 18,
-            background: "var(--sv-ink)",
-            color: "var(--sv-paper)",
-            border: "1.5px solid var(--sv-ink)",
-            boxShadow: "3px 3px 0 0 var(--sv-ink)",
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,.08) 1px, transparent 1.5px)",
-            backgroundSize: "14px 14px",
-            minWidth: 0,
-            height: "fit-content",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "var(--sv-mono)",
-              fontSize: 9,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "var(--sv-green)",
-              marginBottom: 10,
-            }}
-          >
-            ✦ Como funciona
-          </div>
-          <h3
-            style={{
-              fontFamily: "var(--sv-display)",
-              fontSize: 17,
-              lineHeight: 1.15,
-              letterSpacing: "-0.01em",
-              fontWeight: 400,
-              marginBottom: 10,
-            }}
-          >
-            Você escreve. A IA gera <em>cinco ângulos</em>. Você escolhe{" "}
-            <em>um</em> e refina.
-          </h3>
-          <ol
-            style={{
-              paddingLeft: 0,
-              listStyle: "none",
-              display: "grid",
-              gap: 7,
-              marginTop: 10,
-            }}
-          >
-            {[
-              { n: "01", t: "Escreva", d: "Brief livre no box ao lado." },
-              {
-                n: "02",
-                t: "Veja caminhos",
-                d: "A IA devolve 5 ângulos (dado / história / provocação / tutorial / contrarian).",
-              },
-              {
-                n: "03",
-                t: "Escolha um",
-                d: "Clique no ângulo. A IA gera o carrossel completo.",
-              },
-              {
-                n: "04",
-                t: "Pick template",
-                d: "Escolhe o tratamento visual (4 opções).",
-              },
-              {
-                n: "05",
-                t: "Edita e exporta",
-                d: "Refina slide a slide. PNG / PDF.",
-              },
-            ].map((step) => (
-              <li
-                key={step.n}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "32px 1fr",
-                  gap: 8,
-                  alignItems: "start",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--sv-display)",
-                    fontSize: 20,
-                    lineHeight: 1,
-                    color: "var(--sv-green)",
-                  }}
-                >
-                  {step.n}
-                </span>
-                <div>
-                  <div
-                    style={{
-                      fontFamily: "var(--sv-sans)",
-                      fontWeight: 700,
-                      fontSize: 12,
-                      color: "var(--sv-paper)",
-                    }}
-                  >
-                    {step.t}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--sv-sans)",
-                      fontSize: 11,
-                      color: "rgba(247,245,239,0.6)",
-                      lineHeight: 1.4,
-                      marginTop: 1,
-                    }}
-                  >
-                    {step.d}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </aside>
       </div>
     </motion.div>
   );
