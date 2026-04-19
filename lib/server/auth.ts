@@ -1,5 +1,19 @@
 import { createClient, type User } from "@supabase/supabase-js";
 
+/**
+ * Emails com acesso ao painel admin (/app/admin). Lista hardcoded pra
+ * MVP — quando crescer, migrar pra coluna profiles.is_admin.
+ */
+export const ADMIN_EMAILS: readonly string[] = [
+  "gf.madureiraa@gmail.com",
+  "gf.madureira@hotmail.com",
+] as const;
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
+}
+
 function getSupabaseUrl() {
   return process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 }
@@ -88,4 +102,26 @@ export async function requireAuthenticatedUser(
   }
 
   return { ok: true, user: data.user };
+}
+
+/**
+ * Gate pra rotas admin. Requer usuário autenticado COM email na lista
+ * ADMIN_EMAILS. Qualquer outro retorna 403. Uso:
+ *
+ *   const admin = await requireAdmin(request);
+ *   if (!admin.ok) return admin.response;
+ *   const { user } = admin;
+ */
+export async function requireAdmin(
+  request: Request
+): Promise<{ ok: true; user: User } | { ok: false; response: Response }> {
+  const auth = await requireAuthenticatedUser(request);
+  if (!auth.ok) return auth;
+  if (!isAdminEmail(auth.user.email ?? null)) {
+    return {
+      ok: false,
+      response: Response.json({ error: "Acesso negado." }, { status: 403 }),
+    };
+  }
+  return { ok: true, user: auth.user };
 }

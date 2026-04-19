@@ -15,6 +15,7 @@ import {
   BookOpen,
   Sparkles,
   Search,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { Toaster } from "@/components/ui/sonner";
@@ -35,6 +36,19 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/app/roadmap", label: "Roadmap", icon: Map },
   { href: "/app/settings", label: "Ajustes", icon: Settings },
 ];
+
+/** Emails com acesso ao painel admin. Mesma lista do backend. */
+const ADMIN_EMAILS = [
+  "gf.madureiraa@gmail.com",
+  "gf.madureira@hotmail.com",
+];
+
+const ADMIN_NAV_ITEM: NavItem = {
+  href: "/app/admin",
+  label: "Admin",
+  icon: Shield,
+  badge: "Dev",
+};
 
 function planShortLabel(plan: string | undefined): string {
   const p = plan ?? "free";
@@ -209,9 +223,15 @@ function SidebarContent({
         Workspace
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-col gap-[2px]">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, badge }) => {
+      {/* Nav — inclui entrada Admin só pra emails autorizados. */}
+      {(() => {
+        const isAdmin =
+          !!profile?.email &&
+          ADMIN_EMAILS.includes(profile.email.toLowerCase().trim());
+        const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+        return (
+          <nav className="flex flex-col gap-[2px]">
+            {items.map(({ href, label, icon: Icon, badge }) => {
           const active =
             href === "/app" ? pathname === "/app" : pathname.startsWith(href);
           return (
@@ -264,7 +284,9 @@ function SidebarContent({
             </Link>
           );
         })}
-      </nav>
+          </nav>
+        );
+      })()}
 
       {/* Spacer */}
       <div className="flex-1 min-h-[20px]" />
