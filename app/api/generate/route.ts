@@ -334,6 +334,27 @@ Rules:
 6. Every remaining slide defaults to "headline".
 7. A well-designed 8-slide carousel typically looks like: cover → headline → split → headline → photo → headline → quote → cta.
 
+# IMAGE QUERY — cinematic, concrete, tied to THIS slide
+The "imageQuery" field feeds a stock/AI image search. It MUST:
+- Describe a CONCRETE visual scene (what you'd see in a photo), not an abstract concept.
+- Be 3-6 English keywords. No sentences. No punctuation beyond spaces.
+- Be SPECIFIC to THIS slide's content — if the slide talks about burnout,
+  query "tired founder head in hands laptop", NOT "strategy".
+- Prefer human scenes, objects, settings, gestures, textures.
+- For data slides: charts, dashboards, hand pointing at graph, etc.
+- For story slides: person in specific setting (desk, coffee shop, phone).
+- For quote slides: close-up, lighting, silhouette.
+- For CTA: hands interacting, group setting, moment of decision.
+
+BANNED imageQuery words: "strategy", "innovation", "growth", "AI", "future",
+"success", "business", "digital", "mindset", "impact", "transformation".
+These give generic boardroom stock photos.
+
+Good examples:
+  heading "78% dos criadores travam no slide 1" → "hands holding smartphone showing instagram"
+  heading "A virada começa no hook" → "fisherman pulling hook out of river"
+  heading "R$12k perdidos em anúncios" → "crumpled receipts spilling from wallet"
+
 # OUTPUT FORMAT
 Return valid JSON with exactly 3 variations — one in each style (data, story, provocative).
 Each variation is a DISTINCT creative approach to the same topic.
@@ -348,7 +369,7 @@ Shape:
         {
           "heading": "string",
           "body": "string",
-          "imageQuery": "English keywords for stock search",
+          "imageQuery": "3-6 English keywords of a concrete visual scene for THIS slide",
           "variant": "cover" | "headline" | "photo" | "quote" | "split" | "cta"
         }
       ]
