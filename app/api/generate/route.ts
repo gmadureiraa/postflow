@@ -597,6 +597,42 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
       },
     });
 
+    // Primeiro carrossel: dispara email "bem-vindo, salvou" com idempotência
+    // via brand_analysis.__lifecycle.first_carousel_sent_at.
+    if (sb) {
+      try {
+        const { data: profRow } = await sb
+          .from("profiles")
+          .select("email,name,brand_analysis")
+          .eq("id", user.id)
+          .single();
+        const ba = (profRow?.brand_analysis ?? {}) as Record<string, unknown>;
+        const lifecycle = (ba.__lifecycle as Record<string, unknown>) ?? {};
+        const alreadySent = lifecycle.first_carousel_sent_at;
+        if (!alreadySent && profRow?.email) {
+          const { sendFirstCarousel } = await import("@/lib/email/dispatch");
+          const title =
+            result.variations?.[0]?.title?.slice(0, 80) ||
+            (topic || "Seu primeiro carrossel").slice(0, 80);
+          await sendFirstCarousel(
+            { email: profRow.email, name: profRow.name ?? undefined },
+            { carouselTitle: title }
+          );
+          const nextBa = { ...ba };
+          nextBa.__lifecycle = {
+            ...lifecycle,
+            first_carousel_sent_at: new Date().toISOString(),
+          };
+          await sb
+            .from("profiles")
+            .update({ brand_analysis: nextBa })
+            .eq("id", user.id);
+        }
+      } catch (e) {
+        console.warn("[generate] first-carousel email falhou (não bloqueante):", e);
+      }
+    }
+
     return Response.json(result);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

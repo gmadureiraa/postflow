@@ -89,6 +89,31 @@ export async function POST(request: Request) {
 }
 
 async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
+  // Dedup: Stripe retries agressivos geram o mesmo event.id várias vezes.
+  // Sem guard, cada retry duplica emails e payments INSERT. Tenta inserir
+  // o event.id — se der conflito (já processado), retorna 200 sem fazer
+  // nada. Idempotência garantida.
+  try {
+    const { error } = await supabaseAdmin
+      .from("stripe_events_processed")
+      .insert({
+        event_id: event.id,
+        event_type: event.type,
+      });
+    if (error) {
+      // Unique violation = já processado.
+      if (error.code === "23505") {
+        console.info("[stripe webhook] event já processado, skip:", event.id);
+        return Response.json({ ok: true, deduped: true });
+      }
+      // Outro erro (ex: tabela não existe ainda em preview): loga mas
+      // continua processando — não bloqueia negócio por falha de dedup.
+      console.warn("[stripe webhook] dedup insert falhou, seguindo:", error.message);
+    }
+  } catch (err) {
+    console.warn("[stripe webhook] dedup exception, seguindo:", err);
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as {

@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PLANS, FREE_PLAN_USAGE_LIMIT } from "@/lib/pricing";
 import posthog from "posthog-js";
+
+type Interval = "month" | "year";
 
 type PlanCard = {
   id: "free" | "pro" | "business";
@@ -35,42 +38,49 @@ const BUSINESS_FEATURES = [
   "Suporte prioritário",
 ];
 
-const CARDS: PlanCard[] = [
-  {
-    id: "free",
-    number: "01",
-    name: "Grátis",
-    price: "R$ 0",
-    priceNote: "pra sempre",
-    tagline: "Pra testar o fluxo sem compromisso.",
-    features: FREE_FEATURES,
-    ctaLabel: "Começar agora",
-    ctaHref: "/app/login",
-  },
-  {
-    id: "pro",
-    number: "02",
-    name: "Pro",
-    price: "R$ 89",
-    priceNote: "por mês",
-    tagline: "Pra quem posta todo dia.",
-    features: PRO_FEATURES,
-    ctaLabel: "Assinar Pro",
-    ctaHref: "/app/checkout?plan=pro",
-    highlight: true,
-  },
-  {
-    id: "business",
-    number: "03",
-    name: "Agência",
-    price: "R$ 249",
-    priceNote: "por mês",
-    tagline: "Pra times e agências.",
-    features: BUSINESS_FEATURES,
-    ctaLabel: "Assinar Agência",
-    ctaHref: "/app/checkout?plan=business",
-  },
-];
+function buildCards(interval: Interval): PlanCard[] {
+  const annual = interval === "year";
+  return [
+    {
+      id: "free",
+      number: "01",
+      name: "Grátis",
+      price: "R$ 0",
+      priceNote: "pra sempre",
+      tagline: "Pra testar o fluxo sem compromisso.",
+      features: FREE_FEATURES,
+      ctaLabel: "Começar agora",
+      ctaHref: "/app/login",
+    },
+    {
+      id: "pro",
+      number: "02",
+      name: "Pro",
+      price: annual ? "R$ 71,20" : "R$ 89",
+      priceNote: annual ? "por mês · anual R$ 854,40" : "por mês",
+      tagline: annual
+        ? "Pra quem posta todo dia — 20% off no anual."
+        : "Pra quem posta todo dia.",
+      features: PRO_FEATURES,
+      ctaLabel: annual ? "Assinar Pro anual" : "Assinar Pro",
+      ctaHref: `/app/checkout?plan=pro${annual ? "&interval=year" : ""}`,
+      highlight: true,
+    },
+    {
+      id: "business",
+      number: "03",
+      name: "Agência",
+      price: annual ? "R$ 199,20" : "R$ 249",
+      priceNote: annual ? "por mês · anual R$ 2.390,40" : "por mês",
+      tagline: annual
+        ? "Pra times e agências — 20% off no anual."
+        : "Pra times e agências.",
+      features: BUSINESS_FEATURES,
+      ctaLabel: annual ? "Assinar Agência anual" : "Assinar Agência",
+      ctaHref: `/app/checkout?plan=business${annual ? "&interval=year" : ""}`,
+    },
+  ];
+}
 
 const FAQ = [
   {
@@ -83,7 +93,7 @@ const FAQ = [
   },
   {
     q: "Tem plano anual?",
-    a: "Em breve. Enquanto isso, o preço de lançamento continua no mensal, sem fidelidade.",
+    a: "Sim. O anual dá 20% de desconto vs mensal (Pro sai ~R$ 71/mês cobrado anual, Agência ~R$ 199/mês). Mesma flexibilidade: cancele quando quiser, reembolso se cancelar no mês que assinou.",
   },
   {
     q: "Qual a diferença real entre Pro e Agência?",
@@ -94,6 +104,8 @@ const FAQ = [
 export default function PlansPage() {
   const { profile } = useAuth();
   const currentPlan = profile?.plan ?? "free";
+  const [interval, setInterval] = useState<Interval>("month");
+  const CARDS = buildCards(interval);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -134,8 +146,59 @@ export default function PlansPage() {
         </p>
       </motion.div>
 
+      {/* Interval toggle */}
+      <div
+        className="mt-8 inline-flex items-center gap-[2px]"
+        style={{
+          padding: 3,
+          border: "1.5px solid var(--sv-ink)",
+          background: "var(--sv-white)",
+          boxShadow: "3px 3px 0 0 var(--sv-ink)",
+        }}
+      >
+        {(["month", "year"] as const).map((v) => {
+          const on = interval === v;
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setInterval(v)}
+              className="uppercase"
+              style={{
+                padding: "8px 16px",
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10.5,
+                letterSpacing: "0.18em",
+                fontWeight: 700,
+                background: on ? "var(--sv-ink)" : "transparent",
+                color: on ? "var(--sv-paper)" : "var(--sv-ink)",
+                border: "none",
+                cursor: "pointer",
+                transition: "background .15s, color .15s",
+              }}
+            >
+              {v === "month" ? "Mensal" : "Anual"}
+              {v === "year" && (
+                <span
+                  style={{
+                    marginLeft: 6,
+                    padding: "1px 6px",
+                    background: "var(--sv-green)",
+                    color: "var(--sv-ink)",
+                    fontSize: 8.5,
+                    letterSpacing: "0.12em",
+                  }}
+                >
+                  −20%
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Plans grid */}
-      <div className="mt-10 grid gap-6 md:grid-cols-3">
+      <div className="mt-6 grid gap-6 md:grid-cols-3">
         {CARDS.map((card, i) => {
           const isCurrent = currentPlan === card.id;
           const isInk = card.highlight;

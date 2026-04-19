@@ -37,12 +37,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { planId, email, bump, couponCode } = (await request.json()) as {
-      planId?: string;
-      email?: string;
-      bump?: boolean;
-      couponCode?: string;
-    };
+    const { planId, email, bump, couponCode, interval } =
+      (await request.json()) as {
+        planId?: string;
+        email?: string;
+        bump?: boolean;
+        couponCode?: string;
+        interval?: "month" | "year";
+      };
 
     if (!planId || !PLANS[planId as PlanId]) {
       return Response.json({ error: "Invalid plan" }, { status: 400 });
@@ -50,6 +52,12 @@ export async function POST(request: Request) {
 
     const plan = PLANS[planId as PlanId];
     const includeBump = bump === true;
+    const billingInterval: "month" | "year" =
+      interval === "year" ? "year" : "month";
+    const planPrice =
+      billingInterval === "year"
+        ? (plan as { priceAnnual?: number }).priceAnnual ?? plan.priceMonthly * 12
+        : plan.priceMonthly;
 
     // Valida cupom local antes de criar a sessão Stripe.
     // Se o cupom existe, tentamos criar um promotion_code/coupon no Stripe
@@ -118,11 +126,11 @@ export async function POST(request: Request) {
       price_data: {
         currency: "brl",
         product_data: {
-          name: `Sequência Viral ${plan.name}`,
+          name: `Sequência Viral ${plan.name}${billingInterval === "year" ? " (anual)" : ""}`,
           description: plan.features.join(" · "),
         },
-        unit_amount: plan.priceMonthly as number,
-        recurring: { interval: "month" as const },
+        unit_amount: planPrice as number,
+        recurring: { interval: billingInterval },
       },
       quantity: 1,
     };
@@ -151,6 +159,7 @@ export async function POST(request: Request) {
       metadata: {
         userId: user.id,
         planId,
+        interval: billingInterval,
         bump: includeBump ? "autopublish" : "none",
         ...(appliedCouponMeta ? { svCouponCode: appliedCouponMeta.code } : {}),
       },
@@ -159,6 +168,7 @@ export async function POST(request: Request) {
             metadata: {
               userId: user.id,
               planId,
+              interval: billingInterval,
               svCouponCode: appliedCouponMeta.code,
             },
           }
@@ -166,6 +176,7 @@ export async function POST(request: Request) {
             metadata: {
               userId: user.id,
               planId,
+              interval: billingInterval,
             },
           },
       line_items: lineItems,

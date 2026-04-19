@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -87,6 +87,8 @@ function CheckoutContent() {
   const plan = PLAN_META[planParam] || PLAN_META.pro;
 
   const cancelled = searchParams.get("payment") === "cancelled";
+  const intervalParam: "month" | "year" =
+    searchParams.get("interval") === "year" ? "year" : "month";
 
   const [bump, setBump] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -102,6 +104,57 @@ function CheckoutContent() {
     | null
   >(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Auto-aplica cupom vindo de ?coupon= (popup welcome) OU de localStorage
+  // (salvo depois do signup pra sobreviver ao login redirect).
+  useEffect(() => {
+    if (appliedCoupon) return;
+    const urlCoupon = searchParams.get("coupon");
+    let code = urlCoupon?.trim() || "";
+    if (!code && typeof window !== "undefined") {
+      try {
+        code = window.localStorage.getItem("sv_pending_coupon") || "";
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!code) return;
+    setCouponInput(code);
+    // auto-validate e apply
+    void (async () => {
+      setCouponValidating(true);
+      try {
+        const res = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, planId: planParam }),
+        });
+        const data = (await res.json()) as {
+          valid?: boolean;
+          coupon?: {
+            code: string;
+            discountPct?: number | null;
+            discountAmountCents?: number | null;
+          };
+          error?: string;
+        };
+        if (data.valid && data.coupon) {
+          setAppliedCoupon(data.coupon);
+          // Limpa o storage pra não re-aplicar infinitamente.
+          try {
+            window.localStorage.removeItem("sv_pending_coupon");
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        /* silencioso — usuário pode aplicar manual depois */
+      } finally {
+        setCouponValidating(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const subtotal = plan.price + (bump ? BUMP_META.priceCents : 0);
   const anchorTotal = plan.anchorPrice + (bump ? BUMP_META.priceCents : 0);
@@ -177,6 +230,7 @@ function CheckoutContent() {
         },
         body: JSON.stringify({
           planId: planParam,
+          interval: intervalParam,
           email: user?.email || profile?.email || "",
           bump,
           couponCode: appliedCoupon?.code || undefined,

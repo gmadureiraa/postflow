@@ -22,6 +22,9 @@ export type SendEmailArgs = {
   replyTo?: string;
   /** Tags opcionais para filtrar no dashboard do Resend. */
   tags?: { name: string; value: string }[];
+  /** Plain text fallback — clientes sem HTML veem isso. Se omitido,
+   *  o Resend deriva do HTML renderizado (pior qualidade). */
+  text?: string;
 };
 
 /**
@@ -43,6 +46,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<string | null> {
       to: args.to,
       subject: args.subject,
       react: args.react,
+      text: args.text,
       replyTo: args.replyTo || DEFAULT_REPLY_TO,
       tags: args.tags,
     });

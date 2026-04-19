@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { REVEAL, SectionHead } from "./shared";
+
+type Interval = "month" | "year";
 
 function PlanCard({
   ribbon,
@@ -17,6 +20,7 @@ function PlanCard({
   ctaHref,
   ctaVariant,
   featured = false,
+  annualSaving,
 }: {
   ribbon: string;
   ribbonVariant: "free" | "pro" | "biz";
@@ -30,6 +34,7 @@ function PlanCard({
   ctaHref: string;
   ctaVariant: "primary" | "outline";
   featured?: boolean;
+  annualSaving?: string;
 }) {
   const ribbonBg =
     ribbonVariant === "free"
@@ -144,6 +149,21 @@ function PlanCard({
             </span>
           )}
         </div>
+        {annualSaving && (
+          <div
+            className="mt-1"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--sv-green)",
+              fontWeight: 700,
+            }}
+          >
+            {annualSaving}
+          </div>
+        )}
       </div>
       <ul className="flex flex-col gap-2" style={{ fontSize: 13 }}>
         {features.map((f) => (
@@ -163,7 +183,81 @@ function PlanCard({
   );
 }
 
+function IntervalToggle({
+  interval,
+  onChange,
+}: {
+  interval: Interval;
+  onChange: (i: Interval) => void;
+}) {
+  return (
+    <motion.div
+      {...REVEAL}
+      className="mb-8 inline-flex items-center gap-[2px]"
+      style={{
+        padding: 3,
+        border: "1.5px solid var(--sv-ink)",
+        background: "var(--sv-white)",
+        boxShadow: "3px 3px 0 0 var(--sv-ink)",
+      }}
+    >
+      {(["month", "year"] as const).map((v) => {
+        const on = interval === v;
+        return (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            className="uppercase"
+            style={{
+              padding: "8px 16px",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 10.5,
+              letterSpacing: "0.18em",
+              fontWeight: 700,
+              background: on ? "var(--sv-ink)" : "transparent",
+              color: on ? "var(--sv-paper)" : "var(--sv-ink)",
+              border: "none",
+              cursor: "pointer",
+              transition: "background .15s, color .15s",
+              position: "relative",
+            }}
+          >
+            {v === "month" ? "Mensal" : "Anual"}
+            {v === "year" && (
+              <span
+                style={{
+                  marginLeft: 6,
+                  padding: "1px 6px",
+                  background: on ? "var(--sv-green)" : "var(--sv-green)",
+                  color: "var(--sv-ink)",
+                  fontSize: 8.5,
+                  letterSpacing: "0.12em",
+                }}
+              >
+                −20%
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </motion.div>
+  );
+}
+
 export function PricingSection() {
+  const [interval, setInterval] = useState<Interval>("month");
+  const isAnnual = interval === "year";
+
+  // Preços calculados em BRL a partir da config.
+  const proMonth = "R$ 89";
+  const proAnnualMonthlyEq = "R$ 71,20"; // R$ 854,40/12
+  const proYearTotal = "R$ 854,40/ano";
+
+  const agencyMonth = "R$ 249";
+  const agencyAnnualMonthlyEq = "R$ 199,20"; // R$ 2.390,40/12
+  const agencyYearTotal = "R$ 2.390,40/ano";
+
   return (
     <section id="pricing" style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
@@ -171,6 +265,8 @@ export function PricingSection() {
           Preço <em>honesto</em>.{" "}
           <span style={{ color: "var(--sv-muted)" }}>Cancele quando quiser.</span>
         </SectionHead>
+
+        <IntervalToggle interval={interval} onChange={setInterval} />
 
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
           <PlanCard
@@ -196,8 +292,10 @@ export function PricingSection() {
             ribbonVariant="pro"
             tag="Pra criador solo"
             title="Pro"
-            price="R$ 89"
+            price={isAnnual ? proAnnualMonthlyEq : proMonth}
             unit="/mês"
+            anchor={isAnnual ? "R$ 89/mês no mensal" : "R$ 149"}
+            annualSaving={isAnnual ? `Cobrado ${proYearTotal}` : undefined}
             features={[
               "30 carrosséis/mês",
               "Voz da IA configurável",
@@ -207,16 +305,18 @@ export function PricingSection() {
               "Transcrição de vídeos",
               "Histórico completo",
             ]}
-            cta="Assinar Pro →"
-            ctaHref="/app/checkout?plan=pro"
+            cta={isAnnual ? "Assinar Pro anual →" : "Assinar Pro →"}
+            ctaHref={`/app/checkout?plan=pro${isAnnual ? "&interval=year" : ""}`}
             ctaVariant="primary"
           />
           <PlanCard
             ribbon="Pra agências e times"
             ribbonVariant="biz"
             title="Agência"
-            price="R$ 249"
+            price={isAnnual ? agencyAnnualMonthlyEq : agencyMonth}
             unit="/mês"
+            anchor={isAnnual ? "R$ 249/mês no mensal" : undefined}
+            annualSaving={isAnnual ? `Cobrado ${agencyYearTotal}` : undefined}
             features={[
               "Carrosséis ilimitados",
               "10 perfis de marca",
@@ -226,8 +326,8 @@ export function PricingSection() {
               "Suporte prioritário",
               "API (em breve)",
             ]}
-            cta="Assinar Agência"
-            ctaHref="/app/checkout?plan=agency"
+            cta={isAnnual ? "Assinar Agência anual" : "Assinar Agência"}
+            ctaHref={`/app/checkout?plan=agency${isAnnual ? "&interval=year" : ""}`}
             ctaVariant="outline"
           />
         </div>

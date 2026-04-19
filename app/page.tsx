@@ -13,6 +13,7 @@ import { TestimonialsSection } from "@/components/landing/testimonials-section";
 import { FAQSection } from "@/components/landing/faq-section";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
+import { WelcomePopup } from "@/components/landing/welcome-popup";
 
 /* ─────────────────────────────────────────────────────────────────
    Sequência Viral — Landing brutalist editorial (Kaleidos Digital)
@@ -46,6 +47,7 @@ export default function HomePage() {
       <FAQSection />
       <FinalCTA />
       <Footer />
+      <WelcomePopup />
     </main>
   );
 }

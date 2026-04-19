@@ -20,6 +20,23 @@ export default function LoginPage() {
     signUpWithEmail,
   } = useAuth();
 
+  // Se veio um `?coupon=BEMVINDO30` do popup, salva em localStorage
+  // pra o /app/checkout recuperar depois (sobrevive ao signup+redirect).
+  // Lemos via window.location pra não depender de useSearchParams (que
+  // obrigaria Suspense wrapping — mais complexo pra uma feature lateral).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const c = params.get("coupon");
+      if (c && c.trim()) {
+        window.localStorage.setItem("sv_pending_coupon", c.trim());
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   // Se usuário já tem sessão, redireciona direto pro app.
   useEffect(() => {
     if (!authLoading && user && session?.access_token) {
