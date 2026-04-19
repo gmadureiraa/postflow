@@ -128,7 +128,9 @@ export default function PreviewPage(props: {
     error: captionError,
   } = useCaption(session);
 
-  // Hidrata legenda e hashtags salvos no draft quando ele carregar.
+  // Hidrata legenda e hashtags salvos no draft quando ele carregar. Roda
+  // apenas uma vez por draft.id — não depende de slides/hash pra não
+  // re-hidratar sempre que o usuário edita.
   const hydratedDraftIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!draft) return;
@@ -140,16 +142,28 @@ export default function PreviewPage(props: {
     if (Array.isArray(draft.captionHashtags) && draft.captionHashtags.length > 0) {
       setHashtags(draft.captionHashtags);
     }
-    // Confere se a legenda que carregamos foi gerada pros slides atuais.
-    if (hashStorageKey && typeof window !== "undefined" && draft.caption?.trim()) {
-      try {
-        const saved = window.localStorage.getItem(hashStorageKey);
-        if (saved && currentSlidesHash && saved !== currentSlidesHash) {
-          setCaptionStale(true);
-        }
-      } catch {
-        // storage bloqueado — OK, skip detection
+  }, [draft]);
+
+  // Detecta legenda "stale": roda quando slides mudam ou draft muda. Se o
+  // hash persistido no localStorage não bate com o hash atual dos slides,
+  // a legenda foi gerada pra outro conjunto — exibe banner pra o usuário
+  // decidir regenerar.
+  useEffect(() => {
+    if (!draft) return;
+    if (!hashStorageKey || typeof window === "undefined") return;
+    if (!draft.caption?.trim()) {
+      setCaptionStale(false);
+      return;
+    }
+    try {
+      const saved = window.localStorage.getItem(hashStorageKey);
+      if (saved && currentSlidesHash && saved !== currentSlidesHash) {
+        setCaptionStale(true);
+      } else {
+        setCaptionStale(false);
       }
+    } catch {
+      /* storage bloqueado */
     }
   }, [draft, hashStorageKey, currentSlidesHash]);
 
@@ -262,13 +276,28 @@ export default function PreviewPage(props: {
     }
   }
 
+  // Debounce imperativo pra salvar caption editado manualmente (1500ms).
+  // Usa ref + setTimeout ao invés de state + useEffect pra eliminar a
+  // race condition entre setState batching e o effect que persiste.
+  const captionSaveTimerRef = useRef<number | null>(null);
   function handleCaptionChange(value: string) {
     const trimmed = value.slice(0, 4000);
     setCaption(trimmed);
-    // Persistência oportunista: salva só quando o usuário para de digitar
-    // (debounce simples via state + effect abaixo).
-    setDirtyCaption(true);
+    if (captionSaveTimerRef.current !== null) {
+      window.clearTimeout(captionSaveTimerRef.current);
+    }
+    captionSaveTimerRef.current = window.setTimeout(() => {
+      captionSaveTimerRef.current = null;
+      void persistCaption(trimmed, hashtags);
+    }, 1500);
   }
+  useEffect(() => {
+    return () => {
+      if (captionSaveTimerRef.current !== null) {
+        window.clearTimeout(captionSaveTimerRef.current);
+      }
+    };
+  }, []);
 
   function handleCopyHashtag(tag: string) {
     try {
@@ -304,16 +333,6 @@ export default function PreviewPage(props: {
     }
   }
 
-  // Debounce pra salvar caption editado manualmente (1500ms)
-  const [dirtyCaption, setDirtyCaption] = useState(false);
-  useEffect(() => {
-    if (!dirtyCaption) return;
-    const t = window.setTimeout(() => {
-      setDirtyCaption(false);
-      void persistCaption(caption, hashtags);
-    }, 1500);
-    return () => window.clearTimeout(t);
-  }, [dirtyCaption, caption, hashtags, persistCaption]);
 
   async function handleCopyCaptionForIG() {
     const tagsLine = hashtags.join(" ");

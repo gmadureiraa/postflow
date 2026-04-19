@@ -23,6 +23,7 @@ import type { SlideVariant } from "@/lib/create/types";
  */
 function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
   const total = slides.length;
+  if (total === 0) return slides;
   const rotation: SlideVariant[] = [
     "headline",
     "split",
@@ -35,6 +36,8 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
   ];
   return slides.map((s, i) => {
     if (s.variant) return s;
+    // Edge case: 1 slide → é capa; 2 slides → capa + CTA.
+    if (total === 1) return { ...s, variant: "cover" as const };
     if (i === 0) return { ...s, variant: "cover" as const };
     if (i === total - 1) return { ...s, variant: "cta" as const };
     return { ...s, variant: rotation[(i - 1) % rotation.length] };

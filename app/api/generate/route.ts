@@ -45,6 +45,8 @@ const VALID_VARIANTS: readonly SlideVariant[] = [
  * visual (headline domina, com photo/split/quote como quebras de ritmo).
  */
 function fallbackVariant(index: number, total: number): SlideVariant {
+  // Edge: 1 slide → só cover; 2 slides → cover + cta.
+  if (total <= 1) return "cover";
   if (index === 0) return "cover";
   if (index === total - 1) return "cta";
   const middle = index - 1;
@@ -451,20 +453,43 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
       );
     }
 
-    // 5b. Normalize variants — modelo às vezes esquece ou manda valor fora da lista.
-    //     Força slide 1 = cover, último = cta, e aplica rotação no meio pra evitar
-    //     monotonia visual no editor.
+    // 5b. Normalize + sanitize slides:
+    //     - variant: força distribuição narrativa (slide 1 = cover, último = cta,
+    //       meio rotaciona). Trata edge de 1-2 slides.
+    //     - heading/body: se Gemini esqueceu, preenche fallback pra não crashar
+    //       o TemplateRenderer no cliente.
     for (const variation of result.variations) {
       if (!variation?.slides || !Array.isArray(variation.slides)) continue;
       const total = variation.slides.length;
-      variation.slides = variation.slides.map((s, i) => ({
-        ...s,
-        variant: (i === 0
-          ? "cover"
-          : i === total - 1
-            ? "cta"
-            : normalizeVariant((s as { variant?: unknown }).variant, i, total)),
-      }));
+      variation.slides = variation.slides.map((s, i) => {
+        const raw = s as {
+          heading?: unknown;
+          body?: unknown;
+          imageQuery?: unknown;
+          variant?: unknown;
+        };
+        const heading =
+          typeof raw.heading === "string" && raw.heading.trim()
+            ? raw.heading
+            : "(sem título)";
+        const body =
+          typeof raw.body === "string" && raw.body.trim()
+            ? raw.body
+            : "";
+        const imageQuery =
+          typeof raw.imageQuery === "string" ? raw.imageQuery : "";
+        let variant: SlideVariant;
+        if (total <= 1) {
+          variant = "cover";
+        } else if (i === 0) {
+          variant = "cover";
+        } else if (i === total - 1) {
+          variant = "cta";
+        } else {
+          variant = normalizeVariant(raw.variant, i, total);
+        }
+        return { heading, body, imageQuery, variant };
+      });
     }
 
     // Record generation with real token counts (usage already incremented above)
