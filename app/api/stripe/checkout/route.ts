@@ -1,6 +1,7 @@
 import { stripe, PLANS, PlanId, AUTOPUBLISH_BUMP } from "@/lib/stripe";
-import { getAuthenticatedUser } from "@/lib/server/auth";
+import { getAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
+import type Stripe from "stripe";
 
 const ALLOWED_ORIGINS = [
   "https://viral.kaleidos.com.br",
@@ -36,7 +37,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { planId, email, bump } = await request.json();
+    const { planId, email, bump, couponCode } = (await request.json()) as {
+      planId?: string;
+      email?: string;
+      bump?: boolean;
+      couponCode?: string;
+    };
 
     if (!planId || !PLANS[planId as PlanId]) {
       return Response.json({ error: "Invalid plan" }, { status: 400 });
@@ -44,6 +50,69 @@ export async function POST(request: Request) {
 
     const plan = PLANS[planId as PlanId];
     const includeBump = bump === true;
+
+    // Valida cupom local antes de criar a sessão Stripe.
+    // Se o cupom existe, tentamos criar um promotion_code/coupon no Stripe
+    // e aplicar via `discounts`. Se Stripe falhar, apenas log e segue sem.
+    let appliedStripeCouponId: string | null = null;
+    let appliedCouponMeta: { code: string; discountPct?: number | null; discountAmountCents?: number | null } | null = null;
+    if (typeof couponCode === "string" && couponCode.trim()) {
+      const sb = createServiceRoleSupabaseClient();
+      if (sb) {
+        const { data: coupon } = await sb
+          .from("coupons")
+          .select("id,code,discount_pct,discount_amount_cents,currency,max_uses,used_count,expires_at,active,plan_scope")
+          .ilike("code", couponCode.trim())
+          .maybeSingle();
+
+        type CouponRow = {
+          id: string;
+          code: string;
+          discount_pct: number | null;
+          discount_amount_cents: number | null;
+          currency: string;
+          max_uses: number | null;
+          used_count: number | null;
+          expires_at: string | null;
+          active: boolean;
+          plan_scope: string[] | null;
+        };
+        const row = coupon as CouponRow | null;
+
+        const valid =
+          !!row &&
+          row.active &&
+          (!row.expires_at || new Date(row.expires_at).getTime() > Date.now()) &&
+          (!row.max_uses || (row.used_count ?? 0) < row.max_uses) &&
+          (!row.plan_scope || row.plan_scope.length === 0 || row.plan_scope.includes(planId));
+
+        if (valid && row) {
+          try {
+            const stripeCoupon = await stripe.coupons.create({
+              name: `SV ${row.code}`,
+              duration: "once",
+              ...(row.discount_pct
+                ? { percent_off: row.discount_pct }
+                : { amount_off: row.discount_amount_cents ?? 0, currency: (row.currency || "usd").toLowerCase() }),
+              metadata: {
+                sv_coupon_id: row.id,
+                sv_coupon_code: row.code,
+              },
+            });
+            appliedStripeCouponId = stripeCoupon.id;
+            appliedCouponMeta = {
+              code: row.code,
+              discountPct: row.discount_pct,
+              discountAmountCents: row.discount_amount_cents,
+            };
+          } catch (err) {
+            console.warn("[checkout] falha criando coupon no Stripe, seguindo sem desconto:", err);
+          }
+        } else if (row) {
+          console.warn("[checkout] cupom inválido/expirado:", row.code);
+        }
+      }
+    }
 
     const planItem = {
       price_data: {
@@ -72,7 +141,9 @@ export async function POST(request: Request) {
     const lineItems = includeBump ? [planItem, bumpItem] : [planItem];
 
     // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    // Se aplicamos um cupom local, passa via `discounts` (incompatível com
+    // `allow_promotion_codes` — o cliente pediu um específico).
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       payment_method_types: ["card"],
       customer_email: email || user.email || undefined,
@@ -81,14 +152,35 @@ export async function POST(request: Request) {
         userId: user.id,
         planId,
         bump: includeBump ? "autopublish" : "none",
+        ...(appliedCouponMeta ? { svCouponCode: appliedCouponMeta.code } : {}),
       },
+      subscription_data: appliedCouponMeta
+        ? {
+            metadata: {
+              userId: user.id,
+              planId,
+              svCouponCode: appliedCouponMeta.code,
+            },
+          }
+        : {
+            metadata: {
+              userId: user.id,
+              planId,
+            },
+          },
       line_items: lineItems,
       success_url: `${ALLOWED_ORIGINS.includes(request.headers.get("origin") || "") ? request.headers.get("origin") : DEFAULT_ORIGIN}/app/settings?payment=success&plan=${planId}${includeBump ? "&bump=1" : ""}`,
       cancel_url: `${ALLOWED_ORIGINS.includes(request.headers.get("origin") || "") ? request.headers.get("origin") : DEFAULT_ORIGIN}/app/checkout?plan=${planId}&payment=cancelled`,
-      allow_promotion_codes: true,
-    });
+    };
+    if (appliedStripeCouponId) {
+      sessionParams.discounts = [{ coupon: appliedStripeCouponId }];
+    } else {
+      sessionParams.allow_promotion_codes = true;
+    }
 
-    return Response.json({ url: session.url });
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    return Response.json({ url: session.url, coupon: appliedCouponMeta });
   } catch (error) {
     console.error("Stripe checkout error:", error);
     return Response.json(

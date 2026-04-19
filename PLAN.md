@@ -99,9 +99,9 @@
 
 ### 2.8 Checkout (`/app/checkout`)
 - [x] Funcional com Stripe live
-- [ ] **Cupom de desconto** input
-- [ ] **Garantia 7 dias** destacada
-- [ ] Fallback se Stripe falhar: formulário para contato via email
+- [x] **Cupom de desconto** input — usa `/api/coupons/validate` + passa pro /api/stripe/checkout que cria coupon dinâmico no Stripe; webhook registra redemption e incrementa `used_count`
+- [x] **Garantia 7 dias** destacada — card emerald no resumo
+- [x] Fallback se Stripe falhar: link mailto com assunto pré-preenchido no erro
 
 ### 2.9 Settings (`/app/settings`)
 - [x] 7 abas (Perfil, Branding, Redes, Voz IA, Notificações, Plano, Segurança)

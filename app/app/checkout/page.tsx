@@ -91,10 +91,66 @@ function CheckoutContent() {
   const [bump, setBump] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<
+    | {
+        code: string;
+        discountPct?: number | null;
+        discountAmountCents?: number | null;
+      }
+    | null
+  >(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   const subtotal = plan.price + (bump ? BUMP_META.priceCents : 0);
   const anchorTotal = plan.anchorPrice + (bump ? BUMP_META.priceCents : 0);
   const savings = anchorTotal - subtotal;
+
+  const couponDiscountCents = appliedCoupon
+    ? appliedCoupon.discountAmountCents
+      ? appliedCoupon.discountAmountCents
+      : appliedCoupon.discountPct
+        ? Math.round((subtotal * appliedCoupon.discountPct) / 100)
+        : 0
+    : 0;
+
+  async function handleApplyCoupon() {
+    setCouponError(null);
+    const code = couponInput.trim();
+    if (!code) {
+      setCouponError("Digite um código.");
+      return;
+    }
+    setCouponValidating(true);
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, planId: planParam }),
+      });
+      const data = (await res.json()) as {
+        valid?: boolean;
+        coupon?: {
+          code: string;
+          discountPct?: number | null;
+          discountAmountCents?: number | null;
+        };
+        error?: string;
+      };
+      if (!data.valid || !data.coupon) {
+        setCouponError(data.error || "Cupom inválido.");
+        setAppliedCoupon(null);
+      } else {
+        setAppliedCoupon(data.coupon);
+        setCouponError(null);
+      }
+    } catch {
+      setCouponError("Não consegui validar. Tenta de novo.");
+    } finally {
+      setCouponValidating(false);
+    }
+  }
 
   async function handleSubmit() {
     setError(null);
@@ -123,6 +179,7 @@ function CheckoutContent() {
           planId: planParam,
           email: user?.email || profile?.email || "",
           bump,
+          couponCode: appliedCoupon?.code || undefined,
         }),
       });
       const data = await res.json();
@@ -355,6 +412,64 @@ function CheckoutContent() {
                   <span>{plan.discountLabel}</span>
                   <span>-{formatPrice(savings)}</span>
                 </div>
+
+                {/* Coupon input */}
+                <div className="mt-4">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-800">
+                      <span>
+                        Cupom <strong>{appliedCoupon.code}</strong>{" "}
+                        {appliedCoupon.discountPct
+                          ? `(-${appliedCoupon.discountPct}%)`
+                          : appliedCoupon.discountAmountCents
+                            ? `(-${formatPrice(appliedCoupon.discountAmountCents)})`
+                            : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAppliedCoupon(null);
+                          setCouponInput("");
+                        }}
+                        className="text-emerald-700 hover:underline"
+                      >
+                        remover
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5">
+                        Cupom de desconto
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponInput}
+                          onChange={(e) =>
+                            setCouponInput(e.target.value.toUpperCase())
+                          }
+                          placeholder="BETA50"
+                          className="flex-1 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-mono uppercase tracking-wider focus:border-[var(--accent)] focus:outline-none"
+                          disabled={couponValidating}
+                          maxLength={32}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={couponValidating || !couponInput.trim()}
+                          className="rounded-xl border border-black/10 bg-white px-4 py-2 text-xs font-bold text-zinc-900 transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
+                        >
+                          {couponValidating ? "..." : "Aplicar"}
+                        </button>
+                      </div>
+                      {couponError && (
+                        <p className="mt-1.5 text-[11px] font-semibold text-red-600">
+                          {couponError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="p-6">
@@ -371,10 +486,34 @@ function CheckoutContent() {
                   </div>
                 </div>
 
+                {/* Garantia 7 dias */}
+                <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 px-3 py-2.5">
+                  <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-emerald-700">
+                      Garantia de 7 dias
+                    </p>
+                    <p className="text-[11px] text-emerald-900/80">
+                      Se não rolar, devolvemos 100% do valor. Sem pergunta.
+                    </p>
+                  </div>
+                </div>
+
                 {error && (
-                  <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-                    {error}
-                  </p>
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs">
+                    <p className="font-semibold text-red-700">{error}</p>
+                    <a
+                      href={`mailto:madureira@kaleidosdigital.com?subject=${encodeURIComponent(
+                        "Sequência Viral — Falha no checkout"
+                      )}&body=${encodeURIComponent(
+                        `Olá, tentei assinar o plano ${plan.name} (${formatPrice(plan.price)}/mês)` +
+                          ` e o checkout falhou. Plano: ${planParam}.`
+                      )}`}
+                      className="mt-1 inline-block font-semibold text-red-900 underline"
+                    >
+                      Falar com a gente por email →
+                    </a>
+                  </div>
                 )}
 
                 <button

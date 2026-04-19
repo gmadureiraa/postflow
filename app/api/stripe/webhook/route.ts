@@ -73,14 +73,16 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as {
-        metadata?: { userId?: string; planId?: string };
+        metadata?: { userId?: string; planId?: string; svCouponCode?: string };
         subscription?: string;
         customer?: string;
         customer_email?: string;
+        id?: string;
       };
 
       const userId = session.metadata?.userId;
       const planId = session.metadata?.planId;
+      const svCouponCode = session.metadata?.svCouponCode;
       const customerId = typeof session.customer === "string" ? session.customer : null;
       const subscriptionId =
         typeof session.subscription === "string" ? session.subscription : null;
@@ -129,6 +131,33 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
             stripe_subscription_id: subscriptionId,
           },
         });
+
+        // Se a sessão trouxe um svCouponCode, registra a redemption e
+        // incrementa atomicamente o contador de uso. Não bloqueia upgrade se falhar.
+        if (svCouponCode) {
+          try {
+            const { data: couponRow } = await supabaseAdmin
+              .from("coupons")
+              .select("id,discount_pct,discount_amount_cents")
+              .ilike("code", svCouponCode)
+              .maybeSingle();
+            if (couponRow?.id) {
+              await supabaseAdmin.rpc("increment_coupon_use", {
+                coupon_id: couponRow.id,
+              });
+              await supabaseAdmin.from("coupon_redemptions").insert({
+                coupon_id: couponRow.id,
+                user_id: userId,
+                code: svCouponCode,
+                discount_pct: couponRow.discount_pct,
+                discount_amount_cents: couponRow.discount_amount_cents,
+                stripe_session_id: session.id,
+              });
+            }
+          } catch (e) {
+            console.warn("[stripe webhook] falha ao contabilizar cupom:", e);
+          }
+        }
 
         // Email de confirmação (não bloqueia o webhook)
         const { data: profileRow } = await supabaseAdmin
