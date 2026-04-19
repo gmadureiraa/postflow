@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  RoadmapBoardBrutalist,
+  RoadmapLegend,
+} from "@/components/landing/roadmap-board-v2";
 
 export const metadata: Metadata = {
   title: "Roadmap | Sequência Viral — O que vem por aí",
@@ -15,349 +19,178 @@ export const metadata: Metadata = {
   },
 };
 
-type Status = "now" | "next" | "later";
-
-type Item = {
-  n: string;
-  title: string;
-  body: string;
-  bullets: string[];
-  status: Status;
-  tag: string;
-  rotate: string;
-  color: string;
-  pin: string;
-};
-
-const items: Item[] = [
-  {
-    n: "01",
-    title: "MVP — Gerador Manual",
-    body: "Hoje. Cole um link ou tema, escolha o brand kit e gere um carrossel pronto para postar.",
-    bullets: [
-      "Input por URL, texto ou tópico",
-      "Editor visual com templates",
-      "Export PNG / PDF / Instagram-ready",
-    ],
-    status: "now",
-    tag: "MVP — rodando hoje",
-    rotate: "-rotate-[2.2deg]",
-    color: "#FFE8B0",
-    pin: "#EC6000",
-  },
-  {
-    n: "02",
-    title: "RSS + Gatilhos Automáticos",
-    body: "Conecte feeds, newsletters e sites. Cada novidade vira um rascunho de post seguindo sua voz.",
-    bullets: [
-      "Feeds RSS, Atom e newsletters",
-      "Regras: 'se tópico X, gere carrossel Y'",
-      "Rascunhos automáticos na fila",
-    ],
-    status: "next",
-    tag: "Em desenvolvimento",
-    rotate: "rotate-[1.8deg]",
-    color: "#FFD4B0",
-    pin: "#0A0A0A",
-  },
-  {
-    n: "03",
-    title: "Publicação Multi-Rede",
-    body: "Publique direto em Instagram, LinkedIn, X e Threads. Agendamento, fila e re-publicação inteligente.",
-    bullets: [
-      "OAuth nativo das redes",
-      "Calendário editorial drag-and-drop",
-      "Best-time scheduler",
-    ],
-    status: "next",
-    tag: "Em desenvolvimento",
-    rotate: "-rotate-[1.4deg]",
-    color: "#FFC79A",
-    pin: "#EC6000",
-  },
-  {
-    n: "04",
-    title: "Brand Kits & Voz da Marca",
-    body: "Cada cliente com suas cores, fontes, exemplos de posts e tom. A IA aprende como você escreve.",
-    bullets: [
-      "Múltiplos brand kits por workspace",
-      "Treinamento com posts de referência",
-      "Guardrails de tom e termos proibidos",
-    ],
-    status: "next",
-    tag: "Próximo sprint",
-    rotate: "rotate-[2.4deg]",
-    color: "#F5E8D0",
-    pin: "#0A0A0A",
-  },
-  {
-    n: "05",
-    title: "Repurpose Engine",
-    body: "Um insight → thread no X → post no LinkedIn → carrossel no Insta → newsletter. Sem digitar duas vezes.",
-    bullets: [
-      "Grafo de conteúdo (pai → filhos)",
-      "Tradução automática PT/EN",
-      "Sugestões de cortes para reels",
-    ],
-    status: "later",
-    tag: "Futuro",
-    rotate: "-rotate-[2deg]",
-    color: "#FFE0C2",
-    pin: "#EC6000",
-  },
-  {
-    n: "06",
-    title: "Analytics & Learning Loop",
-    body: "Entenda o que performa e feche o ciclo: a IA aprende com seus posts reais e ajusta sozinha.",
-    bullets: [
-      "Métricas nativas de cada rede no dashboard",
-      "Alcance, salvamentos, engajamento e melhor horário",
-      "Score de hook por post e recomendações automáticas",
-    ],
-    status: "later",
-    tag: "Futuro",
-    rotate: "rotate-[1.2deg]",
-    color: "#FFD8A8",
-    pin: "#0A0A0A",
-  },
-  {
-    n: "07",
-    title: "Team & Aprovação",
-    body: "Workspace multi-usuário com papéis, revisão e aprovação antes da publicação. Feito para agências.",
-    bullets: [
-      "Roles: owner, editor, revisor, cliente",
-      "Comentários em cada rascunho",
-      "Link público de aprovação",
-    ],
-    status: "later",
-    tag: "Futuro",
-    rotate: "-rotate-[1.6deg]",
-    color: "#FFE8B0",
-    pin: "#EC6000",
-  },
-  {
-    n: "08",
-    title: "API & Integrações",
-    body: "Webhooks, API pública e integração com n8n, Zapier e Make. Sequência Viral vira peça do seu stack.",
-    bullets: [
-      "REST + Webhooks",
-      "n8n / Zapier / Make",
-      "MCP server para agentes",
-    ],
-    status: "later",
-    tag: "Futuro",
-    rotate: "rotate-[2deg]",
-    color: "#FFC79A",
-    pin: "#0A0A0A",
-  },
-  {
-    n: "09",
-    title: "Múltiplos perfis",
-    body: "Hoje: 1 perfil por usuário. Em breve: workspace multi-perfil pra quem gerencia várias marcas no mesmo login.",
-    bullets: [
-      "Switcher de perfil no header",
-      "Brand kit separado por perfil",
-      "Assinatura única cobre todos",
-    ],
-    status: "later",
-    tag: "Em breve",
-    rotate: "-rotate-[1.8deg]",
-    color: "#FFE8B0",
-    pin: "#EC6000",
-  },
-];
-
-const statusLabel: Record<Status, string> = {
-  now: "Agora",
-  next: "Próximo",
-  later: "Futuro",
-};
-
+/**
+ * Roadmap público da landing. Usa o mesmo componente brutalist do
+ * /app/roadmap pra uniformidade visual. Dados em lib/roadmap-data.ts.
+ */
 export default function RoadmapPage() {
   return (
     <main
-      className="min-h-screen pb-32 pt-28"
       style={{
-        background:
-          "radial-gradient(ellipse 90% 50% at 50% 0%, rgba(236,96,0,0.06) 0%, transparent 60%), #FAFAF8",
+        background: "var(--sv-paper)",
+        color: "var(--sv-ink)",
+        minHeight: "100vh",
+        padding: "72px 0 120px",
       }}
     >
       {/* Nav back */}
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-[1240px] px-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-[color:var(--muted)] hover:text-[color:var(--accent)] transition"
+          className="inline-flex items-center gap-2"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10.5,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+            textDecoration: "none",
+          }}
         >
-          ← Voltar para Sequência Viral
+          ← Voltar pra Sequência Viral
         </Link>
       </div>
 
-      {/* Hero */}
-      <header className="mx-auto mt-10 max-w-4xl px-6 text-center">
-        <span className="badge-accent">Roadmap público</span>
-        <h1 className="font-display mt-6 text-5xl leading-[1.05] tracking-tight text-[color:var(--foreground)] md:text-7xl">
-          O caminho do <span className="text-gradient">Sequência Viral</span>
+      {/* Header */}
+      <header className="mx-auto mt-10 max-w-[1240px] px-6">
+        <span
+          className="sv-eyebrow"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <span className="sv-dot" /> Roadmap público
+        </span>
+
+        <h1
+          className="sv-display mt-5"
+          style={{
+            fontSize: "clamp(44px, 8vw, 96px)",
+            lineHeight: 0.95,
+            letterSpacing: "-0.025em",
+            fontWeight: 400,
+            maxWidth: 1100,
+          }}
+        >
+          O <em>caminho</em> do Sequência Viral.
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-[color:var(--muted)]">
-          Começamos hoje com um gerador manual que já resolve o dia a dia. Daqui
-          a alguns meses, o Sequência Viral vira um motor autônomo que lê o mundo,
-          entende sua marca e publica por você.
+
+        <p
+          className="mt-6"
+          style={{
+            fontFamily: "var(--sv-sans)",
+            fontSize: 18,
+            lineHeight: 1.5,
+            color: "var(--sv-muted)",
+            maxWidth: 720,
+          }}
+        >
+          Hoje: gerador manual que já resolve o dia a dia. Em alguns meses, motor
+          autônomo que lê o mundo, entende sua marca e publica por você.
         </p>
 
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <LegendDot color="#EC6000" label="Agora" />
-          <LegendDot color="#FF8534" label="Próximo" />
-          <LegendDot color="#F5C38A" label="Futuro" />
+        <div className="mt-7">
+          <RoadmapLegend />
         </div>
       </header>
 
-      {/* Cork board */}
-      <section className="relative mx-auto mt-20 max-w-7xl px-6">
-        <div
-          className="relative rounded-[36px] border border-[color:var(--border)] p-8 md:p-16"
-          style={{
-            background:
-              "repeating-linear-gradient(-45deg, rgba(236,96,0,0.02) 0 2px, transparent 2px 14px), #FFFDF9",
-            boxShadow:
-              "0 40px 120px rgba(10,10,10,0.06), inset 0 0 0 1px rgba(236,96,0,0.04)",
-          }}
-        >
-          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-16">
-            {items.map((item) => (
-              <StickyCard key={item.n} item={item} />
-            ))}
-          </div>
-        </div>
-
-        {/* Dashed arrow decor */}
-        <svg
-          className="pointer-events-none absolute -left-6 top-1/3 hidden opacity-30 md:block"
-          width="60"
-          height="120"
-          viewBox="0 0 60 120"
-          fill="none"
-        >
-          <path
-            d="M10 10 C 40 40, 10 80, 50 110"
-            stroke="#EC6000"
-            strokeWidth="2"
-            strokeDasharray="4 6"
-            fill="none"
-          />
-        </svg>
+      {/* Board */}
+      <section className="mx-auto mt-16 max-w-[1240px] px-6">
+        <RoadmapBoardBrutalist />
       </section>
 
-      {/* CTA */}
-      <section className="mx-auto mt-24 max-w-3xl px-6 text-center">
-        <h2 className="font-display text-4xl text-[color:var(--foreground)] md:text-5xl">
-          Quer ajudar a decidir o próximo passo?
-        </h2>
-        <p className="mt-4 text-[color:var(--muted)]">
-          O roadmap muda com base em quem usa. Entre no beta e vote no que vem
-          primeiro.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/app" className="btn-primary">
-            Começar agora →
-          </Link>
-          <a
-            href="mailto:madureira@kaleidosdigital.com?subject=Roadmap%20feedback"
-            className="btn-secondary"
+      {/* CTA final — container dark com shadow verde */}
+      <section className="mx-auto mt-20 max-w-[1240px] px-6">
+        <div
+          style={{
+            padding: "48px 32px",
+            background: "var(--sv-ink)",
+            color: "var(--sv-paper)",
+            border: "1.5px solid var(--sv-ink)",
+            boxShadow: "6px 6px 0 0 var(--sv-green)",
+            textAlign: "center",
+          }}
+        >
+          <span
+            className="uppercase"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 10.5,
+              letterSpacing: "0.2em",
+              color: "var(--sv-green)",
+              fontWeight: 700,
+            }}
           >
-            Mandar sugestão
-          </a>
+            ✦ Quer ajudar a decidir o próximo passo?
+          </span>
+          <h2
+            className="sv-display mt-4"
+            style={{
+              fontSize: "clamp(30px, 4.5vw, 52px)",
+              lineHeight: 1.02,
+              letterSpacing: "-0.02em",
+              color: "var(--sv-paper)",
+              fontWeight: 400,
+            }}
+          >
+            O roadmap muda com <em>quem usa</em>.
+          </h2>
+          <p
+            className="mt-4 mx-auto"
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: 16,
+              lineHeight: 1.55,
+              color: "rgba(247,245,239,0.72)",
+              maxWidth: 540,
+            }}
+          >
+            Entre no beta e vote no que vem primeiro. Ou manda direto um email
+            com o que você precisaria — priorizo quem responde.
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-[10px]">
+            <Link
+              href="/app/login"
+              className="inline-flex items-center gap-2"
+              style={{
+                padding: "13px 22px",
+                background: "var(--sv-green)",
+                border: "1.5px solid var(--sv-paper)",
+                boxShadow: "4px 4px 0 0 var(--sv-paper)",
+                fontFamily: "var(--sv-mono)",
+                fontSize: 11,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: "var(--sv-ink)",
+                textDecoration: "none",
+              }}
+            >
+              Começar agora →
+            </Link>
+            <a
+              href="mailto:madureira@kaleidosdigital.com?subject=Roadmap%20feedback"
+              className="inline-flex items-center gap-2"
+              style={{
+                padding: "13px 22px",
+                background: "transparent",
+                border: "1.5px solid var(--sv-paper)",
+                fontFamily: "var(--sv-mono)",
+                fontSize: 11,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: "var(--sv-paper)",
+                textDecoration: "none",
+              }}
+            >
+              Mandar sugestão
+            </a>
+          </div>
         </div>
       </section>
     </main>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-white/80 px-3 py-1.5 text-xs font-semibold text-[color:var(--foreground)]">
-      <span
-        className="h-2.5 w-2.5 rounded-full"
-        style={{ background: color, boxShadow: `0 0 10px ${color}80` }}
-      />
-      {label}
-    </span>
-  );
-}
-
-function StickyCard({ item }: { item: Item }) {
-  return (
-    <article
-      className={`group relative ${item.rotate} transition-transform duration-500 hover:rotate-0 hover:-translate-y-1`}
-    >
-      {/* Push pin */}
-      <span
-        className="absolute left-1/2 top-0 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          background: `radial-gradient(circle at 35% 30%, #fff 0%, ${item.pin} 60%, rgba(0,0,0,0.4) 100%)`,
-          boxShadow:
-            "0 4px 10px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.6)",
-        }}
-      />
-      {/* Pin shadow on paper */}
-      <span
-        className="absolute left-1/2 top-[6px] z-0 h-1.5 w-6 -translate-x-1/2 rounded-full opacity-40 blur-[2px]"
-        style={{ background: "rgba(0,0,0,0.25)" }}
-      />
-
-      <div
-        className="relative rounded-[22px] p-7"
-        style={{
-          background: item.color,
-          boxShadow:
-            "0 14px 40px rgba(10,10,10,0.08), 0 2px 6px rgba(10,10,10,0.05), inset 0 0 0 1px rgba(255,255,255,0.4)",
-        }}
-      >
-        <div className="flex items-start justify-between">
-          <span
-            className="font-display text-5xl leading-none text-[color:var(--accent-dark)]"
-            style={{ letterSpacing: "-0.03em" }}
-          >
-            {item.n}
-          </span>
-          <span
-            className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
-            style={{
-              background: "rgba(10,10,10,0.08)",
-              color: "#0A0A0A",
-            }}
-          >
-            {statusLabel[item.status]}
-          </span>
-        </div>
-
-        <h3 className="font-display mt-5 text-2xl leading-tight text-[#0A0A0A]">
-          {item.title}
-        </h3>
-        <p className="mt-3 text-sm leading-relaxed text-[#0A0A0A]/75">
-          {item.body}
-        </p>
-
-        <ul className="mt-5 space-y-2">
-          {item.bullets.map((b) => (
-            <li
-              key={b}
-              className="flex items-start gap-2 text-[13px] text-[#0A0A0A]/85"
-            >
-              <span
-                className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full"
-                style={{ background: "#EC6000" }}
-              />
-              {b}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-6 border-t border-[#0A0A0A]/10 pt-4">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0A0A0A]/60">
-            {item.tag}
-          </span>
-        </div>
-      </div>
-    </article>
   );
 }
