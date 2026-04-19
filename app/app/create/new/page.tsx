@@ -405,6 +405,23 @@ export default function NewCarouselPage() {
             </svg>
             {submitting ? "Preparando..." : "Ver caminhos possíveis →"}
           </button>
+
+          {/* Marcador de build — ajuda a distinguir do bundle antigo cacheado
+              no browser. Se você não vê esse texto, force hard refresh
+              (Cmd+Shift+R) ou abra em aba anônima. */}
+          <div
+            className="mt-4"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 8.5,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              opacity: 0.6,
+            }}
+          >
+            v2 · build 2026-04-19 · single-column · sem preview ao vivo
+          </div>
         </div>
       </div>
     </motion.div>
