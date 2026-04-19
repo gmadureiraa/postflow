@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -8,6 +8,24 @@ import { TemplateRenderer, type TemplateId } from "@/components/app/templates";
 import { useAuth } from "@/lib/auth-context";
 import { useDraft } from "@/lib/create/use-draft";
 import { useExport } from "@/lib/create/use-export";
+
+// Mesmo injector que o edit usa — garante que a fonte display escolhida
+// esteja disponível no momento do export PNG/PDF.
+const DISPLAY_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Archivo+Black&family=Bebas+Neue&family=Instrument+Serif:ital@0;1&display=swap";
+
+function useInjectDisplayFonts() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "sv-create-display-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = DISPLAY_FONTS_HREF;
+    document.head.appendChild(link);
+  }, []);
+}
 
 /**
  * Tela 04 — Preview / Export. iPhone mockup com slides do rascunho,
@@ -36,6 +54,7 @@ function buildPreviewProfile(profile: {
 export default function PreviewPage(props: {
   params: Promise<{ id: string }>;
 }) {
+  useInjectDisplayFonts();
   const { id } = use(props.params);
   const router = useRouter();
   const { profile } = useAuth();
@@ -43,6 +62,10 @@ export default function PreviewPage(props: {
 
   const slides = draft?.slides ?? [];
   const templateId: TemplateId = draft?.visualTemplate ?? "manifesto";
+  const accentOverride = draft?.accentOverride;
+  const displayFontOverride = draft?.displayFont;
+  const textScaleOverride =
+    typeof draft?.textScale === "number" ? draft.textScale : undefined;
   const previewProfile = useMemo(
     () =>
       buildPreviewProfile(
@@ -270,6 +293,9 @@ export default function PreviewPage(props: {
                       scale={0.26}
                       showFooter={currentSlide === 0}
                       isLastSlide={currentSlide === slides.length - 1}
+                      accentOverride={accentOverride}
+                      displayFontOverride={displayFontOverride}
+                      textScale={textScaleOverride}
                     />
                   </div>
                 )}
@@ -692,6 +718,9 @@ export default function PreviewPage(props: {
               showFooter={i === 0}
               isLastSlide={i === slides.length - 1}
               exportMode
+              accentOverride={accentOverride}
+              displayFontOverride={displayFontOverride}
+              textScale={textScaleOverride}
             />
           </div>
         ))}

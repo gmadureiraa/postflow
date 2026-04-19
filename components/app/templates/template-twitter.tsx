@@ -25,25 +25,32 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
       isLastSlide,
       scale = 0.38,
       exportMode = false,
+      accentOverride,
+      displayFontOverride,
+      textScale = 1,
+      style: slideStyle,
     },
     ref
   ) {
     const avatarSrc = resolveImgSrc(profile.photoUrl, exportMode);
     const bodyImgSrc = resolveImgSrc(imageUrl, exportMode);
 
-    const bg = "#ffffff";
-    const fg = "#0A0A0A";
-    const muted = "#6b7280";
-    const verifiedBlue = "#1D9BF0";
-    const borderColor = "#e5e7eb";
+    const bg = slideStyle === "dark" ? "#0A0A0A" : "#ffffff";
+    const fg = slideStyle === "dark" ? "#F5F5F5" : "#0A0A0A";
+    const muted = slideStyle === "dark" ? "#9CA3AF" : "#6b7280";
+    const defaultVerifiedBlue = "#1D9BF0";
+    const verifiedBlue = accentOverride || defaultVerifiedBlue;
+    const borderColor = slideStyle === "dark" ? "#262626" : "#e5e7eb";
 
-    const fontFamily =
+    const defaultFontFamily =
       '"SVInter", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
+    const fontFamily = displayFontOverride || defaultFontFamily;
+    const ts = Math.max(0.6, Math.min(1.6, textScale));
 
-    const FS_NAME = 41;
-    const FS_HANDLE = 31;
-    const FS_BODY = 39;
-    const FS_HEADING = 39;
+    const FS_NAME = 41 * ts;
+    const FS_HANDLE = 31 * ts;
+    const FS_BODY = 39 * ts;
+    const FS_HEADING = 39 * ts;
 
     return (
       <div
@@ -94,7 +101,7 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                 width: 100,
                 height: 100,
                 borderRadius: "50%",
-                background: "linear-gradient(135deg, #1D9BF0, #0A0A0A)",
+                background: `linear-gradient(135deg, ${verifiedBlue}, #0A0A0A)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

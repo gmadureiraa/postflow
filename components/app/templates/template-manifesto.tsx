@@ -32,13 +32,17 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
       isLastSlide,
       scale = 0.38,
       exportMode = false,
+      accentOverride,
+      displayFontOverride,
+      textScale = 1,
     },
     ref
   ) {
     const bodyImgSrc = resolveImgSrc(imageUrl, exportMode);
     const hasImage = Boolean(bodyImgSrc);
     // Alterna accent por slide: slides ímpares em verde lime, pares em pink.
-    const accent = slideNumber % 2 === 1 ? "#7CF067" : "#D262B2";
+    const defaultAccent = slideNumber % 2 === 1 ? "#7CF067" : "#D262B2";
+    const accent = accentOverride || defaultAccent;
     const paper = "#F7F5EF";
     const ink = "#0A0A0A";
 
@@ -49,10 +53,12 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
     const bg = isCover ? ink : paper;
     const fg = isCover ? paper : ink;
 
-    const displayStack =
+    const defaultDisplayStack =
       '"Atelier", "Instrument Serif", "Times New Roman", Georgia, serif';
+    const displayStack = displayFontOverride || defaultDisplayStack;
     const serifStack =
       '"Instrument Serif", Georgia, "Times New Roman", serif';
+    const ts = Math.max(0.6, Math.min(1.6, textScale));
 
     const kickerText = `● BRANDSDECODED · Nº ${String(slideNumber).padStart(
       2,
@@ -125,7 +131,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
               zIndex: 2,
               padding: "78px 90px 0",
               fontFamily: MONO_STACK,
-              fontSize: 22,
+              fontSize: 22 * ts,
               letterSpacing: "0.2em",
               textTransform: "uppercase",
               color: isCover ? accent : ink,
@@ -180,7 +186,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
             <h1
               style={{
                 fontFamily: displayStack,
-                fontSize: isCover ? 130 : 118,
+                fontSize: (isCover ? 130 : 118) * ts,
                 fontWeight: 400,
                 lineHeight: 0.98,
                 letterSpacing: "-0.02em",
@@ -195,7 +201,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
             <p
               style={{
                 fontFamily: serifStack,
-                fontSize: 36,
+                fontSize: 36 * ts,
                 lineHeight: 1.42,
                 margin: 0,
                 color: isCover ? "rgba(247,245,239,0.88)" : ink,

@@ -20,6 +20,36 @@ import type { CreateSlide, SlideVariant } from "@/lib/create/types";
  * com o templateId escolhido. Auto-save 1200ms (debounced).
  */
 
+/**
+ * Google Fonts necessários pras opções de fonte display do editor.
+ * Carregamos via `<link>` injetado em document.head na montagem do editor —
+ * evita pesar a landing e o shell global.
+ */
+const DISPLAY_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Archivo+Black&family=Bebas+Neue&family=Instrument+Serif:ital@0;1&display=swap";
+
+function useInjectDisplayFonts() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "sv-create-display-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = DISPLAY_FONTS_HREF;
+    document.head.appendChild(link);
+    const pre1 = document.createElement("link");
+    pre1.rel = "preconnect";
+    pre1.href = "https://fonts.googleapis.com";
+    document.head.appendChild(pre1);
+    const pre2 = document.createElement("link");
+    pre2.rel = "preconnect";
+    pre2.href = "https://fonts.gstatic.com";
+    pre2.crossOrigin = "anonymous";
+    document.head.appendChild(pre2);
+  }, []);
+}
+
 const VARIANT_OPTS: { id: SlideVariant; label: string; ic: React.ReactNode }[] = [
   {
     id: "cover",
@@ -81,13 +111,52 @@ const ACCENT_SWATCHES = [
   "#0A0A0A",
 ];
 
+// Opções de fonte display. `family` é a string CSS completa pra passar em
+// `displayFontOverride`. `id` bate com o persistido em `style.display_font`.
+// `atelier` = default do Manifesto (editorial). As 4 outras vêm do Google
+// Fonts (ver <link> em `app/app/layout.tsx`).
 const FONT_OPTS = [
-  { id: "serif", label: "Serif", family: '"Instrument Serif", serif', italic: true },
-  { id: "anton", label: "Anton", family: "Anton, sans-serif", italic: false },
-  { id: "archivo", label: "Archivo", family: '"Archivo Black", sans-serif', italic: false },
-  { id: "bebas", label: "Bebas", family: '"Bebas Neue", sans-serif', italic: false },
-  { id: "grotesk", label: "Grotesk", family: '"Space Grotesk", sans-serif', italic: false },
+  {
+    id: "atelier",
+    label: "Atelier",
+    family:
+      '"Atelier", "Instrument Serif", "Times New Roman", Georgia, serif',
+    italic: true,
+  },
+  {
+    id: "grotesk",
+    label: "Grotesk",
+    family: '"Space Grotesk", system-ui, sans-serif',
+    italic: false,
+  },
+  {
+    id: "archivo",
+    label: "Archivo",
+    family: '"Archivo Black", system-ui, sans-serif',
+    italic: false,
+  },
+  {
+    id: "bebas",
+    label: "Bebas",
+    family: '"Bebas Neue", system-ui, sans-serif',
+    italic: false,
+  },
+  {
+    id: "serif",
+    label: "Serif",
+    family: '"Instrument Serif", Georgia, serif',
+    italic: true,
+  },
 ];
+
+function familyFromFontId(id: string | null | undefined): string | undefined {
+  if (!id) return undefined;
+  return FONT_OPTS.find((f) => f.id === id)?.family;
+}
+function fontIdFromFamily(family: string | undefined): string {
+  if (!family) return "atelier";
+  return FONT_OPTS.find((f) => f.family === family)?.id ?? "atelier";
+}
 
 function buildPreviewProfile(profile: {
   name: string;
@@ -113,6 +182,7 @@ type MobileTab = "variants" | "canvas" | "branding";
 export default function EditPage(props: {
   params: Promise<{ id: string }>;
 }) {
+  useInjectDisplayFonts();
   const { id } = use(props.params);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,12 +203,21 @@ export default function EditPage(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [kicker, setKicker] = useState("");
   const [handle, setHandle] = useState("@seuhandle");
-  const [fontId, setFontId] = useState<string>("serif");
+  const [fontId, setFontId] = useState<string>("atelier");
   const [accent, setAccent] = useState<string>("#7CF067");
   const [textScale, setTextScale] = useState(1);
   const [mobileTab, setMobileTab] = useState<MobileTab>("canvas");
+  // Flag pra saber se o usuário já mexeu no accent/font/scale (pra não
+  // forçar overrides quando o draft nem tem nada salvo — deixa o template
+  // usar a cor/fonte default dele).
+  const [accentTouched, setAccentTouched] = useState(false);
+  const [fontTouched, setFontTouched] = useState(false);
+  const [scaleTouched, setScaleTouched] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Usamos um input de upload separado por slide (via indexRef) — armazenamos
+  // o slide alvo pra reutilizar o mesmo file input oculto.
+  const uploadTargetRef = useRef<number | null>(null);
 
   // Hidrata do draft quando carrega.
   useEffect(() => {
@@ -148,6 +227,19 @@ export default function EditPage(props: {
     setSlideStyle(draft.style === "dark" ? "dark" : "white");
     if (!initialTemplate && draft.visualTemplate) {
       setTemplateId(draft.visualTemplate);
+    }
+    // Hidrata overrides persistidos (accent/font/text scale).
+    if (draft.accentOverride) {
+      setAccent(draft.accentOverride);
+      setAccentTouched(true);
+    }
+    if (draft.displayFont) {
+      setFontId(fontIdFromFamily(draft.displayFont));
+      setFontTouched(true);
+    }
+    if (typeof draft.textScale === "number") {
+      setTextScale(draft.textScale);
+      setScaleTouched(true);
     }
     if (profile) {
       setKicker(profile.name || "Seu nome");
@@ -170,7 +262,8 @@ export default function EditPage(props: {
     [kicker, handle, profile?.avatar_url]
   );
 
-  // Auto-save debounced.
+  // Auto-save debounced. Só envia accent/font/scale se o usuário mexeu —
+  // evita sobrescrever com defaults toda vez que o draft hidratar.
   useAutoSaveDraft({
     userId: user?.id ?? null,
     id,
@@ -178,6 +271,9 @@ export default function EditPage(props: {
     title,
     slideStyle,
     visualTemplate: templateId,
+    accentOverride: accentTouched ? accent : undefined,
+    displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
+    textScale: scaleTouched ? textScale : undefined,
     enabled: slides.length > 0,
   });
 
@@ -203,33 +299,77 @@ export default function EditPage(props: {
     setActiveIndex(afterIndex + 1);
   }
 
-  async function handleUploadImage(file: File) {
+  async function handleUploadImage(file: File, targetIndex: number) {
     if (!file) return;
-    const url = await imagesHook.uploadImage(activeIndex, file, id);
+    const url = await imagesHook.uploadImage(targetIndex, file, id);
     if (url) {
-      updateSlide(activeIndex, { imageUrl: url });
+      updateSlide(targetIndex, { imageUrl: url });
       toast.success("Imagem carregada.");
     } else if (imagesHook.error) {
       toast.error(imagesHook.error);
     }
   }
 
-  async function handleRefetchImage() {
-    const s = slides[activeIndex];
-    if (!s?.imageQuery) {
-      toast.error("Defina um termo de busca antes de trocar a imagem.");
+  async function handleSearchImage(targetIndex: number) {
+    const s = slides[targetIndex];
+    if (!s) return;
+    const query =
+      (s.imageQuery && s.imageQuery.trim()) ||
+      (s.heading && s.heading.trim()) ||
+      (s.body && s.body.trim().slice(0, 60)) ||
+      title;
+    if (!query) {
+      toast.error("Escreva um título ou corpo antes de buscar imagem.");
       return;
     }
     try {
-      const res = await imagesHook.refetchImage(activeIndex, {
-        query: s.imageQuery,
+      const res = await imagesHook.refetchImage(targetIndex, {
+        query,
         contextHeading: s.heading,
         contextBody: s.body,
+        mode: "search",
       });
-      if (res.appliedUrl) updateSlide(activeIndex, { imageUrl: res.appliedUrl });
+      if (res.appliedUrl) updateSlide(targetIndex, { imageUrl: res.appliedUrl });
     } catch {
-      // feedback já vem em imagesHook.error
+      if (imagesHook.error) toast.error(imagesHook.error);
     }
+  }
+
+  async function handleGenerateImage(targetIndex: number) {
+    const s = slides[targetIndex];
+    if (!s) return;
+    const query =
+      (s.imageQuery && s.imageQuery.trim()) ||
+      (s.heading && s.heading.trim()) ||
+      title;
+    if (!query) {
+      toast.error("Escreva um título antes de gerar imagem.");
+      return;
+    }
+    try {
+      const res = await imagesHook.refetchImage(targetIndex, {
+        query,
+        contextHeading: s.heading,
+        contextBody: s.body,
+        mode: "generate",
+      });
+      if (res.appliedUrl) {
+        updateSlide(targetIndex, { imageUrl: res.appliedUrl });
+        toast.success("Imagem gerada.");
+      }
+    } catch {
+      if (imagesHook.error) toast.error(imagesHook.error);
+    }
+  }
+
+  function handleRemoveImage(targetIndex: number) {
+    updateSlide(targetIndex, { imageUrl: "" });
+    toast("Imagem removida do slide.");
+  }
+
+  function triggerUploadFor(targetIndex: number) {
+    uploadTargetRef.current = targetIndex;
+    fileInputRef.current?.click();
   }
 
   function pickPickerImage(url: string) {
@@ -406,6 +546,11 @@ export default function EditPage(props: {
             showFooter={activeIndex === 0}
             scale={0.44}
             isLastSlide={activeIndex === slides.length - 1}
+            accentOverride={accentTouched ? accent : undefined}
+            displayFontOverride={
+              fontTouched ? familyFromFontId(fontId) : undefined
+            }
+            textScale={scaleTouched ? textScale : undefined}
           />
         </div>
       )}
@@ -616,7 +761,10 @@ export default function EditPage(props: {
           <button
             key={f.id}
             type="button"
-            onClick={() => setFontId(f.id)}
+            onClick={() => {
+              setFontId(f.id);
+              setFontTouched(true);
+            }}
             style={{
               padding: "7px 11px",
               border: "1.5px solid var(--sv-ink)",
@@ -654,7 +802,10 @@ export default function EditPage(props: {
           <button
             key={color}
             type="button"
-            onClick={() => setAccent(color)}
+            onClick={() => {
+              setAccent(color);
+              setAccentTouched(true);
+            }}
             style={{
               width: 26,
               height: 26,
@@ -662,7 +813,7 @@ export default function EditPage(props: {
               border: "1.5px solid var(--sv-ink)",
               cursor: "pointer",
               boxShadow:
-                accent === color
+                accent === color && accentTouched
                   ? "0 0 0 2px var(--sv-paper) inset, 0 0 0 4px var(--sv-ink)"
                   : "none",
             }}
@@ -691,7 +842,10 @@ export default function EditPage(props: {
           max={1.3}
           step={0.02}
           value={textScale}
-          onChange={(e) => setTextScale(parseFloat(e.target.value))}
+          onChange={(e) => {
+            setTextScale(parseFloat(e.target.value));
+            setScaleTouched(true);
+          }}
           style={{ flex: 1, accentColor: "var(--sv-ink)" }}
         />
         <span
@@ -718,8 +872,40 @@ export default function EditPage(props: {
           marginTop: 10,
         }}
       >
-        Imagens
+        Imagem do slide ativo
       </h4>
+
+      {active?.imageUrl ? (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "4/5",
+            background: `url(${active.imageUrl}) center/cover`,
+            border: "1.5px solid var(--sv-ink)",
+          }}
+          aria-label="Preview da imagem atual"
+        />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "4/5",
+            background: "var(--sv-paper)",
+            border: "1.5px dashed var(--sv-ink)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Sem imagem
+        </div>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
@@ -727,56 +913,102 @@ export default function EditPage(props: {
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) void handleUploadImage(file);
+          const target = uploadTargetRef.current ?? activeIndex;
+          if (file) void handleUploadImage(file, target);
+          uploadTargetRef.current = null;
           e.target.value = "";
         }}
       />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="sv-btn sv-btn-outline"
-        style={{
-          width: "100%",
-          justifyContent: "flex-start",
-          padding: "8px 12px",
-          fontSize: 10,
-        }}
-      >
-        Enviar foto
-      </button>
-      <button
-        type="button"
-        onClick={() => void handleRefetchImage()}
-        className="sv-btn sv-btn-ghost"
-        style={{
-          width: "100%",
-          justifyContent: "flex-start",
-          padding: "8px 12px",
-          fontSize: 10,
-          border: "1.5px solid var(--sv-ink)",
-          background: "var(--sv-paper)",
-        }}
-      >
-        Buscar nova imagem
-      </button>
+
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <button
+          type="button"
+          onClick={() => void handleSearchImage(activeIndex)}
+          disabled={imagesHook.loadingIndex === activeIndex}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+          }}
+        >
+          {imagesHook.loadingIndex === activeIndex ? "..." : "Buscar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleGenerateImage(activeIndex)}
+          disabled={imagesHook.loadingIndex === activeIndex}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+          }}
+        >
+          {imagesHook.loadingIndex === activeIndex ? "..." : "Gerar IA"}
+        </button>
+        <button
+          type="button"
+          onClick={() => triggerUploadFor(activeIndex)}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+          }}
+        >
+          Upload
+        </button>
+        <button
+          type="button"
+          onClick={() => handleRemoveImage(activeIndex)}
+          className="sv-btn sv-btn-outline"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "8px 10px",
+            fontSize: 9.5,
+            color: "var(--sv-pink, #D262B2)",
+          }}
+        >
+          Remover
+        </button>
+      </div>
 
       {imagesHook.pickerOptions.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
-          {imagesHook.pickerOptions.map((url) => (
-            <button
-              key={url}
-              type="button"
-              onClick={() => pickPickerImage(url)}
-              style={{
-                aspectRatio: "1",
-                background: `url(${url}) center/cover`,
-                border: "1.5px solid var(--sv-ink)",
-                cursor: "pointer",
-              }}
-              aria-label="Escolher imagem"
-            />
-          ))}
-        </div>
+        <>
+          <div
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              fontWeight: 700,
+            }}
+          >
+            Escolher resultado:
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {imagesHook.pickerOptions.map((url) => (
+              <button
+                key={url}
+                type="button"
+                onClick={() => pickPickerImage(url)}
+                style={{
+                  aspectRatio: "1",
+                  background: `url(${url}) center/cover`,
+                  border: "1.5px solid var(--sv-ink)",
+                  cursor: "pointer",
+                }}
+                aria-label="Escolher imagem"
+              />
+            ))}
+          </div>
+        </>
       )}
 
       <div

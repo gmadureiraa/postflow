@@ -29,6 +29,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Início", icon: LayoutDashboard },
   { href: "/app/create", label: "Criar", icon: PlusCircle },
+  { href: "/app/create/new", label: "Criar v2", icon: Sparkles, badge: "Beta" },
   { href: "/app/carousels", label: "Carrosséis", icon: FolderOpen },
   { href: "/app/plans", label: "Assinar", icon: Sparkles, badge: "Pro" },
   { href: "/app/help", label: "Guia", icon: BookOpen },

@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { upsertUserCarousel } from "@/lib/carousel-storage";
 import { useDraft } from "@/lib/create/use-draft";
+import { defaultImagesForTemplate } from "@/lib/create/default-images";
 
 /**
  * Tela 02 — Seleção de template. Grid 2×2 com preview REAL dos 4 templates
@@ -92,10 +93,18 @@ export default function TemplatesPage(props: {
     if (!user || !supabase || !draft) return;
     setSaving(true);
     try {
+      // Pré-popula imagens default do template, respeitando URLs que o usuário
+      // já tenha definido (imageUrl existente prevalece).
+      const defaults = defaultImagesForTemplate(selected, draft.slides.length);
+      const slidesWithImages = draft.slides.map((s, i) => ({
+        ...s,
+        imageUrl: s.imageUrl && s.imageUrl.trim() ? s.imageUrl : defaults[i],
+      }));
+
       await upsertUserCarousel(supabase, user.id, {
         id: draft.id,
         title: draft.title,
-        slides: draft.slides,
+        slides: slidesWithImages,
         slideStyle: draft.style === "dark" ? "dark" : "white",
         status: "draft",
         visualTemplate: selected,
@@ -257,9 +266,12 @@ export default function TemplatesPage(props: {
                         slideNumber={i + 1}
                         totalSlides={slides.length || 3}
                         profile={previewProfile}
-                        style="white"
+                        style={draft.style === "dark" ? "dark" : "white"}
                         scale={0.22}
                         showFooter={false}
+                        accentOverride={draft.accentOverride}
+                        displayFontOverride={draft.displayFont}
+                        textScale={draft.textScale}
                       />
                     </div>
                   ))}

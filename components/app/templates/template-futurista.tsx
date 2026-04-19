@@ -31,20 +31,29 @@ const TemplateFuturista = forwardRef<HTMLDivElement, SlideProps>(
       isLastSlide,
       scale = 0.38,
       exportMode = false,
+      accentOverride,
+      displayFontOverride,
+      textScale = 1,
+      style: slideStyle,
     },
     ref
   ) {
     const bodyImgSrc = resolveImgSrc(imageUrl, exportMode);
     const hasImage = Boolean(bodyImgSrc);
 
-    const navy = "#0B0F1E";
-    const accent = "#00F0A0";
-    const white = "#FFFFFF";
-    const grey = "#A0A8BC";
+    const navy = slideStyle === "white" ? "#FFFFFF" : "#0B0F1E";
+    const defaultAccent = "#00F0A0";
+    const accent = accentOverride || defaultAccent;
+    const white = slideStyle === "white" ? "#0A0A0A" : "#FFFFFF";
+    const grey = slideStyle === "white" ? "#4B5563" : "#A0A8BC";
+    const gridColor =
+      slideStyle === "white" ? "rgba(10,10,10,0.06)" : "rgba(255,255,255,0.05)";
 
-    const displayStack =
+    const defaultDisplayStack =
       '"Space Grotesk", "SVInter", "Inter", system-ui, sans-serif';
+    const displayStack = displayFontOverride || defaultDisplayStack;
     const sansStack = '"SVInter", "Inter", system-ui, sans-serif';
+    const ts = Math.max(0.6, Math.min(1.6, textScale));
 
     return (
       <div
@@ -81,8 +90,7 @@ const TemplateFuturista = forwardRef<HTMLDivElement, SlideProps>(
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+              backgroundImage: `linear-gradient(${gridColor} 1px, transparent 1px), linear-gradient(90deg, ${gridColor} 1px, transparent 1px)`,
               backgroundSize: "60px 60px",
               zIndex: 0,
             }}
@@ -121,9 +129,9 @@ const TemplateFuturista = forwardRef<HTMLDivElement, SlideProps>(
                 gap: 12,
                 padding: "12px 22px",
                 border: `1.5px solid ${accent}`,
-                background: "rgba(0,240,160,0.08)",
+                background: `${accent}14`,
                 fontFamily: MONO_STACK,
-                fontSize: 20,
+                fontSize: 20 * ts,
                 letterSpacing: "0.22em",
                 textTransform: "uppercase",
                 color: accent,
@@ -182,7 +190,7 @@ const TemplateFuturista = forwardRef<HTMLDivElement, SlideProps>(
             <h1
               style={{
                 fontFamily: displayStack,
-                fontSize: hasImage ? 72 : 90,
+                fontSize: (hasImage ? 72 : 90) * ts,
                 fontWeight: 800,
                 lineHeight: 1,
                 letterSpacing: "-0.035em",
@@ -197,7 +205,7 @@ const TemplateFuturista = forwardRef<HTMLDivElement, SlideProps>(
             <p
               style={{
                 fontFamily: sansStack,
-                fontSize: 28,
+                fontSize: 28 * ts,
                 lineHeight: 1.5,
                 margin: 0,
                 color: grey,
@@ -215,7 +223,7 @@ const TemplateFuturista = forwardRef<HTMLDivElement, SlideProps>(
                   flex: "1 1 auto",
                   minHeight: 0,
                   border: `2px solid ${accent}`,
-                  background: "rgba(0,240,160,0.04)",
+                  background: `${accent}0A`,
                   padding: 6,
                   display: "flex",
                   alignItems: "center",

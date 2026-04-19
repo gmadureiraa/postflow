@@ -25,6 +25,12 @@ export interface SlideProps {
    * canvas tainted de CORS. Nunca habilite em preview — quebra cache de imagem.
    */
   exportMode?: boolean;
+  /** Override da cor de destaque do template (substitui a cor padrão). */
+  accentOverride?: string;
+  /** Override da família de fonte do heading (CSS font-family string completa). */
+  displayFontOverride?: string;
+  /** Multiplicador do tamanho do texto (body + heading). Default: 1. Range: 0.8–1.3. */
+  textScale?: number;
 }
 
 export interface TemplateMeta {

@@ -30,19 +30,26 @@ const TemplateAutoral = forwardRef<HTMLDivElement, SlideProps>(
       isLastSlide,
       scale = 0.38,
       exportMode = false,
+      accentOverride,
+      displayFontOverride,
+      textScale = 1,
+      style: slideStyle,
     },
     ref
   ) {
     const bodyImgSrc = resolveImgSrc(imageUrl, exportMode);
     const hasImage = Boolean(bodyImgSrc);
 
-    const paper = "#F7F5EF";
-    const ink = "#0A0A0A";
-    const pink = "#D262B2";
+    const paper = slideStyle === "dark" ? "#1C1C1E" : "#F7F5EF";
+    const ink = slideStyle === "dark" ? "#F7F5EF" : "#0A0A0A";
+    const defaultPink = "#D262B2";
+    const pink = accentOverride || defaultPink;
 
-    const serifStack =
+    const defaultSerifStack =
       '"Instrument Serif", "Atelier", Georgia, "Times New Roman", serif';
+    const serifStack = displayFontOverride || defaultSerifStack;
     const sansStack = '"SVInter", "Inter", system-ui, sans-serif';
+    const ts = Math.max(0.6, Math.min(1.6, textScale));
 
     // Rotação determinística baseada no slideNumber (efeito zine).
     const bodyRotate = ((slideNumber % 3) - 1) * 0.6;
@@ -190,7 +197,7 @@ const TemplateAutoral = forwardRef<HTMLDivElement, SlideProps>(
             <h1
               style={{
                 fontFamily: serifStack,
-                fontSize: 120,
+                fontSize: 120 * ts,
                 fontWeight: 400,
                 fontStyle: "italic",
                 lineHeight: 0.98,
@@ -208,7 +215,7 @@ const TemplateAutoral = forwardRef<HTMLDivElement, SlideProps>(
               style={{
                 alignSelf: "flex-start",
                 maxWidth: 860,
-                background: "#FFFFFF",
+                background: slideStyle === "dark" ? "#0A0A0A" : "#FFFFFF",
                 border: `1.5px solid ${ink}`,
                 padding: "24px 32px",
                 transform: `rotate(${bodyRotate}deg) translate(${
@@ -220,7 +227,7 @@ const TemplateAutoral = forwardRef<HTMLDivElement, SlideProps>(
               <p
                 style={{
                   fontFamily: serifStack,
-                  fontSize: 30,
+                  fontSize: 30 * ts,
                   lineHeight: 1.42,
                   margin: 0,
                   color: ink,

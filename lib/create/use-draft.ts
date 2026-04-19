@@ -23,6 +23,9 @@ export interface DraftPayload {
   slideStyle: "white" | "dark";
   visualTemplate?: VisualTemplateId;
   status?: "draft" | "published" | "archived";
+  accentOverride?: string;
+  displayFont?: string;
+  textScale?: number;
 }
 
 export function useDraft(id: string | null) {
@@ -79,6 +82,9 @@ export function useSaveDraft(userId: string | null, _session: Session | null) {
         slideStyle: payload.slideStyle,
         status: payload.status ?? "draft",
         visualTemplate: payload.visualTemplate,
+        accentOverride: payload.accentOverride,
+        displayFont: payload.displayFont,
+        textScale: payload.textScale,
       });
       return {
         id: row.id,
@@ -104,6 +110,9 @@ export function useAutoSaveDraft({
   title,
   slideStyle,
   visualTemplate,
+  accentOverride,
+  displayFont,
+  textScale,
   enabled,
 }: {
   userId: string | null;
@@ -112,20 +121,38 @@ export function useAutoSaveDraft({
   title: string;
   slideStyle: "white" | "dark";
   visualTemplate?: VisualTemplateId;
+  accentOverride?: string;
+  displayFont?: string;
+  textScale?: number;
   enabled: boolean;
 }) {
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const lastRef = useRef<string>("");
+  // Marca o primeiro render pra evitar auto-save disparar antes da hidratação
+  // do draft (slides ainda vazios + overrides undefined).
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !userId || !id || !supabase) return;
     if (slides.length === 0) return;
+
     const serialized = JSON.stringify({
       slides,
       title,
       slideStyle,
       visualTemplate,
+      accentOverride,
+      displayFont,
+      textScale,
     });
+
+    // Primeiro ciclo: grava baseline sem disparar PATCH (evita escrever
+    // overrides undefined em cima dos já salvos).
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      lastRef.current = serialized;
+      return;
+    }
     if (serialized === lastRef.current) return;
 
     const handle = window.setTimeout(async () => {
@@ -138,6 +165,9 @@ export function useAutoSaveDraft({
           slideStyle,
           status: "draft",
           visualTemplate,
+          accentOverride,
+          displayFont,
+          textScale,
         });
         lastRef.current = serialized;
         setStatus("saved");
@@ -148,7 +178,18 @@ export function useAutoSaveDraft({
     }, 1200);
 
     return () => window.clearTimeout(handle);
-  }, [enabled, userId, id, slides, title, slideStyle, visualTemplate]);
+  }, [
+    enabled,
+    userId,
+    id,
+    slides,
+    title,
+    slideStyle,
+    visualTemplate,
+    accentOverride,
+    displayFont,
+    textScale,
+  ]);
 
   return { status };
 }
