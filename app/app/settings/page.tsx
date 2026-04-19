@@ -188,6 +188,7 @@ function SettingsPageContent() {
   const [saved, setSaved] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Profile core states (preserved)
   const [name, setName] = useState(profile?.name || "");
@@ -332,6 +333,50 @@ function SettingsPageContent() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAvatarFile(file: File) {
+    if (!session) {
+      toast.error("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Arquivo precisa ser uma imagem.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Imagem muito grande. Máx 8MB.");
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("carouselId", "avatar");
+      form.append("slideIndex", "0");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: form,
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Upload falhou.");
+      }
+      setAvatarUrl(data.url);
+      toast.success("Avatar atualizado — lembre de salvar.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Falha no upload do avatar."
+      );
+    } finally {
+      setUploadingAvatar(false);
     }
   }
 
@@ -551,18 +596,35 @@ function SettingsPageContent() {
                       ? ` · plano ${planName.toLowerCase()}`
                       : ""}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="sv-btn-outline"
-                      onClick={() =>
-                        toast.info(
-                          "Upload de foto em breve. Cole uma URL abaixo por enquanto."
-                        )
-                      }
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <label
+                      className="sv-btn-outline cursor-pointer"
+                      aria-disabled={uploadingAvatar}
+                      style={{
+                        opacity: uploadingAvatar ? 0.6 : 1,
+                        pointerEvents: uploadingAvatar ? "none" : "auto",
+                      }}
                     >
-                      <Upload size={12} /> Trocar foto
-                    </button>
+                      {uploadingAvatar ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" /> Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={12} /> Trocar foto
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleAvatarFile(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
                     {avatarUrl && (
                       <button
                         type="button"
@@ -1482,6 +1544,137 @@ function SettingsPageContent() {
                 >
                   <LogOut size={13} /> Sair da conta
                 </button>
+              </div>
+
+              <hr className="sv-divider my-8" />
+
+              {/* === LGPD: Export / Import JSON === */}
+              <div
+                className="p-6"
+                style={{
+                  border: "1.5px solid var(--sv-ink)",
+                  background: "var(--sv-soft)",
+                }}
+              >
+                <div
+                  className="mb-2 inline-flex items-center gap-2"
+                  style={{
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 10,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-ink)",
+                    fontWeight: 700,
+                  }}
+                >
+                  <Upload size={13} /> Portabilidade de dados (LGPD)
+                </div>
+                <p
+                  className="mb-4"
+                  style={{
+                    fontFamily: "var(--sv-sans)",
+                    fontSize: 14,
+                    color: "var(--sv-ink)",
+                  }}
+                >
+                  Baixe tudo que você tem aqui (perfil, carrosséis, histórico)
+                  como JSON. Pode reimportar em outra conta sua.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="sv-btn-outline"
+                    onClick={async () => {
+                      if (!session) {
+                        toast.error("Sessão expirada.");
+                        return;
+                      }
+                      try {
+                        const res = await fetch("/api/data-export", {
+                          headers: {
+                            Authorization: `Bearer ${session.access_token}`,
+                          },
+                        });
+                        if (!res.ok) {
+                          const data = (await res.json().catch(() => ({}))) as {
+                            error?: string;
+                          };
+                          throw new Error(data.error || "Falha no export.");
+                        }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `sequencia-viral-export-${new Date()
+                          .toISOString()
+                          .slice(0, 10)}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        toast.success("Export baixado.");
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error
+                            ? err.message
+                            : "Falha no export."
+                        );
+                      }
+                    }}
+                  >
+                    Baixar meus dados (JSON)
+                  </button>
+                  <label className="sv-btn-ghost cursor-pointer">
+                    Importar JSON
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        if (!session) {
+                          toast.error("Sessão expirada.");
+                          return;
+                        }
+                        try {
+                          const text = await file.text();
+                          const parsed = JSON.parse(text);
+                          const res = await fetch("/api/data-import", {
+                            method: "POST",
+                            headers: {
+                              "content-type": "application/json",
+                              Authorization: `Bearer ${session.access_token}`,
+                            },
+                            body: JSON.stringify(parsed),
+                          });
+                          const data = (await res.json().catch(() => ({}))) as {
+                            imported?: number;
+                            error?: string;
+                            skipped?: string[];
+                          };
+                          if (!res.ok) {
+                            throw new Error(data.error || "Falha no import.");
+                          }
+                          toast.success(
+                            `${data.imported ?? 0} carrosséis importados${
+                              data.skipped?.length
+                                ? ` (${data.skipped.length} pulados)`
+                                : ""
+                            }.`
+                          );
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "Falha no import."
+                          );
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
 
               <hr className="sv-divider my-8" />

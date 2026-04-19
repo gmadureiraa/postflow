@@ -1383,6 +1383,56 @@ function CreatePageContent() {
     setIsExporting(false);
   };
 
+  const handleExportZip = async () => {
+    if (!profileReady) {
+      setError(
+        "Carregando seu perfil… tenta de novo em 1 segundo pro nome/foto sair certo no ZIP."
+      );
+      return;
+    }
+    setIsExporting(true);
+    setError("");
+    setExportProgress("Preparando ZIP...");
+    try {
+      const [{ buildSlidesZip, downloadBlob }] = await Promise.all([
+        import("@/lib/export-zip"),
+      ]);
+      await withExportRender(editSlides, async () => {
+        const title = (variations[selectedVariation]?.title || "sequencia-viral-carrossel")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .slice(0, 50);
+        const zipBlob = await buildSlidesZip(
+          exportSlideRefs.current.slice(0, editSlides.length),
+          {
+            filename: title,
+            onProgress: (msg) => setExportProgress(msg),
+            pdfBytes: async () => {
+              const built = await buildCarouselPdfBlob();
+              if (!built) return null;
+              return new Uint8Array(await built.blob.arrayBuffer());
+            },
+            manifest: {
+              app: "sequencia-viral",
+              title,
+              slide_count: editSlides.length,
+              variation: variations[selectedVariation]?.title,
+              style: slideStyle,
+            },
+          }
+        );
+        downloadBlob(zipBlob, `${title}.zip`);
+        toast.success("ZIP baixado (PNG + PDF + manifest).");
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Export ZIP error:", err);
+      setError(`Nao foi possivel gerar ZIP. ${msg}`.trim());
+    }
+    setExportProgress("");
+    setIsExporting(false);
+  };
+
   const handleExportPdf = async () => {
     if (!profileReady) {
       setError(
@@ -1687,6 +1737,17 @@ function CreatePageContent() {
                         <div>
                           <div className="font-semibold">Baixar PDF</div>
                           <div className="text-[11px] text-[var(--muted)]">Todos slides em PDF</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { void handleExportZip(); setShowExportPanel(false); }}
+                        disabled={isExporting}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-50 transition-colors text-left disabled:opacity-50"
+                      >
+                        <Icon name="download" size={16} />
+                        <div>
+                          <div className="font-semibold">Baixar ZIP</div>
+                          <div className="text-[11px] text-[var(--muted)]">PNGs + PDF + manifest</div>
                         </div>
                       </button>
                     </motion.div>
@@ -3018,6 +3079,7 @@ function CreatePageContent() {
               showFooter={i === 0}
               scale={1}
               exportMode={true}
+              watermark={(profile?.plan ?? "free") === "free"}
             />
           ))}
         </div>

@@ -32,6 +32,10 @@ export interface SlideProps {
   /** Modo export (PNG/PDF): rota imagens externas pelo /api/img-proxy pra evitar
    * canvas tainted de CORS. Nunca habilite em preview — quebra cache de imagem. */
   exportMode?: boolean;
+  /** Quando true, adiciona marca d'água "sequenciaviral.com" no rodapé.
+   *  Ativado automaticamente para planos `free` pelo chamador (ex.: hook de export).
+   *  A marca é discreta e preserva a composição, mas fica legível no Instagram. */
+  watermark?: boolean;
 }
 
 /**
@@ -99,6 +103,7 @@ const CarouselSlide = forwardRef<HTMLDivElement, SlideProps>(
       showFooter = true,
       scale = 0.38,
       exportMode = false,
+      watermark = false,
     },
     ref
   ) {
@@ -418,6 +423,45 @@ const CarouselSlide = forwardRef<HTMLDivElement, SlideProps>(
               }}
             >
               →
+            </div>
+          )}
+
+          {/* Watermark (plan=free) — discreto, canto inferior esquerdo,
+              vira CTA pra conhecer a ferramenta. */}
+          {watermark && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 40,
+                bottom: 36,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 14px",
+                borderRadius: 999,
+                background: isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(10,10,10,0.06)",
+                border: `1px solid ${isDark ? "rgba(255,255,255,0.18)" : "rgba(10,10,10,0.14)"}`,
+                fontFamily,
+                fontSize: 18,
+                fontWeight: 600,
+                color: muted,
+                letterSpacing: "0.02em",
+                backdropFilter: "blur(2px)",
+              }}
+            >
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  background: accent,
+                  display: "inline-block",
+                }}
+              />
+              feito em sequenciaviral.com
             </div>
           )}
         </div>

@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchUserCarousels, type SavedCarousel } from "@/lib/carousel-storage";
 import EditorialSlide from "@/components/app/editorial-slide";
 import { CarouselListSkeleton } from "@/components/app/carousel-skeleton";
+import { jsonWithAuth } from "@/lib/api-auth-headers";
 
 /* ============================================================================
  *  Dashboard · Sequência Viral (brutalist editorial Kaleidos)
@@ -73,11 +74,21 @@ function formatSince(iso?: string | null): string {
   return d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
 }
 
+type RemoteIdea = {
+  id: string;
+  title: string;
+  hook?: string;
+  angle?: string;
+  style?: string;
+};
+
 export default function DashboardPage() {
-  const { profile, user } = useAuth();
+  const { profile, user, session } = useAuth();
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
   const [carouselLoading, setCarouselLoading] = useState(true);
   const [carouselError, setCarouselError] = useState<string | null>(null);
+  const [remoteIdeas, setRemoteIdeas] = useState<RemoteIdea[] | null>(null);
+  const [ideasLoading, setIdeasLoading] = useState(false);
 
   const loadCarousels = useCallback(async () => {
     setCarouselError(null);
@@ -104,6 +115,34 @@ export default function DashboardPage() {
     }, 0);
     return () => window.clearTimeout(t);
   }, [loadCarousels]);
+
+  // Carrega ideias sugeridas reais (cache 24h via backend)
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      setIdeasLoading(true);
+      try {
+        const res = await fetch("/api/suggestions", {
+          headers: jsonWithAuth(session),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          items?: RemoteIdea[];
+          error?: string;
+        };
+        if (!cancelled && res.ok && Array.isArray(data.items) && data.items.length > 0) {
+          setRemoteIdeas(data.items.slice(0, 6));
+        }
+      } catch (err) {
+        console.warn("[dashboard] suggestions failed:", err);
+      } finally {
+        if (!cancelled) setIdeasLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   // ─── Derivações ────────────────────────────────────────────────────────────
   const firstName = useMemo(() => {
@@ -137,17 +176,30 @@ export default function DashboardPage() {
     (user?.created_at as string | undefined) ?? null
   );
 
-  // Ideias sugeridas — adapta kicker ao primeiro nicho do perfil, se houver
+  // Ideias sugeridas — prefere respostas reais da IA (cache 24h no backend),
+  // cai no deck mock curado se ainda não carregou ou a IA está indisponível.
   const firstNiche =
     profile?.niche && profile.niche.length > 0 ? profile.niche[0] : null;
   const ideas = useMemo(() => {
+    if (remoteIdeas && remoteIdeas.length > 0) {
+      return remoteIdeas.map((it, idx) => ({
+        n: String(idx + 1).padStart(2, "0"),
+        theme:
+          (it.style || firstNiche || "EDITORIAL").toString().toUpperCase(),
+        title: it.title,
+        body:
+          it.angle ||
+          (it.hook ? it.hook.replace(/\s*\|\s*/, " — ") : "Ideia sugerida pela IA."),
+      }));
+    }
     if (!firstNiche) return IDEA_DECK;
     const upper = firstNiche.toUpperCase();
     return IDEA_DECK.map((i, idx) => ({
       ...i,
       theme: idx === 0 ? upper : i.theme,
     }));
-  }, [firstNiche]);
+  }, [firstNiche, remoteIdeas]);
+  void ideasLoading; // reservado para spinner futuro
 
   const totalCarousels = carousels.length;
 

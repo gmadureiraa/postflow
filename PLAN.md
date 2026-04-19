@@ -60,7 +60,7 @@
 ### 2.2 Dashboard (`/app`)
 - [x] Stat row 4 tiles (carrosséis criados, ciclo atual, plano, rascunhos)
 - [x] Seções "Rascunhos" / "Publicados" / "Ideias sugeridas"
-- [ ] **"Ideias sugeridas"** deixar de ser mock: chamar Gemini com `niche + tone` e cachear 24h por user
+- [x] **"Ideias sugeridas"** real: `/api/suggestions` com Gemini, cache 24h em `brand_analysis.__suggestions`, fallback p/ deck mock
 - [ ] Card de "onboarding pendente" se `!profile.brand_analysis` ou `!profile.niche?.length`
 
 ### 2.3 Onboarding (`/app/onboarding`)
@@ -105,9 +105,9 @@
 
 ### 2.9 Settings (`/app/settings`)
 - [x] 7 abas (Perfil, Branding, Redes, Voz IA, Notificações, Plano, Segurança)
-- [ ] **Avatar upload** real (não só URL) — usa `/api/upload`
-- [ ] **Export JSON** de todos carrosséis + profile + metrics (LGPD portabilidade)
-- [ ] **Import**: uploader de JSON pra migrar de outra conta
+- [x] **Avatar upload** real (não só URL) — usa `/api/upload` com file input nativo
+- [x] **Export JSON** de todos carrosséis + profile + metrics (LGPD) — `/api/data-export`
+- [x] **Import**: uploader de JSON — `/api/data-import` (valida shape, importa como rascunho)
 - [ ] **Audit log**: últimas 20 ações (login, edição, export) — se plan ≥ pro
 
 ---
@@ -141,8 +141,8 @@
 
 ### 3.5 Export (`/api/carousel/exports`)
 - [x] Bulk PNG + PDF → Supabase Storage `carousel-exports`
-- [ ] **ZIP**: monta zip server-side com `archiver` OU cria cliente-side com `jszip` (sem deps novas)
-- [ ] **Watermark**: se plan=free, adicionar marca "Sequência Viral" discreta no slide rodapé (aumentar conversão pra Pro)
+- [x] **ZIP**: client-side com `jszip` — `lib/export-zip.ts` + botão "Baixar ZIP" (PNGs + PDF + manifest)
+- [x] **Watermark**: se plan=free, marca discreta "feito em sequenciaviral.com" no rodapé do slide no export (prop `watermark` no `CarouselSlide`)
 - [ ] **Formatos adicionais**: 1:1 (stories IG), 16:9 (LinkedIn nativo)
 
 ### 3.6 Stripe (`/api/stripe/*`)
