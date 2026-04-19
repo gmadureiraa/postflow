@@ -1,5 +1,6 @@
 import { requireAuthenticatedUser } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
+import { geminiWithRetry } from "@/lib/server/gemini-retry";
 import { GoogleGenAI } from "@google/genai";
 
 export const maxDuration = 10;
@@ -84,16 +85,18 @@ Return ONLY valid JSON:
 Generate exactly 5 concepts. Make each one so compelling that the reader can't pick just one.`;
 
     const ai = new GoogleGenAI({ apiKey: geminiKey });
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.9,
-        maxOutputTokens: 2000,
-        responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    });
+    const result = await geminiWithRetry(() =>
+      ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          temperature: 0.9,
+          maxOutputTokens: 2000,
+          responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      })
+    );
 
     const text = result.text || "";
     let parsed: { concepts: Array<{ title: string; hook: string; style: string; angle: string }> };

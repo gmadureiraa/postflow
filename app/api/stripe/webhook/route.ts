@@ -6,9 +6,10 @@ import {
   usageLimitForPaidPlan,
 } from "@/lib/stripe";
 import { PLANS } from "@/lib/pricing";
+import type { PlanId } from "@/lib/pricing";
 import { createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
-import { sendPaymentSuccess } from "@/lib/email/dispatch";
+import { sendPaymentSuccess, sendPaymentFailed } from "@/lib/email/dispatch";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
@@ -174,6 +175,163 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
           properties: { downgraded_to: "free" },
         });
       }
+      break;
+    }
+
+    case "customer.subscription.updated": {
+      // Trata upgrade/downgrade mid-cycle e mudança de status (active ⇄ past_due).
+      const subscription = event.data.object as Stripe.Subscription & {
+        metadata?: { userId?: string; planId?: string };
+      };
+      const userId = subscription.metadata?.userId;
+      const metadataPlanId = subscription.metadata?.planId;
+      const status = subscription.status;
+
+      if (!userId) {
+        console.warn(
+          "[stripe webhook] subscription.updated sem metadata.userId — ignorando",
+          subscription.id
+        );
+        break;
+      }
+
+      // Deduz o plano atual a partir do price.id quando disponível (caso o user tenha trocado).
+      let resolvedPlan: PlanId | null = null;
+      try {
+        const items = subscription.items?.data || [];
+        for (const item of items) {
+          const priceId = item.price?.id;
+          if (!priceId) continue;
+          if (priceId === process.env.STRIPE_PRICE_PRO) resolvedPlan = "pro";
+          else if (priceId === process.env.STRIPE_PRICE_BUSINESS) resolvedPlan = "business";
+        }
+      } catch (e) {
+        console.warn("[stripe webhook] falha ao ler items da subscription:", e);
+      }
+
+      if (!resolvedPlan && metadataPlanId && isPaidPlanId(metadataPlanId)) {
+        resolvedPlan = metadataPlanId;
+      }
+
+      // Se cancelou no fim do período / past_due → mantém plano pago mas não força.
+      // Se `cancel_at_period_end` for true, ainda é pago; só volta pra free no deleted.
+      if (status === "unpaid" || status === "canceled" || status === "incomplete_expired") {
+        const { error: downErr } = await supabaseAdmin
+          .from("profiles")
+          .update({
+            plan: "free",
+            usage_limit: FREE_PLAN_USAGE_LIMIT,
+          })
+          .eq("id", userId);
+        if (downErr) {
+          console.error(
+            "[stripe webhook] falha downgrade subscription.updated:",
+            downErr.message
+          );
+        }
+        getPostHogClient().capture({
+          distinctId: userId,
+          event: "subscription_updated",
+          properties: { new_status: status, downgraded_to: "free" },
+        });
+      } else if (resolvedPlan) {
+        const usageLimit = usageLimitForPaidPlan(resolvedPlan);
+        const { error: upErr } = await supabaseAdmin
+          .from("profiles")
+          .update({
+            plan: resolvedPlan,
+            usage_limit: usageLimit,
+            stripe_subscription_id: subscription.id,
+          })
+          .eq("id", userId);
+        if (upErr) {
+          console.error("[stripe webhook] falha sync plano:", upErr.message);
+        }
+        getPostHogClient().capture({
+          distinctId: userId,
+          event: "subscription_updated",
+          properties: { new_status: status, plan: resolvedPlan },
+        });
+      }
+      break;
+    }
+
+    case "invoice.payment_failed": {
+      // Cobrança recorrente falhou. Não downgrade imediato — Stripe tenta de novo.
+      // Apenas notifica o user pra atualizar o cartão via portal.
+      const invoice = event.data.object as Stripe.Invoice & {
+        customer?: string;
+      };
+      const customerId =
+        typeof invoice.customer === "string" ? invoice.customer : null;
+      if (!customerId) break;
+
+      // Encontra o profile por stripe_customer_id
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("id,name,email,plan,stripe_subscription_id")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle();
+
+      if (!profile?.email) {
+        console.warn(
+          "[stripe webhook] invoice.payment_failed: profile não achado para customer",
+          customerId
+        );
+        break;
+      }
+
+      const planId = (profile.plan || "pro") as PlanId;
+      const planMeta = PLANS[planId] ?? PLANS.pro;
+      const amountUsd =
+        typeof invoice.amount_due === "number"
+          ? invoice.amount_due / 100
+          : null;
+
+      // Tenta criar um billing portal session pro user arrumar o cartão
+      let portalUrl: string | undefined;
+      try {
+        const returnUrl = `${
+          process.env.NEXT_PUBLIC_APP_URL || "https://sequencia-viral.vercel.app"
+        }/app/settings`;
+        const portal = await stripe.billingPortal.sessions.create({
+          customer: customerId,
+          return_url: returnUrl,
+        });
+        portalUrl = portal.url;
+      } catch (e) {
+        console.warn("[stripe webhook] billingPortal session falhou:", e);
+      }
+
+      // Registra tentativa falha em payments
+      await supabaseAdmin.from("payments").insert({
+        user_id: profile.id,
+        amount_usd: amountUsd ?? 0,
+        currency: (invoice.currency || "usd").toUpperCase(),
+        method: "stripe",
+        status: "failed",
+        plan: planId,
+      });
+
+      getPostHogClient().capture({
+        distinctId: profile.id,
+        event: "payment_failed",
+        properties: {
+          amount_usd: amountUsd,
+          plan: planId,
+          attempt_count: invoice.attempt_count,
+        },
+      });
+
+      // Email ao user (não bloqueia)
+      await sendPaymentFailed(
+        { email: profile.email, name: profile.name || undefined },
+        {
+          planName: planMeta.name,
+          amountUsd,
+          portalUrl,
+        }
+      );
       break;
     }
   }

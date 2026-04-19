@@ -4,6 +4,7 @@ import { getYouTubeTranscript } from "@/lib/youtube-transcript";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { geminiWithRetry } from "@/lib/server/gemini-retry";
 import { GoogleGenAI } from "@google/genai";
 
 export const maxDuration = 60;
@@ -305,17 +306,19 @@ Each slides array must have 6-10 items.`;
     let inputTokens = 0;
     let outputTokens = 0;
     try {
-      const genResult = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature: 0.85,
-          maxOutputTokens: 10000,
-          responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 1024 },
-        },
-      });
+      const genResult = await geminiWithRetry(() =>
+        ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.85,
+            maxOutputTokens: 10000,
+            responseMimeType: "application/json",
+            thinkingConfig: { thinkingBudget: 1024 },
+          },
+        })
+      );
       textResponse = genResult.text || "";
       // Capture real token usage for cost auditing
       const usage = genResult.usageMetadata;
@@ -324,7 +327,7 @@ Each slides array must have 6-10 items.`;
         outputTokens = usage.candidatesTokenCount ?? 0;
       }
     } catch (err) {
-      console.error("[generate] Gemini API error:", err);
+      console.error("[generate] Gemini API error (after retries):", err);
       return Response.json(
         {
           error: process.env.NODE_ENV === "production"

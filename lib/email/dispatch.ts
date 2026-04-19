@@ -12,6 +12,10 @@ import { FirstCarouselEmail } from "./templates/first-carousel";
 import { PaymentSuccessEmail } from "./templates/payment-success";
 import { PlanLimitEmail } from "./templates/plan-limit";
 import { ReEngagementEmail } from "./templates/re-engagement";
+import { OnboardingHowItWorksEmail } from "./templates/onboarding-how-it-works";
+import { OnboardingFirstCaseEmail } from "./templates/onboarding-first-case";
+import { OnboardingWhyUpgradeEmail } from "./templates/onboarding-why-upgrade";
+import { PaymentFailedEmail } from "./templates/payment-failed";
 
 import { APP_URL } from "@/lib/app-url";
 
@@ -114,5 +118,54 @@ export async function sendReEngagement(
       daysSinceLastUse: args.daysSinceLastUse,
     }),
     tags: [PROJECT_TAG, ENV_TAG, lifecycleTag("re-engagement")],
+  });
+}
+
+/** D+1 — onboarding drip explicando os 3 modos. */
+export async function sendOnboardingHowItWorks(user: Recipient) {
+  return sendEmail({
+    to: user.email,
+    subject: "3 formas de gerar carrossel (escolhe a sua)",
+    react: OnboardingHowItWorksEmail({ name: user.name, appUrl: APP_URL }),
+    tags: [PROJECT_TAG, ENV_TAG, lifecycleTag("onboarding-how-it-works")],
+  });
+}
+
+/** D+3 — onboarding drip: primeiro case + voz da marca. */
+export async function sendOnboardingFirstCase(user: Recipient) {
+  return sendEmail({
+    to: user.email,
+    subject: "47 carrosséis em 1 semana (case real)",
+    react: OnboardingFirstCaseEmail({ name: user.name, appUrl: APP_URL }),
+    tags: [PROJECT_TAG, ENV_TAG, lifecycleTag("onboarding-first-case")],
+  });
+}
+
+/** D+7 — onboarding drip: pitch do upgrade. */
+export async function sendOnboardingWhyUpgrade(user: Recipient) {
+  return sendEmail({
+    to: user.email,
+    subject: "Vale upgrade pro Pro? Matemática honesta",
+    react: OnboardingWhyUpgradeEmail({ name: user.name, appUrl: APP_URL }),
+    tags: [PROJECT_TAG, ENV_TAG, lifecycleTag("onboarding-why-upgrade")],
+  });
+}
+
+/** Stripe `invoice.payment_failed` — cartão recusado, atualizar payment method. */
+export async function sendPaymentFailed(
+  user: Recipient,
+  args: { planName: string; amountUsd?: number | null; portalUrl?: string }
+) {
+  return sendEmail({
+    to: user.email,
+    subject: "Falha na cobrança — atualize seu cartão",
+    react: PaymentFailedEmail({
+      name: user.name,
+      planName: args.planName,
+      amountUsd: args.amountUsd,
+      portalUrl: args.portalUrl,
+      appUrl: APP_URL,
+    }),
+    tags: [PROJECT_TAG, ENV_TAG, lifecycleTag("payment-failed")],
   });
 }
