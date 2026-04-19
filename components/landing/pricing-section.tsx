@@ -249,19 +249,20 @@ export function PricingSection() {
   const [interval, setInterval] = useState<Interval>("month");
   const isAnnual = interval === "year";
 
-  // Preços calculados em BRL a partir da config.
-  const proMonth = "R$ 89";
-  const proAnnualMonthlyEq = "R$ 71,20"; // R$ 854,40/12
-  const proYearTotal = "R$ 854,40/ano";
+  // Preços de LANÇAMENTO em USD — Pro $9.90, Agência $29.90.
+  // Anual −20%: $7.92/mês e $23.92/mês (equivalente mensal).
+  const proMonth = "$9.90";
+  const proAnnualMonthlyEq = "$7.92";
+  const proYearTotal = "$95.04/ano";
 
-  const agencyMonth = "R$ 249";
-  const agencyAnnualMonthlyEq = "R$ 199,20"; // R$ 2.390,40/12
-  const agencyYearTotal = "R$ 2.390,40/ano";
+  const agencyMonth = "$29.90";
+  const agencyAnnualMonthlyEq = "$23.92";
+  const agencyYearTotal = "$287.04/ano";
 
   return (
     <section id="pricing" style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="08" sub="Pricing" tag="Preço em Real">
+        <SectionHead num="08" sub="Pricing" tag="Preço de lançamento">
           Preço <em>honesto</em>.{" "}
           <span style={{ color: "var(--sv-muted)" }}>Cancele quando quiser.</span>
         </SectionHead>
@@ -273,7 +274,7 @@ export function PricingSection() {
             ribbon="Pra experimentar"
             ribbonVariant="free"
             title="Grátis"
-            price="R$ 0"
+            price="$0"
             unit=""
             features={[
               "5 carrosséis/mês",
@@ -294,7 +295,7 @@ export function PricingSection() {
             title="Pro"
             price={isAnnual ? proAnnualMonthlyEq : proMonth}
             unit="/mês"
-            anchor={isAnnual ? "R$ 89/mês no mensal" : "R$ 149"}
+            anchor={isAnnual ? "$9.90/mês no mensal" : "$19.90"}
             annualSaving={isAnnual ? `Cobrado ${proYearTotal}` : undefined}
             features={[
               "30 carrosséis/mês",
@@ -315,7 +316,7 @@ export function PricingSection() {
             title="Agência"
             price={isAnnual ? agencyAnnualMonthlyEq : agencyMonth}
             unit="/mês"
-            anchor={isAnnual ? "R$ 249/mês no mensal" : undefined}
+            anchor={isAnnual ? "$29.90/mês no mensal" : "$39.90"}
             annualSaving={isAnnual ? `Cobrado ${agencyYearTotal}` : undefined}
             features={[
               "Carrosséis ilimitados",

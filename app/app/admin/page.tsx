@@ -122,7 +122,8 @@ interface AdminStats {
   recentGenerations: GenerationRow[];
   subscriptions: {
     activePaidCount: number;
-    mrrBrl: number;
+    mrrUsd: number;
+    mrrBrl: number; // retrocompat — mesmo valor que mrrUsd hoje
     totalRevenueUsd: number;
     failedIn30d: number;
     recentPayments: PaymentRow[];
@@ -146,6 +147,12 @@ function fmtUsd(n: number): string {
 
 function fmtBrl(n: number): string {
   return `R$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtMrr(usd: number): string {
+  // MRR em USD (Stripe charge currency) + conversão BRL pra contexto.
+  const brl = usd * 5; // taxa aproximada 1 USD ≈ R$ 5
+  return `$${usd.toFixed(2)} · ~R$ ${brl.toFixed(0)}`;
 }
 
 function fmtDate(iso: string | null | undefined): string {
@@ -390,7 +397,7 @@ function OverviewTab({ stats }: { stats: AdminStats }) {
         <StatCard
           icon={<TrendingUp size={14} />}
           label="MRR"
-          value={fmtBrl(stats.subscriptions.mrrBrl)}
+          value={fmtMrr(stats.subscriptions.mrrUsd ?? stats.subscriptions.mrrBrl)}
           sub={`${stats.subscriptions.activePaidCount} pagantes ativos`}
         />
         <StatCard
@@ -1056,7 +1063,7 @@ function SubscriptionsTab({ stats }: { stats: AdminStats }) {
         <StatCard
           icon={<TrendingUp size={14} />}
           label="MRR"
-          value={fmtBrl(stats.subscriptions.mrrBrl)}
+          value={fmtMrr(stats.subscriptions.mrrUsd ?? stats.subscriptions.mrrBrl)}
           sub={`${stats.subscriptions.activePaidCount} assinantes`}
         />
         <StatCard

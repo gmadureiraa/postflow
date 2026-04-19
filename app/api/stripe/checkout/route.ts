@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
     const planItem = {
       price_data: {
-        currency: "brl",
+        currency: "usd",
         product_data: {
           name: `Sequência Viral ${plan.name}${billingInterval === "year" ? " (anual)" : ""}`,
           description: plan.features.join(" · "),
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     };
     const bumpItem = {
       price_data: {
-        currency: "brl",
+        currency: "usd",
         product_data: {
           name: `Add-on · ${AUTOPUBLISH_BUMP.name}`,
           description: AUTOPUBLISH_BUMP.description,

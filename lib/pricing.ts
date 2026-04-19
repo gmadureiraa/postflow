@@ -2,18 +2,25 @@
  * Planos e limites — seguro para import em Client Components.
  * (stripe.ts inicializa o SDK e valida STRIPE_SECRET_KEY só no servidor.)
  *
- * Moeda: BRL (Stripe opera com centavos de BRL quando currency: "brl").
- * Preços conferem com landing (pricing-section.tsx) e app/plans/page.tsx.
+ * Moeda: USD (Stripe opera com centavos de USD quando currency: "usd").
+ * Público-alvo brasileiro, mas cobrança internacional — cartões BR fazem
+ * conversão automática. Essa é a estratégia de lançamento.
+ *
+ * Preços de LANÇAMENTO (promo pra primeiros 500 assinantes):
+ *   Pro:     $9.90/mês   (preço normal planejado: $19.90)
+ *   Agência: $29.90/mês  (preço normal planejado: $39.90)
+ *
+ * Anual: sempre −20% sobre mensal equivalente.
  */
 
-export const PLAN_CURRENCY = "brl" as const;
+export const PLAN_CURRENCY = "usd" as const;
 
 export const PLANS = {
   pro: {
     name: "Pro",
-    priceMonthly: 8900, // R$ 89,00 em centavos BRL
-    priceAnnual: 85440, // R$ 854,40/ano (~20% off sobre R$ 89×12 = R$ 1068)
-    priceAnchor: 14900, // R$ 149 — preço "de" pra mostrar desconto de lançamento
+    priceMonthly: 990, // $9.90 em cents
+    priceAnnual: 9504, // $95.04/ano (20% off sobre $9.90 × 12 = $118.80)
+    priceAnchor: 1990, // $19.90 — preço "normal" depois da promo de lançamento
     carouselsPerMonth: 30,
     features: [
       "30 carrosséis/mês",
@@ -29,9 +36,9 @@ export const PLANS = {
   },
   business: {
     name: "Agência",
-    priceMonthly: 24900, // R$ 249,00 em centavos BRL
-    priceAnnual: 239040, // R$ 2.390,40/ano (~20% off sobre R$ 249×12 = R$ 2988)
-    priceAnchor: 39900, // R$ 399 — âncora "de"
+    priceMonthly: 2990, // $29.90
+    priceAnnual: 28704, // $287.04/ano (20% off sobre $29.90 × 12 = $358.80)
+    priceAnchor: 3990, // $39.90 preço normal planejado
     carouselsPerMonth: -1, // unlimited
     features: [
       "Carrosséis ilimitados",
@@ -56,7 +63,7 @@ export type BillingInterval = "month" | "year";
 export const AUTOPUBLISH_BUMP = {
   id: "autopublish",
   name: "Publicação automática",
-  priceMonthly: 2900, // R$ 29,00 em centavos BRL
+  priceMonthly: 499, // $4.99 em cents
   description:
     "Publica direto em Instagram, X e LinkedIn. Agendamento + fila + re-post inteligente.",
 } as const;
@@ -80,9 +87,9 @@ export function usageLimitForPaidPlan(planId: PlanId): number {
 }
 
 /**
- * Valor cobrado em BRL (decimal, não centavos) para registro em
- * `payments.amount_usd`. O nome da coluna é histórico — hoje armazena BRL.
- * Novos rows vão com `currency = "BRL"`.
+ * Valor cobrado em USD (decimal, não centavos) para registro em
+ * `payments.amount_usd`. Com currency="usd" no Stripe, isso bate direto
+ * com o valor em dólar pago pelo usuário.
  */
 export function stripePaymentAmount(
   planId: PlanId,
@@ -96,14 +103,14 @@ export function stripePaymentAmount(
 /** Alias histórico mantido pra não quebrar imports existentes. */
 export const stripePaymentAmountUsd = stripePaymentAmount;
 
-/** Formata centavos BRL pra string "R$ 89,00". */
-export function formatBrl(cents: number): string {
+/** Formata centavos USD pra string "$9.90". */
+export function formatUsd(cents: number): string {
   const v = cents / 100;
-  return `R$ ${v.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return `$${v.toFixed(2)}`;
 }
+
+/** Alias retrocompat — usado em alguns lugares que chamavam formatBrl. */
+export const formatBrl = formatUsd;
 
 /** Calcula desconto anual em % pra badges. */
 export function annualDiscountPct(planId: PlanId): number {

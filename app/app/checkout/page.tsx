@@ -33,8 +33,8 @@ const PLAN_META: Record<
   pro: {
     name: "Pro",
     tagline: "Pra quem posta todo dia.",
-    anchorPrice: 1999,
-    price: 999,
+    anchorPrice: 1990, // $19.90 preço normal pós-lançamento
+    price: 990,        // $9.90 lançamento
     discountLabel: "50% de lançamento",
     features: [
       "30 carrosséis por mês",
@@ -42,15 +42,15 @@ const PLAN_META: Record<
       "Todos os estilos",
       "Imagens com IA + busca",
       "Export PNG",
-      "1 perfil",
+      "3 perfis de marca",
     ],
   },
   business: {
-    name: "Business",
+    name: "Agência",
     tagline: "Pra times e agências.",
-    anchorPrice: 4999,
-    price: 2999,
-    discountLabel: "40% de lançamento",
+    anchorPrice: 3990, // $39.90
+    price: 2990,       // $29.90 lançamento
+    discountLabel: "25% de lançamento",
     features: [
       "Carrosséis ilimitados",
       "3 seats inclusos",

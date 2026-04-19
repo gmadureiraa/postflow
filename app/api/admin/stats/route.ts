@@ -276,16 +276,19 @@ export async function GET(request: Request) {
       },
     }));
 
-    // Assinaturas / MRR
-    const PRO_PRICE = 89; // R$/mês
-    const BUSINESS_PRICE = 249; // R$/mês
+    // Assinaturas / MRR — preços de lançamento em USD.
+    // (Stripe cobra em USD, cartão BR converte automaticamente.)
+    const PRO_PRICE_USD = 9.9; // $/mês
+    const BUSINESS_PRICE_USD = 29.9; // $/mês
     const activePaid = profiles.filter(
       (p) =>
         (p.plan === "pro" || p.plan === "business") && p.stripe_subscription_id
     );
-    const mrrBrl =
-      activePaid.filter((p) => p.plan === "pro").length * PRO_PRICE +
-      activePaid.filter((p) => p.plan === "business").length * BUSINESS_PRICE;
+    const mrrUsd =
+      activePaid.filter((p) => p.plan === "pro").length * PRO_PRICE_USD +
+      activePaid.filter((p) => p.plan === "business").length * BUSINESS_PRICE_USD;
+    // Alias BRL pra retrocompat de alguém consumindo o campo antigo.
+    const mrrBrl = mrrUsd;
 
     const confirmedPayments = payments.filter((p) => p.status === "confirmed");
     const failedPayments = payments.filter((p) => p.status === "failed");
@@ -347,7 +350,8 @@ export async function GET(request: Request) {
       recentGenerations: generations.slice(0, 100),
       subscriptions: {
         activePaidCount: activePaid.length,
-        mrrBrl,
+        mrrUsd: Math.round(mrrUsd * 100) / 100,
+        mrrBrl, // retrocompat — mesmo valor que mrrUsd agora
         totalRevenueUsd: Math.round(totalRevenueUsd * 100) / 100,
         failedIn30d,
         recentPayments: payments.slice(0, 50),

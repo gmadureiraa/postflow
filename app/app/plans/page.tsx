@@ -45,7 +45,7 @@ function buildCards(interval: Interval): PlanCard[] {
       id: "free",
       number: "01",
       name: "Grátis",
-      price: "R$ 0",
+      price: "$0",
       priceNote: "pra sempre",
       tagline: "Pra testar o fluxo sem compromisso.",
       features: FREE_FEATURES,
@@ -56,8 +56,8 @@ function buildCards(interval: Interval): PlanCard[] {
       id: "pro",
       number: "02",
       name: "Pro",
-      price: annual ? "R$ 71,20" : "R$ 89",
-      priceNote: annual ? "por mês · anual R$ 854,40" : "por mês",
+      price: annual ? "$7.92" : "$9.90",
+      priceNote: annual ? "por mês · anual $95.04" : "por mês · preço de lançamento",
       tagline: annual
         ? "Pra quem posta todo dia — 20% off no anual."
         : "Pra quem posta todo dia.",
@@ -70,8 +70,8 @@ function buildCards(interval: Interval): PlanCard[] {
       id: "business",
       number: "03",
       name: "Agência",
-      price: annual ? "R$ 199,20" : "R$ 249",
-      priceNote: annual ? "por mês · anual R$ 2.390,40" : "por mês",
+      price: annual ? "$23.92" : "$29.90",
+      priceNote: annual ? "por mês · anual $287.04" : "por mês · preço de lançamento",
       tagline: annual
         ? "Pra times e agências — 20% off no anual."
         : "Pra times e agências.",
@@ -93,7 +93,11 @@ const FAQ = [
   },
   {
     q: "Tem plano anual?",
-    a: "Sim. O anual dá 20% de desconto vs mensal (Pro sai ~R$ 71/mês cobrado anual, Agência ~R$ 199/mês). Mesma flexibilidade: cancele quando quiser, reembolso se cancelar no mês que assinou.",
+    a: "Sim. O anual dá 20% de desconto vs mensal (Pro sai ~$7.92/mês cobrado anual, Agência ~$23.92/mês). Mesma flexibilidade: cancele quando quiser, reembolso se cancelar no mês que assinou.",
+  },
+  {
+    q: "Por que o preço está em dólar?",
+    a: "Pra simplificar quando começarmos a aceitar usuários fora do Brasil. Cartões brasileiros convertem automaticamente na cobrança do Stripe. Valor final vira BRL na sua fatura conforme a taxa do dia.",
   },
   {
     q: "Qual a diferença real entre Pro e Agência?",
