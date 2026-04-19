@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, type BrandAnalysis } from "@/lib/auth-context";
 import {
   PLANS,
   type PlanId,
@@ -22,6 +22,12 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
+  Instagram,
+  Linkedin,
+  Plug,
+  Mail,
+  Bell,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { jsonWithAuth } from "@/lib/api-auth-headers";
@@ -36,17 +42,141 @@ type TabId =
   | "branding"
   | "social"
   | "voice"
+  | "notifications"
   | "plan"
   | "security";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "profile", label: "Perfil" },
-  { id: "branding", label: "Branding padrão" },
-  { id: "social", label: "Redes" },
-  { id: "voice", label: "Voz IA" },
-  { id: "plan", label: "Plano" },
-  { id: "security", label: "Segurança" },
+const TABS: { id: TabId; label: string; glyph: string }[] = [
+  { id: "profile", label: "Perfil", glyph: "◉" },
+  { id: "branding", label: "Branding padrão", glyph: "◆" },
+  { id: "social", label: "Redes", glyph: "❋" },
+  { id: "voice", label: "Voz IA", glyph: "✦" },
+  { id: "notifications", label: "Notificações", glyph: "●" },
+  { id: "plan", label: "Plano", glyph: "☆" },
+  { id: "security", label: "Segurança", glyph: "▲" },
 ];
+
+// ──────────────────────────────────────────────────────────────────
+// Voice options (Editorial ✦, Direto ◆, Provocador ❋, Pessoal ☆)
+// Mapeia para o campo `tone` via VOICE_TO_TONE (consistente com onboarding)
+// ──────────────────────────────────────────────────────────────────
+const VOICE_TO_TONE: Record<string, string> = {
+  editorial: "educational",
+  direct: "professional",
+  provocative: "provocative",
+  personal: "casual",
+};
+const TONE_TO_VOICE: Record<string, string> = {
+  educational: "editorial",
+  professional: "direct",
+  provocative: "provocative",
+  casual: "personal",
+};
+
+const VOICE_OPTIONS: {
+  value: string;
+  glyph: string;
+  label: string;
+  desc: string;
+  sample: string;
+}[] = [
+  {
+    value: "editorial",
+    glyph: "✦",
+    label: "Editorial",
+    desc: "Analítico, ensaístico, prova com dado.",
+    sample:
+      "A maioria dos criadores confunde consistência com repetição. São coisas opostas, e a diferença custa caro.",
+  },
+  {
+    value: "direct",
+    glyph: "◆",
+    label: "Direto",
+    desc: "Curto, afiado, vai na jugular.",
+    sample:
+      "Se você ainda posta sem um ponto de vista, você não é criador — é jornalista do óbvio.",
+  },
+  {
+    value: "provocative",
+    glyph: "❋",
+    label: "Provocador",
+    desc: "Conflito, contrário, abre debate.",
+    sample:
+      "Pare de seguir gurus de marketing. Eles ganham ensinando, não praticando. Você tá pagando a escola deles.",
+  },
+  {
+    value: "personal",
+    glyph: "☆",
+    label: "Pessoal",
+    desc: "Bastidor, vulnerável, humano.",
+    sample:
+      "Demorei 3 anos pra aceitar que ninguém ia ler meu texto se eu não botasse a cara. Hoje, é isso que cola.",
+  },
+];
+
+// ──────────────────────────────────────────────────────────────────
+// Branding — cores e fontes (do handoff)
+// ──────────────────────────────────────────────────────────────────
+const ACCENT_SWATCHES = [
+  { value: "#7CF067", name: "Verde" },
+  { value: "#D262B2", name: "Pink" },
+  { value: "#FF4A1C", name: "Laranja" },
+  { value: "#F5C518", name: "Amarelo" },
+  { value: "#2B5FFF", name: "Azul" },
+  { value: "#0A0A0A", name: "Preto" },
+];
+
+const FONT_OPTIONS = [
+  { value: "serif", label: "Serif", font: "var(--sv-display)", italic: true },
+  { value: "anton", label: "Anton", font: "'Anton', sans-serif" },
+  { value: "archivo", label: "Archivo", font: "'Archivo Black', sans-serif" },
+  { value: "bebas", label: "Bebas", font: "'Bebas Neue', sans-serif" },
+  { value: "grotesk", label: "Grotesk", font: "'Space Grotesk', sans-serif" },
+];
+
+// ──────────────────────────────────────────────────────────────────
+// Notificações (salvas em brand_analysis.__notifications — JSONB sidecar)
+// ──────────────────────────────────────────────────────────────────
+type NotifPrefs = {
+  carousel_ready: boolean;
+  upgrade_available: boolean;
+  weekly_summary: boolean;
+  limit_warnings: boolean;
+};
+const DEFAULT_NOTIFS: NotifPrefs = {
+  carousel_ready: true,
+  upgrade_available: true,
+  weekly_summary: true,
+  limit_warnings: true,
+};
+
+function readNotifsFromProfile(
+  brand: BrandAnalysis | undefined | null
+): NotifPrefs {
+  const raw = (brand as unknown as Record<string, unknown> | null | undefined)?.[
+    "__notifications"
+  ];
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_NOTIFS };
+  const r = raw as Record<string, unknown>;
+  return {
+    carousel_ready:
+      typeof r.carousel_ready === "boolean"
+        ? r.carousel_ready
+        : DEFAULT_NOTIFS.carousel_ready,
+    upgrade_available:
+      typeof r.upgrade_available === "boolean"
+        ? r.upgrade_available
+        : DEFAULT_NOTIFS.upgrade_available,
+    weekly_summary:
+      typeof r.weekly_summary === "boolean"
+        ? r.weekly_summary
+        : DEFAULT_NOTIFS.weekly_summary,
+    limit_warnings:
+      typeof r.limit_warnings === "boolean"
+        ? r.limit_warnings
+        : DEFAULT_NOTIFS.limit_warnings,
+  };
+}
 
 function SettingsPageContent() {
   const router = useRouter();
@@ -59,15 +189,31 @@ function SettingsPageContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
 
+  // Profile core states (preserved)
   const [name, setName] = useState(profile?.name || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
-  const [twitterHandle, setTwitterHandle] = useState(profile?.twitter_handle || "");
-  const [instagramHandle, setInstagramHandle] = useState(profile?.instagram_handle || "");
+  const [twitterHandle, setTwitterHandle] = useState(
+    profile?.twitter_handle || ""
+  );
+  const [instagramHandle, setInstagramHandle] = useState(
+    profile?.instagram_handle || ""
+  );
   const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedin_url || "");
   const [niche, setNiche] = useState<string[]>(profile?.niche || []);
   const [tone, setTone] = useState(profile?.tone || "casual");
   const [language, setLanguage] = useState(profile?.language || "pt-br");
-  const [carouselStyle, setCarouselStyle] = useState(profile?.carousel_style || "white");
+  const [carouselStyle, setCarouselStyle] = useState(
+    profile?.carousel_style || "white"
+  );
+
+  // Branding extras (stored in brand_analysis sidecar as __branding)
+  const [kickerDefault, setKickerDefault] = useState("");
+  const [footerDefault, setFooterDefault] = useState("");
+  const [accentColor, setAccentColor] = useState(ACCENT_SWATCHES[0].value);
+  const [fontChoice, setFontChoice] = useState<string>(FONT_OPTIONS[0].value);
+
+  // Notifications
+  const [notifs, setNotifs] = useState<NotifPrefs>(DEFAULT_NOTIFS);
 
   useEffect(() => {
     if (!profile) return;
@@ -80,6 +226,17 @@ function SettingsPageContent() {
     setTone(profile.tone || "casual");
     setLanguage(profile.language || "pt-br");
     setCarouselStyle(profile.carousel_style || "white");
+    setNotifs(readNotifsFromProfile(profile.brand_analysis));
+
+    const branding = (profile.brand_analysis as unknown as
+      | Record<string, unknown>
+      | undefined)?.["__branding"] as Record<string, unknown> | undefined;
+    if (branding && typeof branding === "object") {
+      if (typeof branding.kicker === "string") setKickerDefault(branding.kicker);
+      if (typeof branding.footer === "string") setFooterDefault(branding.footer);
+      if (typeof branding.accent === "string") setAccentColor(branding.accent);
+      if (typeof branding.font === "string") setFontChoice(branding.font);
+    }
   }, [profile]);
 
   useEffect(() => {
@@ -97,16 +254,17 @@ function SettingsPageContent() {
     }
   }, [searchParams, refreshProfile]);
 
-  const TONES = [
-    { value: "professional", label: "Profissional" },
-    { value: "casual", label: "Casual" },
-    { value: "provocative", label: "Provocativo" },
-    { value: "educational", label: "Educacional" },
-  ];
-
   const NICHE_SUGGESTIONS = [
-    "Marketing", "IA & Automação", "Cripto", "Finanças",
-    "Educação", "Produtividade", "Saúde", "Design", "Tech", "Negócios",
+    "Marketing",
+    "IA & Automação",
+    "Cripto",
+    "Finanças",
+    "Educação",
+    "Produtividade",
+    "Saúde",
+    "Design",
+    "Tech",
+    "Negócios",
   ];
 
   function toggleNiche(v: string) {
@@ -117,6 +275,22 @@ function SettingsPageContent() {
     } else {
       setNiche([...niche, value]);
     }
+  }
+
+  function buildBrandAnalysisUpdate(): BrandAnalysis {
+    const prev =
+      (profile?.brand_analysis as unknown as Record<string, unknown>) || {};
+    const merged: Record<string, unknown> = {
+      ...prev,
+      __notifications: notifs,
+      __branding: {
+        kicker: kickerDefault,
+        footer: footerDefault,
+        accent: accentColor,
+        font: fontChoice,
+      },
+    };
+    return merged as unknown as BrandAnalysis;
   }
 
   async function handleSave() {
@@ -133,6 +307,7 @@ function SettingsPageContent() {
         tone,
         language,
         carousel_style: carouselStyle,
+        brand_analysis: buildBrandAnalysisUpdate(),
       });
       posthog.capture("settings_saved", {
         has_twitter: !!twitterHandle,
@@ -142,13 +317,18 @@ function SettingsPageContent() {
         tone,
         language,
         carousel_style: carouselStyle,
+        accent: accentColor,
+        font: fontChoice,
+        notifs_on: Object.values(notifs).filter(Boolean).length,
       });
       setSaved(true);
       toast.success("Alterações salvas.");
       setTimeout(() => setSaved(false), 2200);
     } catch (e) {
       toast.error(
-        e instanceof Error ? e.message : "Não foi possível salvar. Tente de novo."
+        e instanceof Error
+          ? e.message
+          : "Não foi possível salvar. Tente de novo."
       );
     } finally {
       setSaving(false);
@@ -162,7 +342,9 @@ function SettingsPageContent() {
         headers: jsonWithAuth(session),
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
         toast.error(data.error || "Não foi possível excluir a conta.");
         return;
       }
@@ -175,7 +357,9 @@ function SettingsPageContent() {
       window.location.href = "/";
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Erro inesperado ao excluir conta."
+        err instanceof Error
+          ? err.message
+          : "Erro inesperado ao excluir conta."
       );
     }
   }
@@ -201,6 +385,10 @@ function SettingsPageContent() {
         : plan === "business"
           ? PLANS.business.name
           : plan.charAt(0).toUpperCase() + plan.slice(1);
+
+  const currentVoice = TONE_TO_VOICE[tone] || "personal";
+  const handleDefault =
+    twitterHandle || instagramHandle || (profile?.email?.split("@")[0] ?? "");
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -234,7 +422,8 @@ function SettingsPageContent() {
             maxWidth: 540,
           }}
         >
-          Perfil, voz da marca e preferências. Tudo que torna o Sequência Viral seu.
+          Perfil, branding, voz da IA, redes, notificações e plano. Tudo que
+          torna o Sequência Viral <em style={{ fontFamily: "var(--sv-display)" }}>seu</em>.
         </p>
       </motion.div>
 
@@ -264,7 +453,7 @@ function SettingsPageContent() {
       )}
 
       {/* Split layout: nav + content */}
-      <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
+      <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
         {/* Nav */}
         <aside className="lg:sticky lg:top-[88px] lg:self-start">
           <div
@@ -282,7 +471,7 @@ function SettingsPageContent() {
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
-                  className="whitespace-nowrap px-3 py-2.5 text-left transition-all"
+                  className="flex items-center gap-2 whitespace-nowrap px-3 py-2.5 text-left transition-all"
                   style={{
                     fontFamily: "var(--sv-mono)",
                     fontSize: 10.5,
@@ -293,6 +482,7 @@ function SettingsPageContent() {
                     color: on ? "var(--sv-paper)" : "var(--sv-ink)",
                   }}
                 >
+                  <span style={{ opacity: on ? 1 : 0.5 }}>{t.glyph}</span>
                   {t.label}
                 </button>
               );
@@ -302,8 +492,12 @@ function SettingsPageContent() {
 
         {/* Content */}
         <div className="min-w-0 space-y-6">
+          {/* ========== PERFIL ========== */}
           {activeTab === "profile" && (
-            <Section title="Seu perfil" subtitle="Como você aparece nas exportações e nos slides.">
+            <Section
+              title="Seu perfil"
+              subtitle="Como você aparece nas exportações e nos slides."
+            >
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -329,15 +523,68 @@ function SettingsPageContent() {
                   </div>
                 )}
                 <div className="flex-1">
-                  <Label>URL da foto</Label>
-                  <input
-                    type="url"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    className="sv-input w-full"
-                    placeholder="https://..."
-                  />
+                  <div
+                    className="mb-1"
+                    style={{
+                      fontFamily: "var(--sv-display)",
+                      fontSize: 28,
+                      lineHeight: 1,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {(name || "Você").split(" ").slice(0, 1).join(" ")}{" "}
+                    <em>
+                      {(name || "").split(" ").slice(1).join(" ") || "criador"}
+                    </em>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 10.5,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: "var(--sv-muted)",
+                    }}
+                  >
+                    {profile?.email ?? "—"}
+                    {profile?.plan
+                      ? ` · plano ${planName.toLowerCase()}`
+                      : ""}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="sv-btn-outline"
+                      onClick={() =>
+                        toast.info(
+                          "Upload de foto em breve. Cole uma URL abaixo por enquanto."
+                        )
+                      }
+                    >
+                      <Upload size={12} /> Trocar foto
+                    </button>
+                    {avatarUrl && (
+                      <button
+                        type="button"
+                        className="sv-btn-ghost"
+                        onClick={() => setAvatarUrl("")}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
                 </div>
+              </div>
+
+              <div className="mt-6">
+                <Label>URL da foto</Label>
+                <input
+                  type="url"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  className="sv-input w-full"
+                  placeholder="https://..."
+                />
               </div>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -365,6 +612,79 @@ function SettingsPageContent() {
                 </div>
               </div>
 
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Handle Twitter / X</Label>
+                  <input
+                    type="text"
+                    value={twitterHandle}
+                    onChange={(e) =>
+                      setTwitterHandle(e.target.value.replace(/^@/, ""))
+                    }
+                    className="sv-input w-full"
+                    placeholder="seu_handle"
+                  />
+                </div>
+                <div>
+                  <Label>Handle Instagram</Label>
+                  <input
+                    type="text"
+                    value={instagramHandle}
+                    onChange={(e) =>
+                      setInstagramHandle(e.target.value.replace(/^@/, ""))
+                    }
+                    className="sv-input w-full"
+                    placeholder="seu_handle"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <Label>LinkedIn URL</Label>
+                <input
+                  type="url"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  className="sv-input w-full"
+                  placeholder="https://linkedin.com/in/..."
+                />
+              </div>
+
+              <div className="mt-5">
+                <Label>Nichos e temas</Label>
+                <div className="flex flex-wrap gap-2">
+                  {NICHE_SUGGESTIONS.map((s) => {
+                    const on = niche.includes(s);
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => toggleNiche(s)}
+                        className={`sv-chip ${on ? "sv-chip-on" : ""}`}
+                      >
+                        {on ? "✓ " : "+ "}
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+                {niche.filter((n) => !NICHE_SUGGESTIONS.includes(n)).length >
+                  0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {niche
+                      .filter((n) => !NICHE_SUGGESTIONS.includes(n))
+                      .map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => toggleNiche(n)}
+                          className="sv-chip sv-chip-on"
+                        >
+                          {n} <X size={10} />
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
               <div className="mt-5">
                 <Label>Idioma</Label>
                 <select
@@ -380,11 +700,123 @@ function SettingsPageContent() {
             </Section>
           )}
 
+          {/* ========== BRANDING ========== */}
           {activeTab === "branding" && (
             <Section
               title="Branding padrão"
-              subtitle="Aplicado em todo novo carrossel. Dá pra sobrescrever por projeto."
+              subtitle="Aplicado automaticamente em todo novo carrossel. Dá pra sobrescrever por projeto."
             >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Kicker (header dos slides)</Label>
+                  <input
+                    type="text"
+                    value={kickerDefault}
+                    onChange={(e) => setKickerDefault(e.target.value)}
+                    className="sv-input w-full"
+                    placeholder="Sua Marca · Ed. nº 01"
+                  />
+                </div>
+                <div>
+                  <Label>Footer padrão</Label>
+                  <input
+                    type="text"
+                    value={footerDefault}
+                    onChange={(e) => setFooterDefault(e.target.value)}
+                    className="sv-input w-full"
+                    placeholder="© suamarca.com · 2026"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Label>Handle default</Label>
+                <input
+                  type="text"
+                  value={handleDefault}
+                  readOnly
+                  className="sv-input w-full"
+                  style={{
+                    background: "var(--sv-soft)",
+                    color: "var(--sv-muted)",
+                  }}
+                />
+                <p
+                  className="mt-2"
+                  style={{
+                    fontFamily: "var(--sv-sans)",
+                    fontSize: 12,
+                    color: "var(--sv-muted)",
+                  }}
+                >
+                  Edite em <strong>Perfil</strong> · puxa do handle do Twitter
+                  ou Instagram.
+                </p>
+              </div>
+
+              <div className="mt-6">
+                <Label>Cor de destaque</Label>
+                <div className="flex flex-wrap gap-3">
+                  {ACCENT_SWATCHES.map((sw) => {
+                    const on = accentColor === sw.value;
+                    return (
+                      <button
+                        key={sw.value}
+                        type="button"
+                        onClick={() => setAccentColor(sw.value)}
+                        className="relative flex h-12 w-12 items-center justify-center transition-all"
+                        title={sw.name}
+                        style={{
+                          background: sw.value,
+                          border: "1.5px solid var(--sv-ink)",
+                          boxShadow: on ? "4px 4px 0 0 var(--sv-ink)" : "none",
+                        }}
+                      >
+                        {on && (
+                          <Check
+                            size={16}
+                            strokeWidth={3}
+                            color={
+                              sw.value === "#0A0A0A" ? "#F7F5EF" : "#0A0A0A"
+                            }
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Label>Fonte display padrão</Label>
+                <div className="flex flex-wrap gap-3">
+                  {FONT_OPTIONS.map((f) => {
+                    const on = fontChoice === f.value;
+                    return (
+                      <button
+                        key={f.value}
+                        type="button"
+                        onClick={() => setFontChoice(f.value)}
+                        className="px-5 py-3 transition-all"
+                        style={{
+                          border: "1.5px solid var(--sv-ink)",
+                          background: on ? "var(--sv-green)" : "var(--sv-white)",
+                          boxShadow: on ? "4px 4px 0 0 var(--sv-ink)" : "none",
+                          fontFamily: f.font,
+                          fontStyle: f.italic ? "italic" : "normal",
+                          fontSize: 20,
+                          color: "var(--sv-ink)",
+                        }}
+                      >
+                        {f.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <hr className="sv-divider my-8" />
+
               <Label>Estilo dos slides</Label>
               <div className="grid grid-cols-2 gap-3">
                 {(
@@ -406,7 +838,10 @@ function SettingsPageContent() {
                             ? "var(--sv-ink)"
                             : "var(--sv-green)"
                           : "var(--sv-white)",
-                        color: on && opt.value === "dark" ? "var(--sv-paper)" : "var(--sv-ink)",
+                        color:
+                          on && opt.value === "dark"
+                            ? "var(--sv-paper)"
+                            : "var(--sv-ink)",
                         boxShadow: on ? "4px 4px 0 0 var(--sv-ink)" : "none",
                       }}
                     >
@@ -427,53 +862,302 @@ function SettingsPageContent() {
             </Section>
           )}
 
+          {/* ========== REDES ========== */}
           {activeTab === "social" && (
             <Section
               title="Redes conectadas"
               subtitle="Handles usados nos slides e nas exportações automáticas."
             >
-              <div className="space-y-4">
-                <div>
-                  <Label>Twitter / X</Label>
-                  <input
-                    type="text"
-                    value={twitterHandle}
-                    onChange={(e) => setTwitterHandle(e.target.value.replace(/^@/, ""))}
-                    className="sv-input w-full"
-                    placeholder="seu_handle"
-                  />
+              <div className="flex flex-col gap-3">
+                {/* Instagram */}
+                <div
+                  className="flex items-center gap-4 p-4"
+                  style={{
+                    border: "1.5px solid var(--sv-ink)",
+                    background: instagramHandle
+                      ? "var(--sv-paper)"
+                      : "transparent",
+                    borderStyle: instagramHandle ? "solid" : "dashed",
+                  }}
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #fd1d1d 0%, #e1306c 50%, #c13584 100%)",
+                      borderRadius: 10,
+                      color: "#fff",
+                    }}
+                  >
+                    <Instagram size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-sans)",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "var(--sv-ink)",
+                      }}
+                    >
+                      Instagram
+                      {instagramHandle ? ` · @${instagramHandle}` : ""}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 10,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        color: "var(--sv-muted)",
+                        marginTop: 3,
+                      }}
+                    >
+                      {instagramHandle
+                        ? "Conectado · Publicar + agendar"
+                        : "Não conectado — agendamento indisponível"}
+                    </div>
+                  </div>
+                  {instagramHandle ? (
+                    <button
+                      type="button"
+                      onClick={() => setInstagramHandle("")}
+                      className="sv-btn-outline"
+                    >
+                      Desconectar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast.info(
+                          "Conecte no campo de handle em Perfil por enquanto."
+                        )
+                      }
+                      className="sv-btn-primary"
+                    >
+                      <Plug size={12} /> Conectar
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <Label>Instagram</Label>
-                  <input
-                    type="text"
-                    value={instagramHandle}
-                    onChange={(e) => setInstagramHandle(e.target.value.replace(/^@/, ""))}
-                    className="sv-input w-full"
-                    placeholder="seu_handle"
-                  />
+
+                {/* Twitter / X */}
+                <div
+                  className="flex items-center gap-4 p-4"
+                  style={{
+                    border: "1.5px solid var(--sv-ink)",
+                    background: twitterHandle
+                      ? "var(--sv-paper)"
+                      : "transparent",
+                    borderStyle: twitterHandle ? "solid" : "dashed",
+                  }}
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center"
+                    style={{
+                      background: "var(--sv-ink)",
+                      borderRadius: 10,
+                      color: "#fff",
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-sans)",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "var(--sv-ink)",
+                      }}
+                    >
+                      Twitter / X
+                      {twitterHandle ? ` · @${twitterHandle}` : ""}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 10,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        color: "var(--sv-muted)",
+                        marginTop: 3,
+                      }}
+                    >
+                      {twitterHandle
+                        ? "Conectado · Threads automáticas"
+                        : "Não conectado — threads automáticas"}
+                    </div>
+                  </div>
+                  {twitterHandle ? (
+                    <button
+                      type="button"
+                      onClick={() => setTwitterHandle("")}
+                      className="sv-btn-outline"
+                    >
+                      Desconectar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast.info(
+                          "Conecte no campo de handle em Perfil por enquanto."
+                        )
+                      }
+                      className="sv-btn-primary"
+                    >
+                      <Plug size={12} /> Conectar
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <Label>LinkedIn</Label>
-                  <input
-                    type="url"
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
-                    className="sv-input w-full"
-                    placeholder="https://linkedin.com/in/..."
-                  />
+
+                {/* LinkedIn */}
+                <div
+                  className="flex items-center gap-4 p-4"
+                  style={{
+                    border: "1.5px solid var(--sv-ink)",
+                    background: linkedinUrl ? "var(--sv-paper)" : "transparent",
+                    borderStyle: linkedinUrl ? "solid" : "dashed",
+                  }}
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center"
+                    style={{
+                      background: "#0A66C2",
+                      borderRadius: 10,
+                      color: "#fff",
+                    }}
+                  >
+                    <Linkedin size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-sans)",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "var(--sv-ink)",
+                      }}
+                    >
+                      LinkedIn
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 10,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        color: "var(--sv-muted)",
+                        marginTop: 3,
+                      }}
+                    >
+                      {linkedinUrl
+                        ? "Perfil salvo"
+                        : "Não conectado — export manual"}
+                    </div>
+                  </div>
+                  {linkedinUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setLinkedinUrl("")}
+                      className="sv-btn-outline"
+                    >
+                      Remover
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast.info(
+                          "Conecte no campo de URL do LinkedIn em Perfil por enquanto."
+                        )
+                      }
+                      className="sv-btn-primary"
+                    >
+                      <Plug size={12} /> Conectar
+                    </button>
+                  )}
                 </div>
               </div>
             </Section>
           )}
 
+          {/* ========== VOZ IA ========== */}
           {activeTab === "voice" && (
             <Section
               title="Voz da IA"
-              subtitle="Guia o tom e os temas que o modelo prioriza nos seus carrosséis."
+              subtitle="Guia o tom que o modelo prioriza nos seus carrosséis. Veja o exemplo em cada opção."
             >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {VOICE_OPTIONS.map((v) => {
+                  const on = currentVoice === v.value;
+                  return (
+                    <button
+                      key={v.value}
+                      type="button"
+                      onClick={() =>
+                        setTone(VOICE_TO_TONE[v.value] || "casual")
+                      }
+                      className="p-5 text-left transition-all"
+                      style={{
+                        border: "1.5px solid var(--sv-ink)",
+                        background: on ? "var(--sv-green)" : "var(--sv-white)",
+                        boxShadow: on ? "4px 4px 0 0 var(--sv-ink)" : "none",
+                      }}
+                    >
+                      <div
+                        className="mb-2 flex items-center justify-between"
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          color: "var(--sv-ink)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span>
+                          <span style={{ marginRight: 6 }}>{v.glyph}</span>
+                          {v.label}
+                        </span>
+                        {on && <Check size={14} strokeWidth={2.5} />}
+                      </div>
+                      <div
+                        className="mb-3"
+                        style={{
+                          fontFamily: "var(--sv-sans)",
+                          fontSize: 13,
+                          color: "var(--sv-ink)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {v.desc}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: "var(--sv-display)",
+                          fontStyle: "italic",
+                          fontSize: 15,
+                          lineHeight: 1.35,
+                          color: on ? "var(--sv-ink)" : "var(--sv-muted)",
+                          borderLeft: "2px solid var(--sv-ink)",
+                          paddingLeft: 10,
+                        }}
+                      >
+                        “{v.sample}”
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <hr className="sv-divider my-8" />
+
               <Label>Nichos e temas</Label>
-              <div className="mb-5 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 {NICHE_SUGGESTIONS.map((s) => {
                   const on = niche.includes(s);
                   return (
@@ -482,60 +1166,165 @@ function SettingsPageContent() {
                       onClick={() => toggleNiche(s)}
                       className={`sv-chip ${on ? "sv-chip-on" : ""}`}
                     >
-                      {on ? "✓ " : "+ "}{s}
+                      {on ? "✓ " : "+ "}
+                      {s}
                     </button>
                   );
                 })}
               </div>
-
-              {niche.filter((n) => !NICHE_SUGGESTIONS.includes(n)).length > 0 && (
-                <>
-                  <Label>Nichos personalizados</Label>
-                  <div className="mb-5 flex flex-wrap gap-2">
-                    {niche
-                      .filter((n) => !NICHE_SUGGESTIONS.includes(n))
-                      .map((n) => (
-                        <button
-                          key={n}
-                          onClick={() => toggleNiche(n)}
-                          className="sv-chip sv-chip-on"
-                        >
-                          {n} <X size={10} />
-                        </button>
-                      ))}
-                  </div>
-                </>
+              {niche.filter((n) => !NICHE_SUGGESTIONS.includes(n)).length >
+                0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {niche
+                    .filter((n) => !NICHE_SUGGESTIONS.includes(n))
+                    .map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => toggleNiche(n)}
+                        className="sv-chip sv-chip-on"
+                      >
+                        {n} <X size={10} />
+                      </button>
+                    ))}
+                </div>
               )}
-
-              <Label>Tom de voz</Label>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {TONES.map((t) => {
-                  const on = tone === t.value;
-                  return (
-                    <button
-                      key={t.value}
-                      onClick={() => setTone(t.value)}
-                      className="px-4 py-4 text-left transition-all"
-                      style={{
-                        border: "1.5px solid var(--sv-ink)",
-                        background: on ? "var(--sv-green)" : "var(--sv-white)",
-                        color: "var(--sv-ink)",
-                        boxShadow: on ? "4px 4px 0 0 var(--sv-ink)" : "none",
-                        fontFamily: "var(--sv-sans)",
-                        fontSize: 14,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
             </Section>
           )}
 
+          {/* ========== NOTIFICAÇÕES ========== */}
+          {activeTab === "notifications" && (
+            <Section
+              title="Notificações"
+              subtitle="Decida o que cai no seu email. Nada de spam — só sinais que importam."
+            >
+              <div className="flex flex-col gap-3">
+                {(
+                  [
+                    {
+                      key: "carousel_ready" as const,
+                      icon: <Sparkles size={14} />,
+                      title: "Carrossel pronto",
+                      desc: "Email quando um novo carrossel termina de gerar.",
+                    },
+                    {
+                      key: "upgrade_available" as const,
+                      icon: <CreditCard size={14} />,
+                      title: "Upgrade disponível",
+                      desc: "Avisos quando novos planos ou descontos aparecerem.",
+                    },
+                    {
+                      key: "weekly_summary" as const,
+                      icon: <Mail size={14} />,
+                      title: "Resumo semanal",
+                      desc: "Toda sexta: o que você criou + ideias pra semana.",
+                    },
+                    {
+                      key: "limit_warnings" as const,
+                      icon: <Bell size={14} />,
+                      title: "Avisos de limite",
+                      desc: "Alerta em 80% e 100% do limite mensal do plano.",
+                    },
+                  ]
+                ).map((n) => {
+                  const on = notifs[n.key];
+                  return (
+                    <div
+                      key={n.key}
+                      className="flex items-start gap-4 p-4"
+                      style={{
+                        border: "1.5px solid var(--sv-ink)",
+                        background: "var(--sv-paper)",
+                      }}
+                    >
+                      <div
+                        className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center"
+                        style={{
+                          border: "1.5px solid var(--sv-ink)",
+                          background: on ? "var(--sv-green)" : "var(--sv-white)",
+                          color: "var(--sv-ink)",
+                        }}
+                      >
+                        {n.icon}
+                      </div>
+                      <div className="flex-1">
+                        <div
+                          style={{
+                            fontFamily: "var(--sv-sans)",
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color: "var(--sv-ink)",
+                          }}
+                        >
+                          {n.title}
+                        </div>
+                        <div
+                          className="mt-1"
+                          style={{
+                            fontFamily: "var(--sv-sans)",
+                            fontSize: 13,
+                            color: "var(--sv-muted)",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {n.desc}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        onClick={() =>
+                          setNotifs((prev) => ({ ...prev, [n.key]: !prev[n.key] }))
+                        }
+                        className="relative mt-1 shrink-0"
+                        style={{
+                          width: 48,
+                          height: 26,
+                          border: "1.5px solid var(--sv-ink)",
+                          background: on ? "var(--sv-green)" : "var(--sv-white)",
+                          boxShadow: "2px 2px 0 0 var(--sv-ink)",
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: on ? 23 : 2,
+                            width: 18,
+                            height: 18,
+                            background: "var(--sv-ink)",
+                            transition: "left 160ms ease",
+                          }}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p
+                className="mt-6"
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                }}
+              >
+                ● Envios para {profile?.email || "seu e-mail cadastrado"}
+              </p>
+            </Section>
+          )}
+
+          {/* ========== PLANO ========== */}
           {activeTab === "plan" && (
-            <Section title="Plano e uso" subtitle="Seu plano atual e consumo mensal.">
+            <Section
+              title="Plano e uso"
+              subtitle="Seu plano atual e consumo mensal."
+            >
               <div
                 className="flex flex-col gap-4 p-6"
                 style={{
@@ -554,7 +1343,11 @@ function SettingsPageContent() {
                 <div className="flex flex-wrap items-baseline gap-3">
                   <h3
                     className="sv-display"
-                    style={{ fontSize: 44, lineHeight: 0.95, color: "var(--sv-paper)" }}
+                    style={{
+                      fontSize: 44,
+                      lineHeight: 0.95,
+                      color: "var(--sv-paper)",
+                    }}
                   >
                     {planName}
                   </h3>
@@ -606,6 +1399,38 @@ function SettingsPageContent() {
                   </div>
                 </div>
 
+                <ul
+                  className="mt-2 space-y-1.5"
+                  style={{
+                    fontFamily: "var(--sv-sans)",
+                    fontSize: 13,
+                    color: "rgba(247,245,239,0.85)",
+                  }}
+                >
+                  {plan === "free" && (
+                    <>
+                      <li>◆ 5 carrosséis/mês</li>
+                      <li>◆ 1 template (Manifesto)</li>
+                      <li>◆ Export PNG com marca d&apos;água</li>
+                    </>
+                  )}
+                  {plan === "pro" && (
+                    <>
+                      <li>✦ Carrosséis ilimitados</li>
+                      <li>✦ Todos os 4 templates</li>
+                      <li>✦ Branding customizado</li>
+                      <li>✦ Export PDF + .zip, sem marca d&apos;água</li>
+                    </>
+                  )}
+                  {plan === "business" && (
+                    <>
+                      <li>✦ Tudo do Pro</li>
+                      <li>✦ Múltiplas marcas · até 5 membros</li>
+                      <li>✦ API + integrações · white-label opcional</li>
+                    </>
+                  )}
+                </ul>
+
                 <div className="flex flex-wrap gap-3 pt-2">
                   {plan === "free" ? (
                     <Link href="/app/plans" className="sv-btn-primary">
@@ -626,8 +1451,12 @@ function SettingsPageContent() {
             </Section>
           )}
 
+          {/* ========== SEGURANÇA ========== */}
           {activeTab === "security" && (
-            <Section title="Segurança" subtitle="Sessão, onboarding e remoção de conta.">
+            <Section
+              title="Segurança"
+              subtitle="Sessão, onboarding e remoção de conta."
+            >
               <div className="flex flex-col gap-3">
                 <button
                   type="button"
@@ -675,7 +1504,7 @@ function SettingsPageContent() {
                     fontWeight: 700,
                   }}
                 >
-                  <AlertTriangle size={13} /> Zona de perigo
+                  <AlertTriangle size={13} /> Zona de perigo · Excluir conta
                 </div>
                 <p
                   className="mb-4"
@@ -685,8 +1514,8 @@ function SettingsPageContent() {
                     color: "var(--sv-ink)",
                   }}
                 >
-                  Ação irreversível. Todos os seus carrosséis e dados serão apagados
-                  permanentemente.
+                  Ação irreversível. Todos os seus carrosséis e dados serão
+                  apagados permanentemente.
                 </p>
 
                 <AnimatePresence>
@@ -744,7 +1573,7 @@ function SettingsPageContent() {
             </Section>
           )}
 
-          {/* Save bar (sticky on mobile, shown for editable tabs only) */}
+          {/* Save bar (sticky bottom) — visível em todas as abas editáveis */}
           {activeTab !== "security" && activeTab !== "plan" && (
             <div
               className="sticky bottom-4 z-20 flex items-center justify-end gap-3 px-4 py-3"
@@ -863,7 +1692,9 @@ function ManageBillingButton() {
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
-        toast.error(data.error || "Não foi possível abrir o portal. Tente de novo.");
+        toast.error(
+          data.error || "Não foi possível abrir o portal. Tente de novo."
+        );
         return;
       }
       window.location.href = data.url;

@@ -6,6 +6,16 @@ import {
   normalizeDesignTemplate,
   normalizeImagePeopleMode,
 } from "@/lib/carousel-templates";
+import type { TemplateId as VisualTemplateId } from "@/components/app/templates/types";
+
+const VISUAL_TEMPLATE_IDS = ["manifesto", "futurista", "autoral", "twitter"] as const;
+
+function normalizeVisualTemplate(raw: unknown): VisualTemplateId | undefined {
+  if (typeof raw !== "string") return undefined;
+  return (VISUAL_TEMPLATE_IDS as readonly string[]).includes(raw)
+    ? (raw as VisualTemplateId)
+    : undefined;
+}
 
 export type CarouselSlide = {
   heading: string;
@@ -46,6 +56,8 @@ export type SavedCarousel = {
   thumbnailUrl?: string | null;
   /** Visual / Figma template (persisted in carousels.style JSON) */
   designTemplate?: DesignTemplateId;
+  /** Template visual v2 — qual tratamento dos 4 (manifesto/futurista/autoral/twitter). */
+  visualTemplate?: VisualTemplateId;
   /** quick vs guided Content Machine (persisted in carousels.style JSON) */
   creationMode?: CreationMode;
   /** Pares de fonte editorial (`title_font` / `body_font` no JSON style) */
@@ -139,6 +151,8 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
       ? normalizeImagePeopleMode(rawIpm)
       : undefined;
 
+  const visualTemplate = normalizeVisualTemplate(styleObj.visual_template);
+
   return {
     id: row.id,
     title: row.title || slides[0]?.heading || "Sem título",
@@ -150,6 +164,7 @@ export function rowToSavedCarousel(row: CarouselRow): SavedCarousel {
     exportAssets: parseExportAssets(row.export_assets),
     thumbnailUrl: row.thumbnail_url ?? null,
     designTemplate,
+    visualTemplate,
     creationMode,
     titleFontId,
     bodyFontId,
@@ -232,6 +247,7 @@ export async function upsertUserCarousel(
     variation?: CarouselVariationMeta | null;
     status: "draft" | "published" | "archived";
     designTemplate?: DesignTemplateId;
+    visualTemplate?: VisualTemplateId;
     creationMode?: CreationMode;
     titleFontId?: string;
     bodyFontId?: string;
@@ -246,6 +262,9 @@ export async function upsertUserCarousel(
   };
   if (payload.designTemplate) {
     style.design_template = payload.designTemplate;
+  }
+  if (payload.visualTemplate) {
+    style.visual_template = payload.visualTemplate;
   }
   if (payload.creationMode) {
     style.creation_mode = payload.creationMode;
@@ -278,6 +297,11 @@ export async function upsertUserCarousel(
         : undefined);
     if (ipm) {
       style.image_people_mode = ipm;
+    }
+    // Preservar visual_template se não foi enviado neste update.
+    if (!payload.visualTemplate) {
+      const prevVt = normalizeVisualTemplate(prev.visual_template);
+      if (prevVt) style.visual_template = prevVt;
     }
 
     let { data, error } = await client

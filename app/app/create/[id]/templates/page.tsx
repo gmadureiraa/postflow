@@ -1,0 +1,369 @@
+"use client";
+
+import { use, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import {
+  TEMPLATES_META,
+  TemplateRenderer,
+  type TemplateId,
+} from "@/components/app/templates";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
+import { upsertUserCarousel } from "@/lib/carousel-storage";
+import { useDraft } from "@/lib/create/use-draft";
+
+/**
+ * Tela 02 — Seleção de template. Grid 2×2 com preview REAL dos 4 templates
+ * usando os slides do rascunho. Baseado em `v-templates` do handoff.
+ */
+
+const TEMPLATE_ORDER: TemplateId[] = [
+  "manifesto",
+  "futurista",
+  "autoral",
+  "twitter",
+];
+
+const TEMPLATE_DESC: Record<TemplateId, string> = {
+  manifesto: "Editorial preto/verde · jornalístico, denso",
+  futurista: "Navy + ciano · Space Grotesk · tech-lean",
+  autoral: "Zine · serif itálica · colagem editorial",
+  twitter: "Mockup de tweet · avatar + handle limpo",
+};
+
+function buildPreviewProfile(profile: {
+  name: string;
+  twitter_handle?: string;
+  instagram_handle?: string;
+  avatar_url?: string;
+} | null) {
+  if (!profile) return { name: "Seu nome", handle: "@seuhandle", photoUrl: "" };
+  const handle = profile.twitter_handle
+    ? `@${profile.twitter_handle}`
+    : profile.instagram_handle
+      ? `@${profile.instagram_handle}`
+      : "@seuhandle";
+  return {
+    name: profile.name || "Seu nome",
+    handle,
+    photoUrl: profile.avatar_url || "",
+  };
+}
+
+export default function TemplatesPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(props.params);
+  const router = useRouter();
+  const { user, profile } = useAuth();
+  const { draft, loading, error } = useDraft(id);
+
+  const [selected, setSelected] = useState<TemplateId | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (draft?.visualTemplate) setSelected(draft.visualTemplate);
+  }, [draft]);
+
+  const previewProfile = useMemo(
+    () =>
+      buildPreviewProfile(
+        profile
+          ? {
+              name: profile.name,
+              twitter_handle: profile.twitter_handle,
+              instagram_handle: profile.instagram_handle,
+              avatar_url: profile.avatar_url,
+            }
+          : null
+      ),
+    [profile]
+  );
+
+  const slides = draft?.slides ?? [];
+
+  async function handleContinue() {
+    if (!selected) {
+      toast.error("Escolha um template antes de continuar.");
+      return;
+    }
+    if (!user || !supabase || !draft) return;
+    setSaving(true);
+    try {
+      await upsertUserCarousel(supabase, user.id, {
+        id: draft.id,
+        title: draft.title,
+        slides: draft.slides,
+        slideStyle: draft.style === "dark" ? "dark" : "white",
+        status: "draft",
+        visualTemplate: selected,
+      });
+      router.push(`/app/create/${draft.id}/edit?template=${selected}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao salvar template.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-[1200px]">
+        <p
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Carregando rascunho...
+        </p>
+      </div>
+    );
+  }
+
+  if (error || !draft) {
+    return (
+      <div className="mx-auto max-w-[1200px]">
+        <p style={{ color: "var(--sv-ink)" }}>{error ?? "Rascunho não encontrado."}</p>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="mx-auto w-full"
+      style={{ maxWidth: 1200 }}
+    >
+      <span className="sv-eyebrow">
+        <span className="sv-dot" /> Passo 02 · Escolher template
+      </span>
+
+      <h1
+        className="sv-display mt-4"
+        style={{
+          fontSize: "clamp(38px, 6vw, 56px)",
+          lineHeight: 1.02,
+          letterSpacing: "-0.025em",
+        }}
+      >
+        Escolha o <em>tratamento</em>{" "}
+        <span
+          style={{
+            background: "var(--sv-green)",
+            padding: "0 10px",
+            fontStyle: "italic",
+          }}
+        >
+          visual
+        </span>
+        .
+      </h1>
+      <p
+        className="mt-2"
+        style={{
+          color: "var(--sv-muted)",
+          fontSize: 15,
+          lineHeight: 1.55,
+          maxWidth: 560,
+        }}
+      >
+        Mesmo texto, 4 estéticas. Você pode trocar a qualquer momento — o
+        conteúdo não se perde.
+      </p>
+
+      {/* Grid 2x2 com previews REAIS */}
+      <div
+        className="mt-6 grid gap-6"
+        style={{ gridTemplateColumns: "repeat(2, 1fr)" }}
+      >
+        {TEMPLATE_ORDER.map((tplId) => {
+          const meta = TEMPLATES_META.find((m) => m.id === tplId)!;
+          const isOn = selected === tplId;
+          const sample = slides.slice(0, 3);
+          return (
+            <button
+              key={tplId}
+              type="button"
+              onClick={() => setSelected(tplId)}
+              className="relative text-left"
+              style={{
+                background: "var(--sv-white)",
+                border: "1.5px solid var(--sv-ink)",
+                boxShadow: isOn
+                  ? "6px 6px 0 0 var(--sv-green)"
+                  : "3px 3px 0 0 var(--sv-ink)",
+                overflow: "hidden",
+                cursor: "pointer",
+                transition: "transform .15s, box-shadow .15s",
+                transform: isOn ? "translate(-2px,-2px)" : "translate(0,0)",
+              }}
+            >
+              {isOn && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    border: "2.5px solid var(--sv-green)",
+                    pointerEvents: "none",
+                    zIndex: 2,
+                  }}
+                />
+              )}
+
+              {/* Preview stack com 3 slides reais, offset + rotate */}
+              <div
+                style={{
+                  position: "relative",
+                  padding: 18,
+                  background: "var(--sv-soft)",
+                  height: 280,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: 1080 * 0.22 * 3 * 0.33,
+                    height: 1350 * 0.22,
+                  }}
+                >
+                  {sample.map((slide, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: i * 26,
+                        transform: `rotate(${(i - 1) * 2.2}deg)`,
+                        boxShadow: "4px 4px 0 0 rgba(10,10,10,0.15)",
+                      }}
+                    >
+                      <TemplateRenderer
+                        templateId={tplId}
+                        heading={slide.heading || "Sample"}
+                        body={slide.body || ""}
+                        imageUrl={slide.imageUrl}
+                        slideNumber={i + 1}
+                        totalSlides={slides.length || 3}
+                        profile={previewProfile}
+                        style="white"
+                        scale={0.22}
+                        showFooter={false}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Meta */}
+              <div
+                className="flex items-start justify-between gap-4"
+                style={{
+                  padding: "18px 22px",
+                  borderTop: "1.5px solid var(--sv-ink)",
+                  background: "var(--sv-paper)",
+                }}
+              >
+                <div className="min-w-0">
+                  <div
+                    style={{
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 9,
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      color: "var(--sv-muted)",
+                      marginBottom: 4,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {meta.kicker}
+                  </div>
+                  <h3
+                    className="sv-display"
+                    style={{
+                      fontSize: 24,
+                      letterSpacing: "-0.01em",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {meta.name}
+                  </h3>
+                  <div
+                    style={{
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 9.5,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: "var(--sv-muted)",
+                      maxWidth: 320,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {TEMPLATE_DESC[tplId]}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "50%",
+                    background: isOn ? "var(--sv-green)" : "var(--sv-white)",
+                    border: "1.5px solid var(--sv-ink)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    fontFamily: "var(--sv-display)",
+                    fontStyle: "italic",
+                    color: "var(--sv-ink)",
+                  }}
+                >
+                  {isOn ? "✓" : "→"}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Nav actions */}
+      <div
+        className="mt-8 flex flex-wrap items-center justify-between gap-3"
+        style={{ paddingTop: 22, borderTop: "1.5px solid var(--sv-ink)" }}
+      >
+        <button
+          type="button"
+          className="sv-btn sv-btn-outline"
+          onClick={() => router.push("/app/create/new")}
+        >
+          ← Voltar
+        </button>
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!selected || saving}
+          className="sv-btn sv-btn-primary"
+          style={{
+            padding: "14px 22px",
+            fontSize: 11.5,
+            opacity: !selected || saving ? 0.55 : 1,
+            cursor: !selected || saving ? "not-allowed" : "pointer",
+          }}
+        >
+          {saving ? "Salvando..." : "Customizar template →"}
+        </button>
+      </div>
+    </motion.div>
+  );
+}

@@ -1121,3 +1121,137 @@ select:focus-visible {
   opacity: 1;
   transform: none;
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Sequência Viral — animações orgânicas para a landing editorial
+   (collage flutuante, ticker, estrelinhas spinning, FAQ accordion)
+   ─────────────────────────────────────────────────────────────── */
+
+@keyframes sv-float {
+  0%, 100% { transform: translateY(0) rotate(var(--sv-r, 0deg)); }
+  50% { transform: translateY(-6px) rotate(calc(var(--sv-r, 0deg) + 0.5deg)); }
+}
+@keyframes sv-float-slow {
+  0%, 100% { transform: translateY(0) rotate(var(--sv-r, 0deg)); }
+  50% { transform: translateY(-10px) rotate(calc(var(--sv-r, 0deg) - 1deg)); }
+}
+@keyframes sv-drift {
+  0%, 100% { transform: translate(0, 0) rotate(var(--sv-r, 0deg)); }
+  50% { transform: translate(4px, -4px) rotate(calc(var(--sv-r, 0deg) + 1.5deg)); }
+}
+@keyframes sv-spin-slow {
+  from { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
+@keyframes sv-marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes sv-blink {
+  50% { opacity: 0; }
+}
+@keyframes sv-fill-bar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.sv-anim-float { animation: sv-float 5s ease-in-out infinite; }
+.sv-anim-float-slow { animation: sv-float-slow 6s ease-in-out infinite; }
+.sv-anim-drift { animation: sv-drift 7s ease-in-out infinite; }
+.sv-anim-spin-slow { animation: sv-spin-slow 80s linear infinite; }
+.sv-anim-spin-med { animation: sv-spin-slow 14s linear infinite; }
+
+/* Ticker marquee — track com os itens duplicados anda em loop infinito. */
+.sv-ticker {
+  background: var(--sv-ink);
+  color: var(--sv-paper);
+  border-top: 1px solid var(--sv-ink);
+  border-bottom: 1px solid var(--sv-ink);
+  overflow: hidden;
+  padding: 14px 0;
+}
+.sv-ticker-track {
+  display: flex;
+  gap: 40px;
+  font-family: var(--sv-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  animation: sv-marquee-x 40s linear infinite;
+}
+.sv-ticker-track .sv-hl {
+  color: var(--sv-green);
+  font-style: italic;
+}
+.sv-ticker-track .sv-star {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-self: center;
+  background: var(--sv-green);
+  color: var(--sv-ink);
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sv-mono);
+  font-size: 10px;
+  animation: sv-spin-slow 8s linear infinite;
+}
+
+/* Cursor piscando do demo (digitação). */
+.sv-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+  background: var(--sv-ink);
+  vertical-align: middle;
+  animation: sv-blink 0.8s steps(2) infinite;
+}
+
+/* Splash verde no H1 do hero (destaque inline). */
+.sv-splash {
+  position: relative;
+  display: inline-block;
+  padding: 0 6px;
+  background: var(--sv-green);
+  color: var(--sv-ink);
+  font-style: italic;
+}
+/* Sublinhado pink translúcido atrás da palavra. */
+.sv-under {
+  position: relative;
+}
+.sv-under::after {
+  content: "";
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  bottom: 4px;
+  height: 10px;
+  background: var(--sv-pink);
+  opacity: 0.35;
+  z-index: -1;
+  transform: skewX(-6deg);
+}
+
+/* Linha strike (manifesto). */
+.sv-st {
+  text-decoration: line-through;
+  text-decoration-color: var(--sv-pink);
+  text-decoration-thickness: 3px;
+  color: rgba(245, 243, 236, 0.42);
+}
+
+/* Barra de progresso slim (phone mockup + demo). */
+.sv-progress-bar {
+  height: 5px;
+  background: var(--sv-soft);
+  border: 1px solid var(--sv-ink);
+  overflow: hidden;
+}
+.sv-progress-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--sv-green);
+  transition: width 1s ease;
+}

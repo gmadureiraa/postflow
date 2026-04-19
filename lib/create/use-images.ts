@@ -1,0 +1,125 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { jsonWithAuth } from "@/lib/api-auth-headers";
+
+/**
+ * Hook pra buscar, trocar e fazer upload de imagens dos slides. Lógica
+ * extraída de `app/app/create/page.tsx` (versão legada).
+ */
+
+export interface RefetchImageInput {
+  query: string;
+  niche?: string;
+  tone?: string;
+  mode?: "search" | "generate";
+  peopleMode?: "auto" | "with_people" | "no_people";
+  contextHeading?: string;
+  contextBody?: string;
+}
+
+export function useImages(session: Session | null) {
+  const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
+  const [pickerOptions, setPickerOptions] = useState<string[]>([]);
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetchImage = useCallback(
+    async (index: number, input: RefetchImageInput) => {
+      setLoadingIndex(index);
+      setError(null);
+      try {
+        const mode = input.mode ?? "search";
+        const res = await fetch("/api/images", {
+          method: "POST",
+          headers: jsonWithAuth(session),
+          body: JSON.stringify({
+            query: input.query,
+            count: 8,
+            mode,
+            niche: input.niche,
+            tone: input.tone,
+            designTemplate: "twitter",
+            peopleMode: input.peopleMode ?? "auto",
+            contextHeading: input.contextHeading?.slice(0, 400),
+            contextBody: input.contextBody?.slice(0, 500),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Falha na busca de imagem");
+        const images: Array<{ url: string; generated?: boolean }> =
+          data.images || [];
+        if (images.length === 0) {
+          throw new Error("Nenhuma imagem encontrada. Tente outro termo.");
+        }
+        if (mode === "generate" && images.length === 1) {
+          return { appliedUrl: images[0].url, options: null };
+        }
+        const urls = images.map((img) => img.url).filter(Boolean);
+        setPickerOptions(urls);
+        setPickerIndex(index);
+        return { appliedUrl: null, options: urls };
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erro ao trocar imagem");
+        throw e;
+      } finally {
+        setLoadingIndex(null);
+      }
+    },
+    [session]
+  );
+
+  const uploadImage = useCallback(
+    async (
+      index: number,
+      file: File,
+      carouselId: string | null
+    ): Promise<string | null> => {
+      if (!file.type.startsWith("image/")) {
+        setError("Arquivo precisa ser uma imagem.");
+        return null;
+      }
+      setLoadingIndex(index);
+      setError(null);
+      try {
+        const form = new FormData();
+        form.set("file", file);
+        form.set("carouselId", carouselId || "draft");
+        form.set("slideIndex", String(index));
+        const headers: HeadersInit = session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {};
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers,
+          body: form,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload falhou");
+        return data.url as string;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erro no upload");
+        return null;
+      } finally {
+        setLoadingIndex(null);
+      }
+    },
+    [session]
+  );
+
+  const clearPicker = useCallback(() => {
+    setPickerIndex(null);
+    setPickerOptions([]);
+  }, []);
+
+  return {
+    refetchImage,
+    uploadImage,
+    loadingIndex,
+    pickerIndex,
+    pickerOptions,
+    clearPicker,
+    error,
+  };
+}
