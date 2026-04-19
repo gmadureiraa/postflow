@@ -429,16 +429,15 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
           contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
           config: {
             systemInstruction: systemPrompt,
-            // Temperatura alta força variação entre as 3 variações
-            // (data/story/provocative) — chave pra os 2 primeiros slides
-            // não caírem sempre no mesmo layout.
+            // Temperatura alta continua (ajuda variedade das aberturas),
+            // mas thinking/maxOutput mais conservadores — thinking 5000 +
+            // maxOutput 12000 estavam estourando o maxDuration de 60s no
+            // Vercel Hobby, causando "Erro interno".
             temperature: 0.95,
             topP: 0.95,
-            maxOutputTokens: 12000,
+            maxOutputTokens: 10000,
             responseMimeType: "application/json",
-            // Thinking budget 5x maior que V1 — mais reflexão = melhor
-            // arranjo narrativo + imageQuery mais cinematográfico.
-            thinkingConfig: { thinkingBudget: 5000 },
+            thinkingConfig: { thinkingBudget: 2000 },
           },
         })
       );
@@ -450,12 +449,21 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
         outputTokens = usage.candidatesTokenCount ?? 0;
       }
     } catch (err) {
-      console.error("[generate] Gemini API error (after retries):", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.error("[generate] Gemini API error (after retries):", {
+        message: msg,
+        stack,
+        userId: user.id,
+        sourceType,
+        hasSourceContent: Boolean(sourceContent),
+      });
       return Response.json(
         {
-          error: process.env.NODE_ENV === "production"
-            ? "Geração com IA falhou. Tente novamente em alguns instantes."
-            : `Geração com IA falhou. ${err instanceof Error ? err.message : "Unknown error"}`,
+          error:
+            process.env.NODE_ENV === "production"
+              ? `Geração com IA falhou. ${msg.slice(0, 120)}`
+              : `Geração com IA falhou. ${msg}`,
         },
         { status: 502 }
       );
@@ -591,12 +599,18 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
 
     return Response.json(result);
   } catch (error) {
-    console.error("Generate error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[generate] Unhandled error:", {
+      message: msg,
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : typeof error,
+    });
     return Response.json(
       {
-        error: process.env.NODE_ENV === "production"
-          ? "Erro interno ao gerar carrossel. Tente novamente."
-          : (error instanceof Error ? error.message : "Internal server error"),
+        error:
+          process.env.NODE_ENV === "production"
+            ? `Erro interno. ${msg.slice(0, 120)}`
+            : msg,
       },
       { status: 500 }
     );
