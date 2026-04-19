@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { upsertUserCarousel } from "@/lib/carousel-storage";
 import { useGenerate, type GenerationError } from "@/lib/create/use-generate";
+import { jsonWithAuth } from "@/lib/api-auth-headers";
 
 /**
  * Tela 01 — Nova criação. User escreve brief → persiste rascunho + já gera
@@ -154,9 +155,18 @@ export default function NewCarouselPage() {
   const [lang, setLang] = useState<Lang>("pt-br");
   const [submitting, setSubmitting] = useState(false);
 
-  // Countdown ETA enquanto /api/generate roda. Target 20s (carrossel + imagens
-  // + eventual scrape do YouTube/link/IG). Se terminar antes, ótimo.
-  const ETA_TARGET_SEC = 20;
+  // Fase atual do progresso (usado no overlay pra dizer o que está rolando).
+  const [phase, setPhase] = useState<
+    "generating" | "images" | "finalizing" | null
+  >(null);
+  const [imagesProgress, setImagesProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+
+  // Countdown ETA enquanto /api/generate roda. Target 30s (geração texto +
+  // batch de imagens em paralelo). Se terminar antes, ótimo.
+  const ETA_TARGET_SEC = 30;
   const [etaElapsed, setEtaElapsed] = useState(0);
   const etaStartedRef = useRef<number | null>(null);
   useEffect(() => {
@@ -240,9 +250,8 @@ export default function NewCarouselPage() {
       return;
     }
     setSubmitting(true);
+    setPhase("generating");
     try {
-      // Detecta se o brief tem URL (YouTube, Instagram, artigo) pra mandar
-      // pro extractor certo no backend.
       const { sourceType, sourceUrl } = detectSource(idea);
 
       // 1) Persiste draft vazio pra termos um id.
@@ -258,8 +267,7 @@ export default function NewCarouselPage() {
         },
       });
 
-      // 2) Gera carrossel direto — passa o brief como topic + URL detectada
-      //    pra extração (transcrição YT, artigo, OCR carrossel IG).
+      // 2) Gera carrossel direto — passa o brief como topic + URL detectada.
       const variations = await generateCarousel({
         concept: {
           title: idea.slice(0, 80),
@@ -276,11 +284,62 @@ export default function NewCarouselPage() {
       const chosen = variations[0];
       if (!chosen) throw new Error("IA não devolveu slides.");
 
-      // 3) Persiste os slides reais e vai direto pro template picker.
+      // 3) Busca imagens em paralelo pra cada slide. Search (Serper) em
+      //    vez de generate (Imagen) pra não explodir latência — usuário
+      //    pode trocar pra Imagen no editor depois.
+      setPhase("images");
+      setImagesProgress({ done: 0, total: chosen.slides.length });
+      const slidesWithImages = await Promise.all(
+        chosen.slides.map(async (slide, idx) => {
+          const query = (slide.imageQuery || slide.heading || "").slice(0, 300);
+          if (!query.trim()) {
+            setImagesProgress((prev) =>
+              prev ? { ...prev, done: prev.done + 1 } : null
+            );
+            return slide;
+          }
+          try {
+            const res = await fetch("/api/images", {
+              method: "POST",
+              headers: jsonWithAuth(session),
+              body: JSON.stringify({
+                query,
+                count: 1,
+                mode: "search",
+                niche,
+                tone,
+                designTemplate: "twitter",
+                peopleMode: "auto",
+                contextHeading: slide.heading?.slice(0, 400) ?? "",
+                contextBody: slide.body?.slice(0, 500) ?? "",
+              }),
+              signal: AbortSignal.timeout(12_000),
+            });
+            if (!res.ok) throw new Error(`images ${res.status}`);
+            const data = (await res.json()) as {
+              images?: Array<{ url?: string }>;
+            };
+            const url = data.images?.[0]?.url;
+            setImagesProgress((prev) =>
+              prev ? { ...prev, done: prev.done + 1 } : null
+            );
+            return url ? { ...slide, imageUrl: url } : slide;
+          } catch (e) {
+            console.warn("[new] image fetch slide", idx, e);
+            setImagesProgress((prev) =>
+              prev ? { ...prev, done: prev.done + 1 } : null
+            );
+            return slide;
+          }
+        })
+      );
+
+      // 4) Persiste slides com imagens.
+      setPhase("finalizing");
       await upsertUserCarousel(supabase, user.id, {
         id: row.id,
         title: chosen.title || idea.slice(0, 80),
-        slides: chosen.slides,
+        slides: slidesWithImages,
         slideStyle: "white",
         status: "draft",
         variation: {
@@ -294,6 +353,8 @@ export default function NewCarouselPage() {
       toast.error(explainGenError(err));
     } finally {
       setSubmitting(false);
+      setPhase(null);
+      setImagesProgress(null);
     }
   }
 
@@ -564,7 +625,11 @@ export default function NewCarouselPage() {
                   marginBottom: 10,
                 }}
               >
-                Nº 01 · Preparando seu carrossel
+                {phase === "generating"
+                  ? "Nº 01 · Escrevendo os slides"
+                  : phase === "images"
+                    ? "Nº 02 · Buscando imagens"
+                    : "Nº 03 · Finalizando"}
               </div>
               <div
                 style={{
@@ -576,7 +641,19 @@ export default function NewCarouselPage() {
                   marginBottom: 14,
                 }}
               >
-                Lendo sua <em>referência</em> e escrevendo os slides…
+                {phase === "generating" ? (
+                  <>
+                    Lendo sua <em>referência</em> e escrevendo…
+                  </>
+                ) : phase === "images" ? (
+                  <>
+                    Buscando <em>imagens</em> pra cada slide…
+                  </>
+                ) : (
+                  <>
+                    Salvando <em>rascunho</em>…
+                  </>
+                )}
               </div>
               <p
                 style={{
@@ -587,8 +664,13 @@ export default function NewCarouselPage() {
                   marginBottom: 18,
                 }}
               >
-                Se você mandou link, estou extraindo o conteúdo. Depois gero
-                6-10 slides com imagens alinhadas ao tema.
+                {phase === "generating"
+                  ? "Se você mandou link, estou extraindo o conteúdo. Depois gero 6-10 slides."
+                  : phase === "images"
+                    ? imagesProgress
+                      ? `${imagesProgress.done}/${imagesProgress.total} slides com imagem. Rolando em paralelo.`
+                      : "Buscando stock alinhado ao conteúdo de cada slide…"
+                    : "Preparando o editor."}
               </p>
               <div
                 style={{

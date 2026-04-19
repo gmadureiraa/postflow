@@ -315,45 +315,59 @@ REQUIRED: every claim has a number ("78%", "R$12k", "23 minutos", "3 em cada 10"
 Choose: data (statistics/proof-driven), story (narrative/personal), or provocative (contrarian/bold). Pick whichever creates the strongest emotional arc for THIS specific topic.
 
 # VISUAL RHYTHM — per-slide VARIANT (MANDATORY)
-Each slide MUST declare a "variant" that tells the renderer HOW to lay it out. This controls whether the slide is a big headline, a photo spread, a pull-quote, a split screen, etc. Getting this right is what makes the carousel feel DESIGNED, not generic.
+Cada slide DECLARA seu layout. O carrossel só "funciona visualmente" se você variar. Dois slides seguidos iguais = carrossel morto.
 
-Available variants:
-- "cover" — Slide 1 ONLY. Large headline type on bold background. Body line acts as subtitle.
-- "headline" — Default workhorse. Big statement + supporting body. Use for key claims.
-- "photo" — Image-dominant. Body is short caption. Use when the idea benefits from visual anchor.
-- "quote" — Pull-quote format. A short, memorable line you'd screenshot. Use sparingly (1-2 max).
-- "split" — Two columns / before vs after / contrast. Use for comparisons or mechanism reveals.
-- "cta" — LAST slide ONLY. The closing call-to-action.
+Variants disponíveis:
+- "cover" — abre o carrossel. Headline ENORME em background bold. Body é subtítulo curto.
+- "headline" — workhorse. Statement grande + body de apoio.
+- "photo" — imagem domina, body é caption curto. Use quando a cena visual é a mensagem.
+- "quote" — pull-quote screenshottable. 1 frase forte isolada.
+- "split" — 2 colunas / antes-depois / contraste. Use pra comparações ou reveals.
+- "cta" — último slide. Chamada de ação fechando o loop do hook.
 
-Rules:
-1. Slide 1 MUST be "cover". Last slide MUST be "cta". No exceptions.
-2. Middle slides MUST alternate — NEVER use the same variant 3 slides in a row.
-3. Use "quote" at most twice per carousel, at moments of maximum tension.
-4. Use "photo" when imageQuery describes a concrete visual scene (not abstract concepts).
-5. Use "split" when the slide contains a contrast ("before X, now Y" / "they think A, reality is B").
-6. Every remaining slide defaults to "headline".
-7. A well-designed 8-slide carousel typically looks like: cover → headline → split → headline → photo → headline → quote → cta.
+REGRAS DE ABERTURA (slide 1) — ESCOLHA DELIBERADA, NÃO AUTOMÁTICA:
+- Na variação "data": slide 1 pode ser "cover" (com dado gigante) OU "headline" (declaração forte que já soca um número).
+- Na variação "story": slide 1 pode ser "quote" (1 frase pessoal) OU "cover" (título evocativo).
+- Na variação "provocative": slide 1 pode ser "headline" direto (afirmação chocante, sem cover) OU "cover" tipo headline de manifesto.
+- Cada uma das 3 variações DEVE começar com um variant DIFERENTE das outras 2. NUNCA entregue 3 variações todas começando em "cover".
 
-# IMAGE QUERY — cinematic, concrete, tied to THIS slide
-The "imageQuery" field feeds a stock/AI image search. It MUST:
-- Describe a CONCRETE visual scene (what you'd see in a photo), not an abstract concept.
-- Be 3-6 English keywords. No sentences. No punctuation beyond spaces.
-- Be SPECIFIC to THIS slide's content — if the slide talks about burnout,
-  query "tired founder head in hands laptop", NOT "strategy".
-- Prefer human scenes, objects, settings, gestures, textures.
-- For data slides: charts, dashboards, hand pointing at graph, etc.
-- For story slides: person in specific setting (desk, coffee shop, phone).
-- For quote slides: close-up, lighting, silhouette.
-- For CTA: hands interacting, group setting, moment of decision.
+REGRAS DO SLIDE 2:
+- Slide 2 NUNCA repete o variant do slide 1. Se slide 1 é "cover", slide 2 é "split" ou "headline" ou "photo" (nunca cover de novo).
+- Slide 2 tem que SOCAR — é o "segundo golpe" depois do hook. Entregue um dado, um contraste (split), uma cena (photo) ou uma provocação (headline). Jamais "headline" genérico repetindo o hook.
 
-BANNED imageQuery words: "strategy", "innovation", "growth", "AI", "future",
-"success", "business", "digital", "mindset", "impact", "transformation".
-These give generic boardroom stock photos.
+DEMAIS REGRAS:
+1. Último slide MUST ser "cta".
+2. Meio: NUNCA o mesmo variant 3 slides em sequência.
+3. "quote" no máximo 2 vezes, em picos de tensão.
+4. "photo" quando imageQuery é cena concreta (pessoa, objeto, cenário).
+5. "split" quando o slide contém contraste explícito ("antes X, agora Y" / "todo mundo acha A, realidade é B").
+6. Arrange narrativa exemplo (8 slides): "cover → split → headline → photo → quote → headline → split → cta" OU "headline → photo → headline → split → quote → photo → headline → cta" (variar é chave).
 
-Good examples:
-  heading "78% dos criadores travam no slide 1" → "hands holding smartphone showing instagram"
-  heading "A virada começa no hook" → "fisherman pulling hook out of river"
-  heading "R$12k perdidos em anúncios" → "crumpled receipts spilling from wallet"
+# IMAGE QUERY — cinematográfica, específica, ligada a ESTE slide
+O campo "imageQuery" alimenta geração/busca de imagem. Regras:
+
+1. ESPECIFICIDADE TOTAL pra o slide: leia heading E body inteiro antes de escrever. A imagem deve ser a CENA que esse slide conta.
+2. 4-8 keywords em inglês (não 3-6). Mais específico = melhor.
+3. Sempre inclua SUBJECT + AÇÃO/ESTADO + AMBIENTE. Ex: "young founder" (subject) + "staring at laptop" (ação) + "dim home office late night" (ambiente).
+4. Se o slide é sobre dado/contraste: descreva a CENA da consequência (não o gráfico abstrato). "burnout entrepreneur receipts scattered desk" é melhor que "financial crisis chart".
+5. Modifier estéticos obrigatórios: sempre termine com 1 desses pra dar direção visual:
+   - "editorial photography documentary style natural light"
+   - "cinematic still hard shadow 35mm film grain"
+   - "overhead flat-lay soft window light"
+   - "close-up macro shallow depth of field"
+   - "wide environmental portrait golden hour"
+
+BANIDAS (nunca use — puxam stock genérico): "strategy", "innovation", "growth", "AI", "future", "success", "business", "digital", "mindset", "impact", "transformation", "leadership", "teamwork", "collaboration".
+
+Exemplos bons (heading/body → imageQuery):
+- "78% dos criadores travam no slide 1" / "O hook é a maior queda de visualização"
+  → "young creator phone screen instagram hand hesitating editorial photography documentary style natural light"
+- "Perdi R$50k em 90 dias" / "Aprendi tarde o que todo anúncio exige"
+  → "crumpled receipts spilling from wallet laptop background cinematic still hard shadow 35mm film grain"
+- "A mecânica é simples" / "Toda venda depende de 3 pontos invisíveis"
+  → "three gears turning metal machinery close-up macro shallow depth of field"
+- "O algoritmo não te odeia" / "Seu post médio odeia"
+  → "person scrolling phone in dark room blue screen glow cinematic still hard shadow 35mm film grain"
 
 # OUTPUT FORMAT
 Return valid JSON with exactly 3 variations — one in each style (data, story, provocative).
@@ -415,10 +429,16 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
           contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
           config: {
             systemInstruction: systemPrompt,
-            temperature: 0.85,
-            maxOutputTokens: 10000,
+            // Temperatura alta força variação entre as 3 variações
+            // (data/story/provocative) — chave pra os 2 primeiros slides
+            // não caírem sempre no mesmo layout.
+            temperature: 0.95,
+            topP: 0.95,
+            maxOutputTokens: 12000,
             responseMimeType: "application/json",
-            thinkingConfig: { thinkingBudget: 1024 },
+            // Thinking budget 5x maior que V1 — mais reflexão = melhor
+            // arranjo narrativo + imageQuery mais cinematográfico.
+            thinkingConfig: { thinkingBudget: 5000 },
           },
         })
       );
@@ -475,10 +495,10 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
     }
 
     // 5b. Normalize + sanitize slides:
-    //     - variant: força distribuição narrativa (slide 1 = cover, último = cta,
-    //       meio rotaciona). Trata edge de 1-2 slides.
-    //     - heading/body: se Gemini esqueceu, preenche fallback pra não crashar
-    //       o TemplateRenderer no cliente.
+    //     - variant: apenas corrige inválidos. NÃO força slide 1 = cover
+    //       (Gabriel reclamou que os 2 primeiros slides sempre eram iguais).
+    //       O prompt já pede pra variar abertura entre variações.
+    //     - heading/body: se Gemini esqueceu, preenche fallback pra não crashar.
     for (const variation of result.variations) {
       if (!variation?.slides || !Array.isArray(variation.slides)) continue;
       const total = variation.slides.length;
@@ -499,10 +519,11 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
             : "";
         const imageQuery =
           typeof raw.imageQuery === "string" ? raw.imageQuery : "";
+        // Só força CTA no último (closing sempre precisa fechar o loop).
+        // Slide 1 fica como o Gemini decidiu (cover, headline, quote, etc.).
+        // Se veio lixo, cai na distribuição de fallback (cover pra o primeiro).
         let variant: SlideVariant;
         if (total <= 1) {
-          variant = "cover";
-        } else if (i === 0) {
           variant = "cover";
         } else if (i === total - 1) {
           variant = "cta";
@@ -511,6 +532,27 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
         }
         return { heading, body, imageQuery, variant };
       });
+
+      // Anti-monotonia: se os 2 primeiros slides saíram com o mesmo variant
+      // (Gemini às vezes ignora regra), troca o segundo pelo mais contrastante.
+      if (variation.slides.length >= 2) {
+        const v1 = variation.slides[0].variant;
+        const v2 = variation.slides[1].variant;
+        if (v1 === v2) {
+          const contrast: Record<SlideVariant, SlideVariant> = {
+            cover: "split",
+            headline: "photo",
+            photo: "headline",
+            quote: "split",
+            split: "photo",
+            cta: "headline",
+          };
+          variation.slides[1] = {
+            ...variation.slides[1],
+            variant: contrast[v1] ?? "photo",
+          };
+        }
+      }
     }
 
     // Record generation with real token counts (usage already incremented above)
