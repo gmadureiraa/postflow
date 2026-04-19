@@ -5,6 +5,32 @@
 @source "../packages/nexus-landing/**/*.tsx";
 @source "../packages/optimus-landing/**/*.tsx";
 
+/* ─────────────────────────────────────────────────────────────────
+   Sequência Viral — Kaleidos Digital brand fonts (brutalist editorial)
+   Handoff: design_handoff_sequencia_viral/README.md
+   ───────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: "Atelier";
+  src: url("/fonts/Atelier.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gridlite";
+  src: url("/fonts/Gridlite.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SVInter";
+  src: url("/fonts/Inter.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -35,41 +61,64 @@
 }
 
 :root {
-  --background: #FAFAF8;
-  --foreground: #0A0A0A;
-  --muted: #71717A;
-  --muted-bg: #f4f4f5;
-  --muted-foreground: #71717a;
+  /* ── Sequência Viral / Kaleidos Digital — brand tokens ──
+     Paleta brutalist editorial: preto + creme-jornal + verde lime + pink.
+     Fonte Atelier (display), Gridlite (mono kicker), Inter (corpo).
+  */
+  --sv-ink: #0A0A0A;
+  --sv-paper: #F7F5EF;
+  --sv-white: #FFFFFF;
+  --sv-soft: #EFEDE6;
+  --sv-line: #0A0A0A;
+  --sv-muted: #6B6960;
+  --sv-green: #7CF067;     /* Kaleidos primary accent */
+  --sv-pink: #D262B2;      /* Kaleidos secondary accent */
+  --sv-orange: #FF4A1C;    /* CTA quente opcional */
+  --sv-yellow: #F5C518;
+  --sv-blue: #2B5FFF;
+  --sv-navy: #0B0F1E;      /* Template Futurista */
+  --sv-display: "Atelier", "Instrument Serif", "Times New Roman", Georgia, serif;
+  --sv-display-alt: "Instrument Serif", Georgia, serif;
+  --sv-sans: "SVInter", "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --sv-mono: "Gridlite", "JetBrains Mono", "Courier New", monospace;
+
+  /* ── Tokens compat com código existente. Background/foreground/accent
+     agora apontam pras cores Kaleidos; shadcn tokens e nomes de escape
+     preservados pra não quebrar componentes antigos. */
+  --background: var(--sv-paper);
+  --foreground: var(--sv-ink);
+  --muted: #6B6960;
+  --muted-bg: var(--sv-soft);
+  --muted-foreground: #6B6960;
   --muted-light: #A1A1AA;
-  --card: #FFFFFF;
-  --card-hover: #FFF8F2;
-  --border: #E8E8E5;
-  --border-hover: #D4D4CF;
-  --accent: #EC6000;
-  --accent-light: #FF8534;
-  --accent-dark: #D45500;
-  --accent-muted: rgba(236, 96, 0, 0.06);
-  --accent-glow: rgba(236, 96, 0, 0.12);
+  --card: var(--sv-white);
+  --card-hover: #FFFBF2;
+  --border: var(--sv-ink);
+  --border-hover: var(--sv-ink);
+  --accent: var(--sv-green);
+  --accent-light: #A6F59A;
+  --accent-dark: #5BE04B;
+  --accent-muted: rgba(124, 240, 103, 0.16);
+  --accent-glow: rgba(124, 240, 103, 0.30);
   --success: #22C55E;
-  --surface: #F5F5F0;
-  --surface-2: #EEEEE8;
+  --surface: var(--sv-soft);
+  --surface-2: #E4E2D9;
   --dark: #0A0A0A;
   --dark-card: #141414;
   --dark-border: #222222;
-  /* shadcn tokens (Sequência Viral continua usando --muted para texto via var(--muted)) */
   --card-foreground: #0a0a0a;
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
   --primary: #0a0a0a;
-  --primary-foreground: #fafaf8;
-  --secondary: #f4f4f5;
+  --primary-foreground: var(--sv-paper);
+  --secondary: var(--sv-soft);
   --secondary-foreground: #0a0a0a;
-  --accent-foreground: #171717;
+  --accent-foreground: #0a0a0a;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --input: #e8e8e5;
-  --ring: #a1a1aa;
-  --radius: 0.75rem;
+  --input: var(--sv-ink);
+  --ring: var(--sv-green);
+  --radius: 0;  /* brutalist: raio 0 por padrão */
 }
 
 /* Dark theme */
@@ -854,4 +903,221 @@ select:focus-visible {
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Sequência Viral — utilities brutalist (prefixo .sv-*)
+   Sombras sólidas offset, bordas 1.5px, radius 0 em cards/seções.
+   ─────────────────────────────────────────────────────────────── */
+
+.sv-kicker {
+  font-family: var(--sv-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sv-ink);
+}
+.sv-kicker-sm {
+  font-family: var(--sv-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sv-muted);
+}
+
+.sv-display {
+  font-family: var(--sv-display);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  color: var(--sv-ink);
+}
+.sv-display em,
+.sv-display i { font-style: italic; font-family: var(--sv-display); }
+
+.sv-serif {
+  font-family: var(--sv-display-alt);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+.sv-sans {
+  font-family: var(--sv-sans);
+}
+
+.sv-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border: 1.5px solid var(--sv-ink);
+  background: var(--sv-white);
+  font-family: var(--sv-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sv-ink);
+  box-shadow: 2px 2px 0 0 var(--sv-ink);
+}
+.sv-eyebrow .sv-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sv-green);
+  border: 1px solid var(--sv-ink);
+  animation: sv-pulse 1.8s ease-in-out infinite;
+}
+@keyframes sv-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.sv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 18px;
+  font-family: var(--sv-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1.5px solid var(--sv-ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.sv-btn-primary {
+  background: var(--sv-green);
+  color: var(--sv-ink);
+  box-shadow: 3px 3px 0 0 var(--sv-ink);
+}
+.sv-btn-primary:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 0 var(--sv-ink);
+}
+.sv-btn-outline {
+  background: var(--sv-white);
+  color: var(--sv-ink);
+  box-shadow: 3px 3px 0 0 var(--sv-ink);
+}
+.sv-btn-outline:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 0 var(--sv-ink);
+}
+.sv-btn-ink {
+  background: var(--sv-ink);
+  color: var(--sv-paper);
+  box-shadow: 3px 3px 0 0 var(--sv-green);
+}
+.sv-btn-ink:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 0 var(--sv-green);
+}
+.sv-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--sv-ink);
+}
+.sv-btn-ghost:hover {
+  background: var(--sv-ink);
+  color: var(--sv-paper);
+}
+
+.sv-card {
+  background: var(--sv-white);
+  border: 1.5px solid var(--sv-ink);
+  padding: 24px;
+  box-shadow: 4px 4px 0 0 var(--sv-ink);
+  border-radius: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.sv-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 0 var(--sv-ink);
+}
+
+.sv-card-accent {
+  background: var(--sv-green);
+  border: 1.5px solid var(--sv-ink);
+  padding: 24px;
+  box-shadow: 4px 4px 0 0 var(--sv-ink);
+  border-radius: 0;
+  color: var(--sv-ink);
+}
+
+.sv-card-ink {
+  background: var(--sv-ink);
+  color: var(--sv-paper);
+  border: 1.5px solid var(--sv-ink);
+  padding: 24px;
+  box-shadow: 4px 4px 0 0 var(--sv-green);
+  border-radius: 0;
+}
+
+.sv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--sv-ink);
+  background: var(--sv-white);
+  font-family: var(--sv-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--sv-ink);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sv-chip-on,
+.sv-chip.sv-chip-on,
+.sv-chip[data-on="true"] {
+  background: var(--sv-ink);
+  color: var(--sv-paper);
+}
+
+.sv-input {
+  background: var(--sv-white);
+  border: 1.5px solid var(--sv-ink);
+  border-radius: 0;
+  padding: 10px 12px;
+  font-family: var(--sv-sans);
+  font-size: 14px;
+  color: var(--sv-ink);
+  outline: none;
+  transition: box-shadow 0.15s ease;
+}
+.sv-input:focus {
+  box-shadow: 3px 3px 0 0 var(--sv-green);
+}
+
+.sv-bg-paper { background: var(--sv-paper); }
+.sv-bg-ink { background: var(--sv-ink); color: var(--sv-paper); }
+.sv-bg-soft { background: var(--sv-soft); }
+
+.sv-text-ink { color: var(--sv-ink); }
+.sv-text-paper { color: var(--sv-paper); }
+.sv-text-muted { color: var(--sv-muted); }
+.sv-text-green { color: var(--sv-green); }
+.sv-text-pink { color: var(--sv-pink); }
+
+.sv-divider {
+  height: 1.5px;
+  background: var(--sv-ink);
+  width: 100%;
+  border: none;
+}
+
+/* scroll reveal — use a classe `.sv-reveal` e dispare `.sv-on` via IntersectionObserver ou Framer. */
+.sv-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sv-reveal.sv-on,
+.sv-reveal[data-on="true"] {
+  opacity: 1;
+  transform: none;
 }
