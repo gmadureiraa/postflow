@@ -26,6 +26,8 @@ export interface GenerateConceptsInput {
   niche: string;
   tone: string;
   language: string;
+  sourceType?: "idea" | "video" | "link" | "instagram";
+  sourceUrl?: string;
 }
 
 export interface GenerateCarouselInput {

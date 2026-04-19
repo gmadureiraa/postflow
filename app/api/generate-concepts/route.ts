@@ -4,6 +4,8 @@ import {
 } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { geminiWithRetry } from "@/lib/server/gemini-retry";
+import { extractContentFromUrl } from "@/lib/url-extractor";
+import { getYouTubeTranscript } from "@/lib/youtube-transcript";
 import { GoogleGenAI } from "@google/genai";
 
 /**
@@ -56,7 +58,7 @@ USER BRAND CONTEXT (use this to make content sound authentically like this creat
 ${samples ? `- Voice samples (imite ritmo e estrutura, não copie literalmente):\n${samples}\n` : ""}${tabus ? `- NEVER use these words or phrases: ${tabus}\n` : ""}${rules ? `- Rules to follow strictly: ${rules}\n` : ""}`;
 }
 
-export const maxDuration = 10;
+export const maxDuration = 45;
 
 /**
  * STEP 1: Generate 5 carousel CONCEPTS (cheap, fast).
@@ -81,7 +83,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { topic, niche, tone, language } = await request.json();
+    const {
+      topic,
+      niche,
+      tone,
+      language,
+      sourceType,
+      sourceUrl,
+    } = await request.json();
 
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) {
@@ -103,54 +112,109 @@ export async function POST(request: Request) {
       );
     }
 
+    // Extração de fonte real quando o brief tem URL (YouTube transcript /
+    // artigo / carrossel IG). Sem isso, os conceitos ficam genéricos baseados
+    // só no título. Com isso, Gemini vê o conteúdo e propõe ângulos concretos.
+    let sourceContent = "";
+    let sourceContentKind: "video" | "link" | "instagram" | "" = "";
+    try {
+      if (sourceType === "video" && typeof sourceUrl === "string" && sourceUrl) {
+        sourceContent = await getYouTubeTranscript(sourceUrl);
+        sourceContentKind = "video";
+      } else if (
+        sourceType === "link" &&
+        typeof sourceUrl === "string" &&
+        sourceUrl
+      ) {
+        sourceContent = await extractContentFromUrl(sourceUrl);
+        sourceContentKind = "link";
+      } else if (
+        sourceType === "instagram" &&
+        typeof sourceUrl === "string" &&
+        sourceUrl
+      ) {
+        const { extractInstagramContent } = await import(
+          "@/lib/instagram-extractor"
+        );
+        sourceContent = await extractInstagramContent(sourceUrl);
+        sourceContentKind = "instagram";
+      }
+    } catch (err) {
+      // Falha de extração não bloqueia — gera conceitos só com o tema.
+      console.warn(
+        "[concepts] source extraction failed, falling back to topic only:",
+        err instanceof Error ? err.message : err
+      );
+    }
+
     const langNote = (language || "pt-br").startsWith("pt")
       ? "Responda em português brasileiro coloquial."
       : language === "en" ? "Respond in English." : `Respond in ${language}.`;
 
-    const prompt = `You are a senior content strategist pitching 5 radically different carousel stories to an editorial board. ${langNote}
+    // Seed de diversidade evita que o modelo caia sempre na mesma rotação de
+    // ângulos (o problema do "sempre os mesmos 5 caminhos").
+    const diversitySeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const sourceBlock = sourceContent
+      ? `\n# CONTEÚDO REAL EXTRAÍDO (${sourceContentKind}):
+${sourceContent.slice(0, 6000)}
+
+REGRA OBRIGATÓRIA: cada conceito DEVE referenciar algo específico desse conteúdo — uma frase, um número, um momento, um argumento concreto. Não invente fatos. Não generalize. Se o conteúdo não tiver material suficiente pra um ângulo, pule esse ângulo.\n`
+      : "";
+
+    const prompt = `Você é um estrategista de conteúdo sênior pitchando 5 histórias de carrossel radicalmente diferentes pra uma banca editorial. ${langNote}
 
 NICHE: ${niche || "general"}
 TONE: ${tone || "casual"}
 ${brandContext}
-TOPIC/INPUT: ${topic}
+TÍTULO/TEMA DO USUÁRIO: ${topic}
+${sourceBlock}
+# SUA MISSÃO
+Gere 5 conceitos de carrossel. Cada um precisa ser uma HISTÓRIA COMPLETAMENTE DIFERENTE — tensão diferente, emoção diferente na audiência, estrutura narrativa diferente. O leitor deve querer ler OS 5, não achar que são a mesma ideia reformulada.
 
-# YOUR JOB
-Generate 5 carousel concepts. Each must feel like a COMPLETELY DIFFERENT STORY — different tension, different audience emotion, different narrative structure. A reader should want to read ALL 5, not feel like they're the same idea reworded.
+${
+  sourceContent
+    ? `# BASEIE-SE NO CONTEÚDO REAL
+O usuário trouxe um ${sourceContentKind === "video" ? "vídeo do YouTube (transcrição acima)" : sourceContentKind === "link" ? "artigo/link (texto extraído acima)" : "carrossel do Instagram (transcrição + legenda acima)"}. Leia com atenção e extraia:
+- Os argumentos centrais que a pessoa faz
+- Os dados, exemplos, nomes, números que ela usa
+- As tensões, contradições e frases de destaque
+- O que ela NÃO diz (buraco que um carrossel pode preencher)
 
-# INPUT TYPE ADAPTATION
-Analyze the input and adapt your approach:
-- If it contains a YouTube URL or video transcript → reference specific moments, quotes, or claims from the video. Build concepts that EXTEND what was said, not just summarize it.
-- If it contains a link or article text → build on the article's central thesis. Challenge it, extend it, or flip it. Never just repackage.
-- If it describes an Instagram post → extend the conversation. What's the natural NEXT debate this post opens?
-- If it's a raw idea or topic → surprise with unexpected angles. Find the tension that isn't obvious.
-- If it feels like an AI suggestion or trending topic → make it timely. Tie to a specific recent shift, not a generic take.
+Cada conceito deve ser um ângulo DIFERENTE sobre esse material. NÃO faça 5 "reenquadramentos". Varie entre: extensão (desenvolver o que foi dito), contra-ponto, aprofundamento técnico, caso prático aplicando a ideia, síntese visual, narrativa pessoal inspirada, bastidor do argumento, lista de implicações práticas, etc.`
+    : `# SEM FONTE EXTERNA
+O usuário deu só o tema. Varie os ângulos livremente: dado surpreendente, história pessoal, provocação, passo-a-passo técnico, mito vs verdade, lista de erros, estudo de caso, tese contrária, sequência de implicações. NÃO se limite a "reenquadramento/conflito/contradição/mecanismo/inversão" em ordem fixa — decida o que cabe melhor pra ESSE tema.`
+}
 
-# HOOK RULES
-Each hook has 2 parts separated by "|":
-- Part 1 (INTERRUPTION): Max 8 words. This stops the scroll. It must create a gap — something unexpected, counterintuitive, or emotionally charged. Use a question mark, colon, or period.
-- Part 2 (ANCHOR): Max 12 words. This gives context and stakes. It tells the reader WHY they should care. Ends with "." or "!"
+# REGRA DO HOOK
+Cada hook tem 2 partes separadas por "|":
+- Parte 1 (INTERRUPÇÃO): Max 8 palavras. Para o scroll. Cria um gap — algo inesperado, contra-intuitivo ou emocional. Use ponto, dois-pontos ou interrogação.
+- Parte 2 (ÂNCORA): Max 12 palavras. Dá contexto e stakes. Termina com "." ou "!".
 
-The hook must work in 0.7 seconds. No filler words. No generic openings like "Descubra como" or "O guia definitivo".
+O hook precisa funcionar em 0.7s. Sem palavras de enchimento. Nada genérico como "Descubra como" ou "O guia definitivo".
 
-# 5 MANDATORY HEADLINE NATURES (one per concept, in order):
-1. REENQUADRAMENTO — Take what everyone thinks they know and show them a completely different frame. The reader should think "I never saw it that way."
-2. CONFLITO OCULTO — Reveal a hidden tension or war beneath the surface. Who's losing? What's really at stake?
-3. CONTRADIÇÃO — Find where the conventional wisdom is provably wrong. Use a specific number or example to break the assumption.
-4. MECANISMO — Expose the hidden system, loop, or engine that actually drives the phenomenon. Not "what" but "how it really works."
-5. INVERSÃO — Flip the expected conclusion. What if the opposite of the common advice is actually true?
+# QUALITY GATES (cada conceito deve passar em TODOS)
+- Um criador de conteúdo pararia o scroll pra ler isso? Se não, kill it.
+- O hook é ESPECÍFICO pra esse exato tema${sourceContent ? "/conteúdo extraído" : ""}? Se desse pra trocar o tema e o hook ainda funcionar, tá genérico demais.
+- O ângulo revela uma TENSÃO (não só informação)? Sem tensão, sem swipe.
+- BANIDO: "muitas pessoas", "resultados incríveis", "game-changer", "descubra como", "o segredo de", "o guia definitivo", "você precisa saber"
+- Todo número é específico: "78%", "3 em cada 10", nunca "a maioria" ou "muitos"
 
-# QUALITY GATES (each concept MUST pass ALL):
-- Would a content creator stop scrolling to read this? If not, kill it.
-- Is this hook SPECIFIC to this exact topic? If you could swap in another topic and it still works, it's too generic. Kill it.
-- Does the angle reveal a TENSION (not just information)? No tension = no swipe.
-- BANNED phrases: "muitas pessoas", "resultados incríveis", "game-changer", "descubra como", "o segredo de", "o guia definitivo", "você precisa saber"
-- Every number must be specific: "78%", "3 em cada 10", never "a maioria" or "muitos"
+# VARIAÇÃO OBRIGATÓRIA ENTRE OS 5 CONCEITOS
+Cada um DEVE ter:
+- Uma estrutura narrativa distinta (ex: lista, história, tese-antítese, passo-a-passo, ranking)
+- Um hook emocional diferente (curiosidade, medo, identificação, surpresa, autoridade)
+- Um formato de entrega diferente (dado puro, case, frase de impacto, analogia, bastidor)
 
-# OUTPUT FORMAT
-Return ONLY valid JSON:
-{"concepts":[{"title":"max 45 chars — the carousel title","hook":"interruption line | anchor line","style":"data|story|provocative|howto|mythbust","angle":"1 sentence: the narrative TENSION and WHY this matters (max 25 words)"}]}
+Se dois conceitos ficarem parecidos demais, REESCREVA um deles.
 
-Generate exactly 5 concepts. Make each one so compelling that the reader can't pick just one.`;
+[variation-seed: ${diversitySeed}]
+
+# FORMATO DE SAÍDA
+Retorne APENAS JSON válido:
+{"concepts":[{"title":"max 45 chars — título do carrossel","hook":"linha de interrupção | linha âncora","style":"data|story|provocative|howto|mythbust","angle":"1 frase: a TENSÃO narrativa e POR QUE isso importa (max 25 palavras)"}]}
+
+Gere exatamente 5 conceitos. Faça cada um tão convincente que o leitor não consiga escolher só um.`;
 
     const ai = new GoogleGenAI({ apiKey: geminiKey });
     const result = await geminiWithRetry(() =>
@@ -158,8 +222,10 @@ Generate exactly 5 concepts. Make each one so compelling that the reader can't p
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
-          temperature: 0.9,
-          maxOutputTokens: 2000,
+          // Temperatura alta + topP alto força variedade entre as 5 saídas.
+          temperature: 1.0,
+          topP: 0.95,
+          maxOutputTokens: 2500,
           responseMimeType: "application/json",
           thinkingConfig: { thinkingBudget: 0 },
         },

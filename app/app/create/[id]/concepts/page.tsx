@@ -138,6 +138,8 @@ export default function ConceptsPage() {
         niche: parsedNiche,
         tone: parsedTone,
         language: parsedLang,
+        sourceType: parsedSourceType,
+        sourceUrl: parsedSourceUrl,
       });
       setConcepts(result);
     } catch (err) {
@@ -160,6 +162,8 @@ export default function ConceptsPage() {
         niche,
         tone,
         language,
+        sourceType,
+        sourceUrl,
       });
       setConcepts(result);
       setSelectedIdx(null);
@@ -169,7 +173,7 @@ export default function ConceptsPage() {
       toast.error(message);
       if (goToPlans) router.push("/app/plans");
     }
-  }, [topic, niche, tone, language, generateConcepts, router]);
+  }, [topic, niche, tone, language, sourceType, sourceUrl, generateConcepts, router]);
 
   const handleSelectConcept = useCallback(
     async (idx: number) => {

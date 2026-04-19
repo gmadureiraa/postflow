@@ -50,7 +50,9 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
     const verifiedBlue = accentOverride || defaultVerifiedBlue;
     const borderColor = isDarkBg ? "#262626" : "#e5e7eb";
 
-    const isCover = variant === "cover";
+    // Template Twitter: capa usa o mesmo layout de um post normal (headline).
+    // Pedido do Gabriel — não quer a capa com gradient + imagem de fundo.
+    const isCover = false;
     const isPhoto = variant === "photo";
     const isSplit = variant === "split";
     const isQuote = variant === "quote";

@@ -11,11 +11,109 @@
  */
 
 import { fetchSupadataTranscript, isSupadataConfigured } from "./supadata";
+import { GoogleGenAI } from "@google/genai";
 
 const APIFY_BASE = "https://api.apify.com/v2";
 const APIFY_TIMEOUT_SECS = 45;
 // Actor ID: apify~instagram-scraper (público, gratuito com limites)
 const ACTOR_ID = "apify~instagram-scraper";
+// Max imagens do carrossel que passamos pra Gemini Vision (custo x benefício)
+const MAX_CAROUSEL_IMAGES = 10;
+
+/**
+ * Usa Gemini 2.5 Flash multimodal pra extrair o texto ESCRITO NAS IMAGENS
+ * de um carrossel do Instagram. Pattern pra capturar o conteúdo real que
+ * a pessoa postou (não só a caption) — essencial pra ângulos de remixagem.
+ */
+async function transcribeCarouselSlides(
+  displayUrls: string[]
+): Promise<string[]> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey || displayUrls.length === 0) return [];
+
+  const urls = displayUrls.slice(0, MAX_CAROUSEL_IMAGES);
+
+  // Baixa cada imagem → converte pra base64. Gemini SDK aceita inlineData.
+  const imageParts = await Promise.all(
+    urls.map(async (url, i) => {
+      try {
+        const res = await fetch(url, {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return null;
+        const buf = await res.arrayBuffer();
+        const mimeType = res.headers.get("content-type") || "image/jpeg";
+        const base64 = Buffer.from(buf).toString("base64");
+        return {
+          idx: i,
+          inlineData: { data: base64, mimeType: mimeType.split(";")[0] },
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const valid = imageParts.filter(
+    (p): p is { idx: number; inlineData: { data: string; mimeType: string } } =>
+      p !== null
+  );
+
+  if (valid.length === 0) return [];
+
+  const prompt = `Você é um OCR especialista em carrosséis de Instagram.
+Transcreva o texto VISÍVEL em cada imagem de carrossel enviada. Ignore logos,
+marcas d'água, handles e elementos decorativos. Foco só no texto de conteúdo
+(frases, bullets, números, dados).
+
+${valid.map((p) => `Imagem ${p.idx + 1}:`).join("\n")}
+
+Retorne APENAS JSON no formato:
+{"slides":[{"index":1,"text":"texto transcrito, preservando quebras com \\n"}]}
+
+Se uma imagem não tem texto significativo (só ilustração), retorne
+"text":"" pra ela. Nunca invente texto.`;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey: geminiKey });
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            ...valid.map((p) => ({ inlineData: p.inlineData })),
+          ],
+        },
+      ],
+      config: {
+        temperature: 0.1,
+        maxOutputTokens: 4000,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
+    const text = result.text || "";
+    const parsed = JSON.parse(text) as {
+      slides?: Array<{ index?: number; text?: string }>;
+    };
+    if (!Array.isArray(parsed.slides)) return [];
+    const byIndex = new Map<number, string>();
+    for (const s of parsed.slides) {
+      if (typeof s.index === "number" && typeof s.text === "string") {
+        byIndex.set(s.index, s.text.trim());
+      }
+    }
+    return urls.map((_, i) => byIndex.get(i + 1) || "");
+  } catch (err) {
+    console.warn(
+      "[ig] Gemini Vision OCR falhou:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return [];
+  }
+}
 
 type InstagramKind = "post" | "reel" | "profile";
 
@@ -160,15 +258,42 @@ export async function extractInstagramContent(url: string): Promise<string> {
     );
   }
 
-  // Se for carrossel, adiciona as legendas dos child posts
+  // Se for carrossel, OCR via Gemini Vision em cada slide. Isso captura o
+  // TEXTO IMPRESSO NA IMAGEM (o que a pessoa realmente escreveu em cima
+  // da arte), não só a caption do post. Sem isso, remixar carrossel IG
+  // vira um chute baseado apenas na legenda de rodapé.
+  const slideImageUrls: string[] = [];
   if (first.childPosts && first.childPosts.length > 0) {
-    const childCaptions = first.childPosts
-      .map((child, i) => (child.caption ? `${i + 1}. ${child.caption}` : null))
-      .filter((x): x is string => Boolean(x));
-    if (childCaptions.length > 0) {
+    for (const c of first.childPosts) {
+      if (c.displayUrl) slideImageUrls.push(c.displayUrl);
+    }
+  } else if (first.images && first.images.length > 0) {
+    for (const im of first.images) {
+      if (im.displayUrl) slideImageUrls.push(im.displayUrl);
+    }
+  }
+
+  if (slideImageUrls.length > 0) {
+    const transcripts = await transcribeCarouselSlides(slideImageUrls);
+    const renderedSlides: string[] = [];
+    for (let i = 0; i < transcripts.length; i++) {
+      const t = transcripts[i];
+      if (t && t.trim()) {
+        renderedSlides.push(`Slide ${i + 1}: ${t}`);
+      }
+    }
+    // Também inclui caption dos childPosts se houver (carrosséis podem ter
+    // caption por child, embora raro).
+    if (first.childPosts) {
+      const extra = first.childPosts
+        .map((c, i) => (c.caption ? `Slide ${i + 1} (legenda): ${c.caption}` : null))
+        .filter((x): x is string => Boolean(x));
+      renderedSlides.push(...extra);
+    }
+    if (renderedSlides.length > 0) {
       lines.push("");
-      lines.push("Slides do carrossel:");
-      lines.push(...childCaptions);
+      lines.push("Conteúdo dos slides (OCR Gemini Vision):");
+      lines.push(...renderedSlides);
     }
   }
 
