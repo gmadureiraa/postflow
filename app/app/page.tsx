@@ -1,42 +1,83 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useAuth } from "@/lib/auth-context";
 import { motion } from "framer-motion";
-import Image from "next/image";
-import {
-  PlusCircle,
-  FolderOpen,
-  Layers,
-  CalendarDays,
-  Crown,
-  Sparkles,
-  ArrowRight,
-  TrendingUp,
-  Zap,
-  Eye,
-  Bookmark,
-  BarChart3,
-  Clock,
-  Map,
-} from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { fetchUserCarousels, type SavedCarousel } from "@/lib/carousel-storage";
+import EditorialSlide from "@/components/app/editorial-slide";
+import { CarouselListSkeleton } from "@/components/app/carousel-skeleton";
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
+/* ============================================================================
+ *  Dashboard · Sequência Viral (brutalist editorial Kaleidos)
+ * ============================================================================
+ *  Ref: design_handoff_sequencia_viral/03-app.html → #v-dashboard
+ *  Grid com stat row (4 cols), rascunhos, publicados, ideias sugeridas.
+ * ========================================================================= */
+
+const CONTAINER_MAX = 1180;
+
+// Temas pra ideias sugeridas (variam por nicho do profile.niche[0])
+const IDEA_DECK: Array<{ n: string; theme: string; title: string; body: string }> = [
+  {
+    n: "01",
+    theme: "MARKETING",
+    title: "O método dos três zeros da Coca-Cola pra posts virais.",
+    body: "Sem açúcar, sem cafeína, sem calorias. A ausência virou ativo — e o princípio funciona pra qualquer post que precise quebrar padrão.",
+  },
+  {
+    n: "02",
+    theme: "CONTEÚDO",
+    title: "Por que threads com 3 bullets ranqueiam mais que textões.",
+    body: "Um estudo interno mostrou que posts com densidade numérica convertem 2,7× mais saves. Um carrossel sobre densidade explica tudo.",
+  },
+  {
+    n: "03",
+    theme: "ESTRATÉGIA",
+    title: "A regra do ‘slide 02’ — o hook real mora no segundo frame.",
+    body: "A capa só compra 1,5s de atenção. O que prende é o que acontece no swipe — transforme isso num carrossel editorial.",
+  },
+];
+
+function planLabel(plan?: string | null): string {
+  const p = (plan ?? "free").toLowerCase();
+  if (p === "free") return "Free";
+  if (p === "pro") return "Pro";
+  if (p === "team") return "Team";
+  if (p === "enterprise") return "Enterprise";
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+function formatRelative(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "agora mesmo";
+  if (mins < 60) return `há ${mins}min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `há ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `há ${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `há ${months}mês${months > 1 ? "es" : ""}`;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatSince(iso?: string | null): string {
+  if (!iso) return "desde o início";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "desde o início";
+  return d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
 }
 
 export default function DashboardPage() {
   const { profile, user } = useAuth();
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
-  const [carouselError, setCarouselError] = useState<string | null>(null);
   const [carouselLoading, setCarouselLoading] = useState(true);
+  const [carouselError, setCarouselError] = useState<string | null>(null);
 
   const loadCarousels = useCallback(async () => {
     setCarouselError(null);
@@ -64,450 +105,796 @@ export default function DashboardPage() {
     return () => window.clearTimeout(t);
   }, [loadCarousels]);
 
-  const name = profile?.name?.split(" ")[0] || "criador";
-  const savedInLibrary = carousels.length;
-  const plan = profile?.plan ?? "free";
-  const usageLimit = profile?.usage_limit ?? 5;
+  // ─── Derivações ────────────────────────────────────────────────────────────
+  const firstName = useMemo(() => {
+    const raw =
+      profile?.name ||
+      (user?.user_metadata as { full_name?: string } | undefined)?.full_name ||
+      "Creator";
+    return String(raw).split(" ")[0] || "Creator";
+  }, [profile?.name, user?.user_metadata]);
+
   const usageCount = profile?.usage_count ?? 0;
+  const usageLimit = profile?.usage_limit ?? 5;
   const isUnlimited = usageLimit >= 999000;
-  const greeting = getGreeting();
-  const today = new Date().toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-  const recentCarousels = carousels.slice(0, 4);
+  const remaining = isUnlimited ? Infinity : Math.max(0, usageLimit - usageCount);
 
-  return (
-    <div className="mx-auto max-w-6xl">
-      {/* Header bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center justify-between mb-8"
-      >
-        <span className="tag-pill">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-          {today}
-        </span>
-        <span className="text-[11px] font-mono uppercase tracking-widest text-[var(--muted)] hidden sm:inline">
-          Dashboard · Ed. {new Date().getFullYear()}
-        </span>
-      </motion.div>
-
-      {/* Welcome — editorial hero */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="mb-14"
-      >
-        <h1 className="editorial-serif text-[3rem] sm:text-[4.5rem] md:text-[6rem] text-[var(--foreground)] leading-[0.95]">
-          {greeting}, <span className="italic text-[var(--accent)]">{name}.</span>
-        </h1>
-        <p className="mt-4 text-xl text-[var(--muted)] max-w-xl">
-          Seu estúdio de conteúdo está pronto. O que vamos publicar hoje?
-        </p>
-        <p className="mt-3 text-sm text-[var(--muted)]">
-          <Link
-            href="/app/help"
-            className="font-semibold text-[var(--accent)] underline underline-offset-2 hover:opacity-90"
-          >
-            Abrir o guia completo
-          </Link>{" "}
-          — perfil, tema, link como inspiração e export.
-        </p>
-      </motion.div>
-
-      {/* Stats row */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10"
-      >
-        <StatCard
-          icon={<Layers size={18} />}
-          kicker="Nº 01"
-          label="Carrosséis na biblioteca"
-          value={String(savedInLibrary)}
-        />
-        <StatCard
-          icon={<CalendarDays size={18} />}
-          kicker="Nº 02"
-          label="Uso do plano (criações)"
-          value={
-            isUnlimited
-              ? "Ilimitado"
-              : `${usageCount}/${usageLimit}`
-          }
-          progress={
-            isUnlimited
-              ? undefined
-              : Math.min(1, usageCount / usageLimit)
-          }
-        />
-        <StatCard
-          icon={<Crown size={18} />}
-          kicker="Nº 03"
-          label="Seu plano"
-          value={plan.charAt(0).toUpperCase() + plan.slice(1)}
-          highlight
-        />
-      </motion.div>
-
-      {/* Quick actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-        className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-12"
-      >
-        <Link
-          href="/app/create"
-          className="md:col-span-3 p-8 group relative overflow-hidden rounded-[28px] border border-[#0A0A0A] bg-gradient-to-br from-[#EC6000] to-[#FF8534] text-[#FFF8F2] shadow-[6px_6px_0_0_#0A0A0A] transition-all duration-300 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[8px_8px_0_0_#0A0A0A]"
-        >
-          <div className="relative z-10">
-            <span className="text-[11px] font-mono uppercase tracking-widest opacity-80">
-              Ação primária
-            </span>
-            <h3 className="editorial-serif text-4xl md:text-5xl mt-3 mb-3 leading-[0.95]">
-              Criar novo carrossel
-            </h3>
-            <p className="text-white/80 max-w-sm mb-6">
-              A partir de um link, um vídeo ou só uma ideia solta.
-            </p>
-            <span className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur px-5 py-2.5 rounded-xl text-sm font-bold border border-white/20 transition-colors">
-              <PlusCircle size={16} /> Começar <ArrowRight size={14} />
-            </span>
-          </div>
-          {/* Decorative bloom */}
-          <div
-            className="absolute -right-20 -bottom-20 w-72 h-72 rounded-full opacity-40 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 60%)",
-            }}
-          />
-        </Link>
-
-        <Link href="/app/carousels" className="card-soft md:col-span-2 p-7 group">
-          <div className="flex items-start justify-between mb-6">
-            <span className="text-[11px] font-mono uppercase tracking-widest text-[var(--muted)]">
-              Biblioteca
-            </span>
-            <div className="w-11 h-11 rounded-xl bg-[var(--accent-muted)] flex items-center justify-center text-[var(--accent)]">
-              <FolderOpen size={18} />
-            </div>
-          </div>
-          <h3 className="editorial-serif text-3xl text-[var(--foreground)] mb-2">
-            Meus carrosséis
-          </h3>
-          <p className="text-[14px] text-[var(--muted)] leading-relaxed">
-            Veja, edite e republique tudo que você já criou.
-          </p>
-          <div className="mt-5 pt-5 border-t border-[#0A0A0A]/10 flex items-center justify-between">
-                       <span className="editorial-serif text-3xl text-[var(--accent)]">
-              {savedInLibrary}
-            </span>
-            <ArrowRight
-              size={18}
-              className="text-[var(--muted)] group-hover:text-[var(--accent)] group-hover:translate-x-1 transition-all"
-            />
-          </div>
-        </Link>
-      </motion.div>
-
-      {/* Recent carousels */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
-      >
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <span className="text-[11px] font-mono uppercase tracking-widest text-[var(--muted)]">
-              Nº 04 · Recentes
-            </span>
-            <h2 className="editorial-serif text-4xl text-[var(--foreground)] mt-2">
-              Últimos carrosséis
-            </h2>
-          </div>
-          {recentCarousels.length > 0 && (
-            <Link
-              href="/app/carousels"
-              className="text-[13px] font-semibold text-[var(--accent)] hover:underline"
-            >
-              Ver todos →
-            </Link>
-          )}
-        </div>
-
-        {carouselLoading ? (
-          <div className="text-center py-10">
-            <span className="text-sm text-[var(--muted)] animate-pulse">Carregando carrosséis...</span>
-          </div>
-        ) : carouselError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-center justify-between">
-            <span>{carouselError}</span>
-            <button
-              onClick={() => void loadCarousels()}
-              className="ml-3 px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-semibold text-xs transition-colors"
-            >
-              Tentar novamente
-            </button>
-          </div>
-        ) : recentCarousels.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {recentCarousels.map((c) => (
-              <RecentCarouselCard key={c.id} carousel={c} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState />
-        )}
-      </motion.div>
-
-      {/* Métricas de publicação — preview (dados reais no roadmap) */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.35 }}
-        className="mt-14"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-          <div>
-            <span className="tag-pill">
-              <BarChart3 size={12} className="text-[var(--accent)]" /> Em breve
-            </span>
-            <h2 className="editorial-serif text-3xl md:text-4xl text-[var(--foreground)] mt-3">
-              Métricas dos posts
-            </h2>
-            <p className="mt-2 text-[var(--muted)] max-w-lg text-[15px] leading-relaxed">
-              Quando as redes estiverem conectadas, você acompanha alcance, saves e engajamento por
-              carrossel — igual à visão pública do{" "}
-              <Link href="/app/roadmap" className="font-semibold text-[var(--accent)] hover:underline">
-                roadmap
-              </Link>
-              .
-            </p>
-          </div>
-          <Link
-            href="/app/roadmap"
-            className="inline-flex items-center gap-2 self-start rounded-xl border border-[#0A0A0A] bg-[#FFFDF9] px-4 py-2.5 text-sm font-bold shadow-[3px_3px_0_0_#0A0A0A] hover:bg-white transition-colors"
-          >
-            <Map size={16} />
-            Ver métricas no roadmap
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <DashboardMetricTeaser icon={<Eye size={18} />} label="Alcance" value="—" />
-          <DashboardMetricTeaser icon={<Bookmark size={18} />} label="Salvos" value="—" />
-          <DashboardMetricTeaser icon={<BarChart3 size={18} />} label="Engajamento" value="—" />
-          <DashboardMetricTeaser icon={<Clock size={18} />} label="Melhor horário" value="—" />
-        </div>
-        <p className="mt-3 text-[11px] font-mono uppercase tracking-widest text-[var(--muted)]">
-          Placeholder até integração com APIs das redes
-        </p>
-      </motion.section>
-
-      {/* Tip card */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.4 }}
-        className="mt-12 card-soft p-8 flex items-center gap-6"
-      >
-        <div className="w-14 h-14 rounded-2xl bg-[var(--accent-muted)] flex items-center justify-center text-[var(--accent)] flex-shrink-0">
-          <TrendingUp size={22} />
-        </div>
-        <div className="flex-1">
-          <p className="text-[11px] font-mono uppercase tracking-widest text-[var(--muted)] mb-1">
-            Dica do dia
-          </p>
-          <p className="editorial-serif text-xl text-[var(--foreground)]">
-            Carrosséis com hook pergunta convertem <span className="text-[var(--accent)]">3x mais saves</span>.
-          </p>
-        </div>
-        <Link
-          href="/app/create"
-          className="hidden sm:inline-flex items-center gap-2 text-[13px] font-bold text-[var(--accent)] hover:underline"
-        >
-          Tentar agora <ArrowRight size={14} />
-        </Link>
-      </motion.div>
-    </div>
+  const drafts = useMemo(
+    () => carousels.filter((c) => (c.status ?? "draft") === "draft"),
+    [carousels]
   );
-}
-
-function RecentCarouselCard({ carousel }: { carousel: SavedCarousel }) {
-  const date = new Date(carousel.savedAt);
-  const formatted = date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  });
-
-  return (
-    <Link href={`/app/create?draft=${carousel.id}`} className="card-soft p-6 group">
-      <div className="flex items-start gap-5">
-        {/* Thumbnail */}
-        <div
-          className={`flex-shrink-0 w-20 h-24 rounded-xl flex flex-col items-center justify-center text-xs font-bold border border-[#0A0A0A] ${
-            carousel.style === "dark"
-              ? "bg-[#0A0A0A] text-white"
-              : "bg-[#FFF6EC] text-[var(--accent)]"
-          }`}
-        >
-          <span className="editorial-serif text-3xl leading-none">
-            {carousel.slides.length}
-          </span>
-          <span className="text-[9px] font-mono uppercase tracking-wider mt-1 opacity-70">
-            slides
-          </span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-mono uppercase tracking-widest text-[var(--muted)] mb-1">
-            {formatted}
-          </p>
-          <h3 className="editorial-serif text-xl text-[var(--foreground)] leading-tight mb-2 truncate">
-            {carousel.title || carousel.slides[0]?.heading || "Sem título"}
-          </h3>
-          <p className="text-[13px] text-[var(--muted)] line-clamp-2">
-            {carousel.slides[0]?.body || ""}
-          </p>
-        </div>
-      </div>
-    </Link>
+  const published = useMemo(
+    () => carousels.filter((c) => c.status === "published"),
+    [carousels]
   );
-}
+  const recentDrafts = drafts.slice(0, 4);
+  const recentPublished = published.slice(0, 4);
 
-function DashboardMetricTeaser({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="card-soft p-4 md:p-5 opacity-95">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-muted)] text-[var(--accent)]">
-        {icon}
-      </div>
-      <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--muted)] mt-3">
-        {label}
-      </p>
-      <p className="editorial-serif text-2xl text-[var(--foreground)] mt-1">{value}</p>
-    </div>
+  const lastDraftRel = drafts[0]?.savedAt
+    ? formatRelative(drafts[0]?.savedAt)
+    : "nenhuma ainda";
+  const memberSince = formatSince(
+    (user?.created_at as string | undefined) ?? null
   );
-}
 
-function StatCard({
-  icon,
-  kicker,
-  label,
-  value,
-  progress,
-  highlight,
-}: {
-  icon: ReactNode;
-  kicker: string;
-  label: string;
-  value: string;
-  progress?: number;
-  highlight?: boolean;
-}) {
+  // Ideias sugeridas — adapta kicker ao primeiro nicho do perfil, se houver
+  const firstNiche =
+    profile?.niche && profile.niche.length > 0 ? profile.niche[0] : null;
+  const ideas = useMemo(() => {
+    if (!firstNiche) return IDEA_DECK;
+    const upper = firstNiche.toUpperCase();
+    return IDEA_DECK.map((i, idx) => ({
+      ...i,
+      theme: idx === 0 ? upper : i.theme,
+    }));
+  }, [firstNiche]);
+
+  const totalCarousels = carousels.length;
+
   return (
     <div
-      className={`p-6 rounded-[28px] overflow-hidden transition-all duration-300 ${
-        highlight
-          ? "border border-[#0A0A0A] bg-gradient-to-br from-[#EC6000] to-[#FF8534] text-[#FFF8F2] shadow-[6px_6px_0_0_#0A0A0A]"
-          : "card-soft"
-      }`}
+      className="mx-auto px-4 sm:px-6"
+      style={{ maxWidth: CONTAINER_MAX, paddingTop: 8, paddingBottom: 96 }}
     >
-      <div className="flex items-center justify-between mb-6">
-        <span
-          className={`text-[10px] font-mono uppercase tracking-widest ${
-            highlight ? "opacity-70" : "text-[var(--muted)]"
-          }`}
-        >
-          {kicker}
+      {/* ──────────────────────────────────────────────────────────────────
+           1. HEADER
+         ────────────────────────────────────────────────────────────────── */}
+      <motion.header
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        style={{ marginBottom: 56 }}
+      >
+        <span className="sv-eyebrow">
+          <span className="sv-dot" />● BEM-VINDO · Ed. Nº 04
         </span>
-        <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-            highlight
-              ? "bg-white/15 text-white"
-              : "bg-[var(--accent-muted)] text-[var(--accent)]"
-          }`}
+
+        <h1
+          className="sv-display"
+          style={{
+            fontSize: "clamp(40px, 6.2vw, 60px)",
+            lineHeight: 0.98,
+            marginTop: 20,
+            letterSpacing: "-0.01em",
+          }}
         >
-          {icon}
-        </div>
-      </div>
-      <p
-        className={`editorial-serif text-5xl ${
-          highlight ? "text-white" : "text-[var(--foreground)]"
-        }`}
-      >
-        {value}
-      </p>
-      <p
-        className={`text-[12px] mt-2 ${
-          highlight ? "text-white/70" : "text-[var(--muted)]"
-        }`}
-      >
-        {label}
-      </p>
-      {typeof progress === "number" && (
-        <div
-          className={`mt-4 h-1.5 rounded-full overflow-hidden ${
-            highlight ? "bg-white/20" : "bg-[#0A0A0A]/10"
-          }`}
+          Bom te ver, <em>{firstName}.</em>
+        </h1>
+
+        <p
+          style={{
+            marginTop: 18,
+            fontFamily: "var(--sv-sans)",
+            fontSize: 17,
+            lineHeight: 1.55,
+            color: "var(--sv-muted)",
+            maxWidth: 620,
+          }}
         >
-          <div
-            className={`h-full rounded-full ${
-              highlight ? "bg-white" : "bg-[var(--accent)]"
-            }`}
-            style={{ width: `${progress * 100}%` }}
-          />
-        </div>
+          {isUnlimited ? (
+            <>
+              Você tem <b style={{ color: "var(--sv-ink)" }}>uso ilimitado</b> neste ciclo.{" "}
+              <b style={{ color: "var(--sv-ink)" }}>{drafts.length}</b>{" "}
+              {drafts.length === 1 ? "rascunho" : "rascunhos"} em aberto.
+            </>
+          ) : (
+            <>
+              Você tem{" "}
+              <b style={{ color: "var(--sv-ink)" }}>
+                {usageCount}/{usageLimit}
+              </b>{" "}
+              carrosséis neste ciclo.{" "}
+              <b style={{ color: "var(--sv-ink)" }}>{drafts.length}</b>{" "}
+              {drafts.length === 1 ? "rascunho" : "rascunhos"} em aberto.
+            </>
+          )}
+        </p>
+      </motion.header>
+
+      {/* ──────────────────────────────────────────────────────────────────
+           Empty state global — se zero carrosséis totais
+         ────────────────────────────────────────────────────────────────── */}
+      {!carouselLoading && !carouselError && totalCarousels === 0 ? (
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="sv-card-accent"
+          style={{
+            padding: "48px 40px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 18,
+          }}
+        >
+          <span className="sv-kicker" style={{ color: "var(--sv-ink)" }}>
+            ● COMECE AQUI · Nº 01
+          </span>
+          <h2
+            className="sv-display"
+            style={{
+              fontSize: "clamp(32px, 4.8vw, 48px)",
+              lineHeight: 1,
+              maxWidth: 720,
+            }}
+          >
+            Seu estúdio está em <em>branco</em>.
+          </h2>
+          <p
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: 16,
+              lineHeight: 1.55,
+              color: "var(--sv-ink)",
+              maxWidth: 540,
+            }}
+          >
+            Cole uma ideia, um link, um tema solto. A Sequência estrutura em slides editoriais
+            num piscar de olhos.
+          </p>
+          <Link
+            href="/app/create"
+            className="sv-btn sv-btn-ink"
+            style={{ marginTop: 6 }}
+          >
+            + Criar primeiro carrossel
+          </Link>
+        </motion.section>
+      ) : (
+        <>
+          {/* ──────────────────────────────────────────────────────────────────
+               2. STAT ROW
+             ────────────────────────────────────────────────────────────────── */}
+          <motion.section
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+            variants={{
+              hidden: {},
+              show: { transition: { staggerChildren: 0.07 } },
+            }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 20,
+              marginBottom: 64,
+            }}
+          >
+            {/* Carrosséis criados — accent verde */}
+            <StatTile
+              variant="accent"
+              kicker="CARROSSÉIS CRIADOS"
+              big={
+                isUnlimited ? (
+                  <>
+                    ∞<em style={{ fontSize: 28 }}>/mês</em>
+                  </>
+                ) : (
+                  <>
+                    {usageCount}
+                    <em style={{ fontSize: 28 }}>/mês</em>
+                  </>
+                )
+              }
+              sub={`desde ${memberSince}`}
+            />
+
+            {/* Ciclo atual */}
+            <StatTile
+              variant="paper"
+              kicker="CICLO ATUAL"
+              big={isUnlimited ? "∞" : String(remaining)}
+              sub={
+                isUnlimited
+                  ? "plano sem limites"
+                  : `de ${usageLimit} disponíveis`
+              }
+            />
+
+            {/* Plano — dark */}
+            <StatTile
+              variant="ink"
+              kicker="PLANO ATIVO"
+              big={planLabel(profile?.plan)}
+              sub={
+                <Link
+                  href="/app/plans"
+                  className="sv-kicker"
+                  style={{
+                    color: "var(--sv-green)",
+                    textDecoration: "none",
+                    letterSpacing: "0.16em",
+                  }}
+                >
+                  Gerenciar →
+                </Link>
+              }
+            />
+
+            {/* Rascunhos */}
+            <StatTile
+              variant="paper"
+              kicker="RASCUNHOS"
+              big={String(drafts.length)}
+              sub={`última: ${lastDraftRel}`}
+            />
+          </motion.section>
+
+          {/* ──────────────────────────────────────────────────────────────────
+               3. RASCUNHOS
+             ────────────────────────────────────────────────────────────────── */}
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ duration: 0.5 }}
+            style={{ marginBottom: 64 }}
+          >
+            <SectionHead
+              kicker="● Nº 02 · EM ABERTO"
+              title={<>Seus <em>rascunhos</em>.</>}
+              sub={
+                drafts.length > 0
+                  ? `Continue de onde parou · ${drafts.length} em aberto`
+                  : "Nenhum rascunho no momento"
+              }
+              action={
+                drafts.length > 4 ? (
+                  <Link href="/app/carousels" className="sv-btn sv-btn-outline">
+                    Ver tudo →
+                  </Link>
+                ) : null
+              }
+            />
+
+            {carouselLoading ? (
+              <CarouselListSkeleton count={4} />
+            ) : carouselError ? (
+              <ErrorBanner message={carouselError} onRetry={() => void loadCarousels()} />
+            ) : recentDrafts.length === 0 ? (
+              <EmptyInline
+                title="Nenhum rascunho em aberto."
+                cta={
+                  <Link href="/app/create" className="sv-btn sv-btn-primary">
+                    + Novo carrossel
+                  </Link>
+                }
+              />
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                  gap: 20,
+                }}
+              >
+                {recentDrafts.map((c, i) => (
+                  <CarouselTile
+                    key={c.id}
+                    carousel={c}
+                    index={i}
+                    badgeColor="var(--sv-pink)"
+                    badgeLabel="RASCUNHO"
+                  />
+                ))}
+              </div>
+            )}
+          </motion.section>
+
+          {/* ──────────────────────────────────────────────────────────────────
+               4. PUBLICADOS RECENTES
+             ────────────────────────────────────────────────────────────────── */}
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ duration: 0.5 }}
+            style={{ marginBottom: 64 }}
+          >
+            <SectionHead
+              kicker="● Nº 03 · NO AR"
+              title={<>Publicados <em>recentes</em>.</>}
+              sub={
+                published.length > 0
+                  ? `Últimos publicados · ${published.length} no total`
+                  : "Ainda sem publicações"
+              }
+              action={
+                published.length > 4 ? (
+                  <Link href="/app/carousels" className="sv-btn sv-btn-outline">
+                    Ver biblioteca →
+                  </Link>
+                ) : null
+              }
+            />
+
+            {carouselLoading ? null : recentPublished.length === 0 ? (
+              <EmptyInline
+                title="Você ainda não publicou nenhum carrossel."
+                cta={
+                  <Link href="/app/create" className="sv-btn sv-btn-ink">
+                    Criar e publicar →
+                  </Link>
+                }
+              />
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                  gap: 20,
+                }}
+              >
+                {recentPublished.map((c, i) => (
+                  <CarouselTile
+                    key={c.id}
+                    carousel={c}
+                    index={i}
+                    badgeColor="var(--sv-green)"
+                    badgeLabel="♥ PUBLICADO"
+                  />
+                ))}
+              </div>
+            )}
+          </motion.section>
+
+          {/* ──────────────────────────────────────────────────────────────────
+               5. IDEIAS SUGERIDAS
+             ────────────────────────────────────────────────────────────────── */}
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <SectionHead
+              kicker="● Nº 04 · PARA HOJE"
+              title={<>Ideias <em>sugeridas</em>.</>}
+              sub="Baseadas no seu nicho e nos últimos dias"
+            />
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 20,
+              }}
+            >
+              {ideas.map((idea, i) => (
+                <motion.div
+                  key={idea.n}
+                  initial={{ opacity: 0, y: 14 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.45, delay: i * 0.06 }}
+                  className="sv-card"
+                  style={{
+                    padding: 24,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 14,
+                  }}
+                >
+                  <span className="sv-kicker">
+                    ● Nº {idea.n} · {idea.theme}
+                  </span>
+                  <h3
+                    style={{
+                      fontFamily: "var(--sv-display)",
+                      fontStyle: "italic",
+                      fontSize: 22,
+                      lineHeight: 1.2,
+                      color: "var(--sv-ink)",
+                      margin: 0,
+                    }}
+                  >
+                    {idea.title}
+                  </h3>
+                  <p
+                    style={{
+                      fontFamily: "var(--sv-sans)",
+                      fontSize: 14,
+                      lineHeight: 1.55,
+                      color: "var(--sv-muted)",
+                      margin: 0,
+                    }}
+                  >
+                    {idea.body}
+                  </p>
+                  <hr className="sv-divider" style={{ margin: "4px 0" }} />
+                  <Link
+                    href={`/app/create?idea=${encodeURIComponent(idea.title)}`}
+                    className="sv-kicker"
+                    style={{
+                      color: "var(--sv-ink)",
+                      textDecoration: "none",
+                      letterSpacing: "0.16em",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        background: "var(--sv-green)",
+                        border: "1px solid var(--sv-ink)",
+                        display: "inline-block",
+                      }}
+                    />
+                    USAR IDEIA →
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+        </>
       )}
     </div>
   );
 }
 
-function EmptyState() {
+/* ─────────────────────────────────────────────────────────────────────────────
+ *  SUB-COMPONENTES
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+type StatVariant = "accent" | "paper" | "ink";
+
+function StatTile({
+  variant,
+  kicker,
+  big,
+  sub,
+}: {
+  variant: StatVariant;
+  kicker: string;
+  big: React.ReactNode;
+  sub: React.ReactNode;
+}) {
+  const baseClass =
+    variant === "accent"
+      ? "sv-card-accent"
+      : variant === "ink"
+      ? "sv-card-ink"
+      : "sv-card";
+
+  const kickerColor =
+    variant === "ink"
+      ? "var(--sv-green)"
+      : variant === "accent"
+      ? "var(--sv-ink)"
+      : "var(--sv-muted)";
+
+  const bigColor =
+    variant === "ink" ? "var(--sv-paper)" : "var(--sv-ink)";
+
+  const subColor =
+    variant === "ink"
+      ? "rgba(247,245,239,0.72)"
+      : variant === "accent"
+      ? "var(--sv-ink)"
+      : "var(--sv-muted)";
+
   return (
-    <div className="card-soft p-12 flex flex-col md:flex-row items-center gap-10">
-      <div className="relative w-48 h-48 md:w-56 md:h-56 flex-shrink-0">
-        <Image
-          src="/brand/empty-carousels.png"
-          alt="Nenhum carrossel ainda"
-          fill
-          sizes="224px"
-          className="object-contain"
-        />
+    <motion.div
+      variants={{
+        hidden: { opacity: 0, y: 18 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.45 } },
+      }}
+      className={baseClass}
+      style={{
+        minHeight: 180,
+        padding: 24,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <span
+        className="sv-kicker"
+        style={{ color: kickerColor, fontSize: 10 }}
+      >
+        {kicker}
+      </span>
+      <div
+        style={{
+          fontFamily: "var(--sv-display)",
+          fontSize: 48,
+          lineHeight: 1,
+          color: bigColor,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 4,
+          letterSpacing: "-0.015em",
+        }}
+      >
+        {big}
       </div>
-      <div className="flex-1 text-center md:text-left">
-        <span className="tag-pill mb-4">
-          <Sparkles size={12} className="text-[var(--accent)]" /> Comece aqui
+      <div
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 11,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: subColor,
+        }}
+      >
+        {sub}
+      </div>
+    </motion.div>
+  );
+}
+
+function SectionHead({
+  kicker,
+  title,
+  sub,
+  action,
+}: {
+  kicker: string;
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        gap: 24,
+        flexWrap: "wrap",
+        marginBottom: 28,
+      }}
+    >
+      <div>
+        <span className="sv-kicker" style={{ color: "var(--sv-muted)" }}>
+          {kicker}
         </span>
-        <h3 className="editorial-serif text-3xl md:text-4xl text-[var(--foreground)] mb-3">
-          Nenhum carrossel ainda.
-        </h3>
-        <p className="text-[var(--muted)] mb-6 max-w-md">
-          Cole um link, um texto ou só uma ideia — a gente monta o primeiro pra
-          você em 30 segundos.
-        </p>
-        <Link
-          href="/app/create"
-          className="inline-flex items-center gap-2 bg-[var(--accent)] text-white px-6 py-3 rounded-xl text-sm font-bold border border-[#0A0A0A] hover:bg-[var(--accent-dark)] transition-colors"
-          style={{ boxShadow: "4px 4px 0 0 #0A0A0A" }}
+        <h2
+          className="sv-display"
+          style={{
+            fontSize: "clamp(26px, 3.6vw, 34px)",
+            lineHeight: 1.05,
+            marginTop: 10,
+            letterSpacing: "-0.01em",
+          }}
         >
-          <Zap size={16} /> Criar primeiro carrossel
-        </Link>
+          {title}
+        </h2>
+        {sub ? (
+          <div
+            className="sv-kicker"
+            style={{ color: "var(--sv-muted)", marginTop: 8 }}
+          >
+            {sub}
+          </div>
+        ) : null}
       </div>
+      {action}
+    </div>
+  );
+}
+
+function CarouselTile({
+  carousel,
+  index,
+  badgeColor,
+  badgeLabel,
+}: {
+  carousel: SavedCarousel;
+  index: number;
+  badgeColor: string;
+  badgeLabel: string;
+}) {
+  const firstSlide = carousel.slides[0];
+  const title =
+    carousel.title || firstSlide?.heading?.trim() || "Sem título";
+  const rel = formatRelative(carousel.savedAt);
+  const isDark = carousel.style === "dark";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.45, delay: index * 0.05 }}
+    >
+      <Link
+        href={`/app/create?draft=${carousel.id}`}
+        className="sv-card"
+        style={{
+          padding: 0,
+          display: "block",
+          textDecoration: "none",
+          overflow: "hidden",
+        }}
+      >
+        {/* Preview 4:5 do primeiro slide */}
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "4 / 5",
+            background: isDark ? "var(--sv-ink)" : "var(--sv-soft)",
+            borderBottom: "1.5px solid var(--sv-ink)",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {firstSlide ? (
+            <div
+              style={{
+                width: 1080 * 0.16,
+                height: 1350 * 0.16,
+                pointerEvents: "none",
+              }}
+            >
+              <EditorialSlide
+                heading={firstSlide.heading}
+                body={firstSlide.body}
+                imageUrl={firstSlide.imageUrl}
+                slideNumber={1}
+                totalSlides={carousel.slides.length}
+                profile={{
+                  name: "Sequência Viral",
+                  handle: "@sequenciaviral",
+                  photoUrl: "",
+                }}
+                style={isDark ? "dark" : "white"}
+                scale={0.16}
+              />
+            </div>
+          ) : (
+            <span
+              className="sv-kicker"
+              style={{ color: "var(--sv-muted)" }}
+            >
+              SEM PREVIEW
+            </span>
+          )}
+        </div>
+
+        {/* Meta */}
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          <h3
+            style={{
+              fontFamily: "var(--sv-display)",
+              fontSize: 17,
+              lineHeight: 1.2,
+              color: "var(--sv-ink)",
+              margin: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+            }}
+          >
+            {title}
+          </h3>
+          <div
+            className="sv-kicker"
+            style={{
+              color: "var(--sv-ink)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 9.5,
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: badgeColor,
+                border: "1px solid var(--sv-ink)",
+                display: "inline-block",
+              }}
+            />
+            {badgeLabel} · {rel}
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
+function EmptyInline({
+  title,
+  cta,
+}: {
+  title: string;
+  cta: React.ReactNode;
+}) {
+  return (
+    <div
+      className="sv-card"
+      style={{
+        padding: "36px 28px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: 16,
+      }}
+    >
+      <span className="sv-kicker" style={{ color: "var(--sv-muted)" }}>
+        ● VAZIO
+      </span>
+      <p
+        style={{
+          fontFamily: "var(--sv-display)",
+          fontSize: 22,
+          lineHeight: 1.2,
+          color: "var(--sv-ink)",
+          margin: 0,
+        }}
+      >
+        {title}
+      </p>
+      {cta}
+    </div>
+  );
+}
+
+function ErrorBanner({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      className="sv-card"
+      style={{
+        padding: 20,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        background: "#FFE9E9",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--sv-sans)",
+          fontSize: 14,
+          color: "var(--sv-ink)",
+        }}
+      >
+        {message}
+      </span>
+      <button onClick={onRetry} className="sv-btn sv-btn-outline">
+        Tentar de novo
+      </button>
     </div>
   );
 }

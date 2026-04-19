@@ -9,11 +9,9 @@ import {
   Copy,
   Pencil,
   Download,
-  Sparkles,
-  Filter,
   FileText,
   ImageIcon,
-  ArrowUpDown,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -57,12 +55,14 @@ function buildLibraryPreviewProfile(profile: UserProfile | null): {
   };
 }
 
+type FilterKey = "all" | "drafts" | "published" | "archived";
+
 export default function CarouselsPage() {
   const { user, refreshProfile, profile } = useAuth();
   const previewProfile = useMemo(() => buildLibraryPreviewProfile(profile), [profile]);
   const [carousels, setCarousels] = useState<SavedCarousel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "drafts" | "published">("all");
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"recent" | "oldest">("recent");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -95,10 +95,20 @@ export default function CarouselsPage() {
     return () => window.clearTimeout(t);
   }, [loadCarousels]);
 
+  const counts = useMemo(() => {
+    return {
+      all: carousels.length,
+      drafts: carousels.filter((c) => c.status !== "published").length,
+      published: carousels.filter((c) => c.status === "published").length,
+      archived: 0,
+    };
+  }, [carousels]);
+
   const filtered = carousels
     .filter((c) => {
-      if (filter === "drafts" && c.status !== "draft") return false;
+      if (filter === "drafts" && c.status === "published") return false;
       if (filter === "published" && c.status !== "published") return false;
+      if (filter === "archived") return false;
       if (search) {
         const q = search.toLowerCase();
         const title = (c.title || c.slides[0]?.heading || "").toLowerCase();
@@ -160,92 +170,141 @@ export default function CarouselsPage() {
     }
   }
 
+  const total = carousels.length;
+
   return (
     <div className="mx-auto max-w-6xl">
+      {/* Hero editorial */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
+        className="mb-10"
       >
-        <span className="tag-pill mb-6">Biblioteca</span>
+        <span className="sv-eyebrow mb-6">
+          <span className="sv-dot" />
+          Biblioteca · {total} {total === 1 ? "CARROSSEL" : "CARROSSÉIS"}
+        </span>
+
         {loadError && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
-            <strong>Erro:</strong> {loadError}
-            <button onClick={() => loadCarousels()} className="ml-3 font-bold underline">Tentar novamente</button>
+          <div
+            className="mt-5 mb-6 flex items-start justify-between gap-3 px-5 py-4 text-sm"
+            style={{
+              border: "1.5px solid var(--sv-ink)",
+              background: "var(--sv-white)",
+              boxShadow: "3px 3px 0 0 var(--sv-orange)",
+              color: "var(--sv-ink)",
+              fontFamily: "var(--sv-sans)",
+            }}
+          >
+            <span>
+              <strong>Erro: </strong>
+              {loadError}
+            </span>
+            <button
+              onClick={() => loadCarousels()}
+              className="sv-kicker underline"
+              style={{ color: "var(--sv-ink)" }}
+            >
+              Tentar de novo
+            </button>
           </div>
         )}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-          <div>
-            <h1 className="editorial-serif text-[3rem] sm:text-[4.5rem] md:text-[6rem] text-[var(--foreground)] leading-[0.95]">
-              Meus <span className="italic text-[var(--accent)]">carrosséis.</span>
+
+        <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-3xl">
+            <h1
+              className="sv-display"
+              style={{ fontSize: "clamp(40px, 6vw, 72px)", lineHeight: 0.95, letterSpacing: "-0.02em" }}
+            >
+              Seus <em>carrosséis</em>.
             </h1>
-            <p className="mt-4 text-lg text-[var(--muted)]">
-              {carousels.length} {carousels.length === 1 ? "peça salva" : "peças salvas"} na coleção
+            <p
+              className="mt-4"
+              style={{
+                fontFamily: "var(--sv-sans)",
+                fontSize: 16,
+                color: "var(--sv-muted)",
+                maxWidth: 520,
+              }}
+            >
+              {total} {total === 1 ? "peça salva" : "peças salvas"}. Filtre, duplique, exporte.
             </p>
           </div>
-          <Link
-            href="/app/create"
-            className="inline-flex items-center gap-2 bg-[var(--accent)] text-white px-6 py-3 rounded-xl text-sm font-bold border border-[#0A0A0A] hover:bg-[var(--accent-dark)] transition-colors self-start"
-            style={{ boxShadow: "4px 4px 0 0 #0A0A0A" }}
-          >
-            <PlusCircle size={16} />
-            Novo carrossel
+          <Link href="/app/create" className="sv-btn-primary self-start">
+            + Novo carrossel
           </Link>
         </div>
       </motion.div>
 
-      {/* Search and Filters */}
+      {/* Filters sticky */}
       {carousels.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
-          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-10"
+        <div
+          className="sticky z-20 mb-8 -mx-4 px-4 py-3 md:-mx-6 md:px-6"
+          style={{
+            top: 72,
+            background: "var(--sv-paper)",
+            borderTop: "1.5px solid var(--sv-ink)",
+            borderBottom: "1.5px solid var(--sv-ink)",
+          }}
         >
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por título…"
-              className="w-full rounded-xl border border-[#0A0A0A] bg-[#FFFDF9] pl-11 pr-4 py-3 text-sm text-[#0A0A0A] outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]/30 placeholder:text-[var(--muted)]"
-              style={{ boxShadow: "3px 3px 0 0 #0A0A0A" }}
-            />
-          </div>
+          <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-center lg:justify-between">
+            {/* Search */}
+            <div className="relative flex-1 lg:max-w-md">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--sv-muted)" }}
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="BUSCAR POR TÍTULO…"
+                className="sv-input w-full pl-9"
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                }}
+              />
+            </div>
 
-          {/* Filter tabs */}
-          <div className="flex items-center gap-1 bg-[#FFFDF9] border border-[#0A0A0A] rounded-xl p-1" style={{ boxShadow: "3px 3px 0 0 #0A0A0A" }}>
-            <Filter size={14} className="text-[var(--muted)] ml-2 mr-1" />
-            {(["all", "drafts", "published"] as const).map((f) => (
+            {/* Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ["all", "Todos", counts.all],
+                  ["drafts", "Rascunhos", counts.drafts],
+                  ["published", "Publicados", counts.published],
+                  ["archived", "Arquivados", counts.archived],
+                ] as const
+              ).map(([key, label, n]) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`sv-chip ${filter === key ? "sv-chip-on" : ""}`}
+                >
+                  {label} · {n}
+                </button>
+              ))}
+
+              {/* Sort */}
               <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
-                  filter === f
-                    ? "bg-[var(--accent)] text-white"
-                    : "text-[var(--muted)] hover:text-[#0A0A0A]"
-                }`}
+                onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}
+                className="sv-chip"
+                style={{ gap: 8 }}
               >
-                {f === "all" ? "Todos" : f === "drafts" ? "Rascunhos" : "Publicados"}
+                {sort === "recent" ? "Mais recentes" : "Mais antigos"}
+                <ChevronDown size={12} />
               </button>
-            ))}
+            </div>
           </div>
-
-          {/* Sort toggle */}
-          <button
-            onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}
-            className="flex items-center gap-1.5 bg-[#FFFDF9] border border-[#0A0A0A] rounded-xl px-4 py-2.5 text-xs font-bold text-[#0A0A0A]/70 hover:text-[#0A0A0A] transition-all"
-            style={{ boxShadow: "3px 3px 0 0 #0A0A0A" }}
-          >
-            <ArrowUpDown size={14} />
-            {sort === "recent" ? "Recentes" : "Antigos"}
-          </button>
-        </motion.div>
+        </div>
       )}
 
-      {/* Carousel Grid */}
+      {/* Grid */}
       <AnimatePresence mode="wait">
         {isLoading ? (
           <motion.div
@@ -262,7 +321,7 @@ export default function CarouselsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
           >
             {filtered.map((carousel, i) => (
               <CarouselCard
@@ -294,9 +353,16 @@ export default function CarouselsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-center py-16"
+            className="py-16 text-center"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+            }}
           >
-            <p className="text-zinc-500">Nenhum carrossel encontrado com esse filtro.</p>
+            ● Nenhum resultado pra esse filtro
           </motion.div>
         )}
       </AnimatePresence>
@@ -326,11 +392,7 @@ function CarouselCard({
   onDuplicate: () => void;
 }) {
   const date = new Date(carousel.savedAt);
-  const formatted = date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const rel = formatRelative(date);
 
   const title = carousel.title || carousel.slides[0]?.heading || "Sem título";
   const slideCount = carousel.slides.length;
@@ -338,22 +400,26 @@ function CarouselCard({
   const first = carousel.slides[0];
   const slideStyle = carousel.style === "dark" ? "dark" : "white";
 
+  const isPublished = status === "published";
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.4, delay: index * 0.07, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }}
-      className="card-soft overflow-hidden group"
+    <motion.article
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+      className="sv-card group flex flex-col overflow-hidden p-0"
+      style={{ padding: 0 }}
     >
-      {/* Preview: slide real (template Twitter) ou capa com imagem + texto */}
+      {/* Preview 4:5 */}
       <div
-        className={`relative min-h-[200px] max-h-[240px] flex items-center justify-center border-b border-[#0A0A0A]/10 overflow-hidden ${
-          carousel.style === "dark" ? "bg-[#0A0A0A]" : "bg-[#f4f4f5]"
-        }`}
+        className="relative aspect-[4/5] w-full overflow-hidden"
+        style={{
+          borderBottom: "1.5px solid var(--sv-ink)",
+          background: carousel.style === "dark" ? "var(--sv-ink)" : "var(--sv-soft)",
+        }}
       >
         {first ? (
-          <div className="w-full flex items-center justify-center py-3 px-2 pointer-events-none select-none">
+          <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center">
             <EditorialSlide
               heading={first.heading || " "}
               body={first.body || " "}
@@ -368,151 +434,260 @@ function CarouselCard({
             />
           </div>
         ) : (
-          <div className="py-12 text-sm text-[var(--muted)]">Sem slides</div>
+          <div
+            className="flex h-full items-center justify-center"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+            }}
+          >
+            ● Sem slides
+          </div>
         )}
 
-        {/* Status badge */}
-        <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-          <div
-            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#0A0A0A] ${
-              status === "published"
-                ? "bg-[var(--accent)] text-white"
-                : "bg-[#FFFDF9] text-[#0A0A0A]"
-            }`}
+        {/* Hover toolbar */}
+        <div
+          className="absolute inset-x-0 bottom-0 flex translate-y-full items-center gap-2 px-3 py-3 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
+          style={{
+            background: "rgba(10,10,10,0.88)",
+            borderTop: "1.5px solid var(--sv-ink)",
+          }}
+        >
+          <Link
+            href={`/app/create?draft=${carousel.id}`}
+            className="sv-btn-primary"
+            style={{ padding: "7px 12px", fontSize: 9.5 }}
           >
-            {status === "published" ? "Publicado" : "Rascunho"}
-          </div>
+            <Pencil size={11} /> Editar
+          </Link>
+          <button
+            onClick={onDuplicate}
+            className="sv-btn-outline"
+            style={{ padding: "7px 12px", fontSize: 9.5 }}
+          >
+            <Copy size={11} /> Duplicar
+          </button>
+          <Link
+            href={`/app/create?draft=${carousel.id}`}
+            className="sv-btn-outline"
+            style={{ padding: "7px 12px", fontSize: 9.5 }}
+          >
+            <Download size={11} /> Exportar
+          </Link>
+          <button
+            onClick={onDelete}
+            className="sv-btn-ghost ml-auto"
+            style={{
+              padding: "7px 10px",
+              color: deleteConfirm ? "var(--sv-orange)" : "var(--sv-paper)",
+              background: deleteConfirm ? "rgba(255,74,28,0.15)" : "transparent",
+              border: "1.5px solid transparent",
+            }}
+            title={deleteConfirm ? "Confirma exclusão" : "Excluir"}
+          >
+            <Trash2 size={11} />
+            {deleteConfirm ? " Confirmar?" : ""}
+          </button>
         </div>
       </div>
 
-      {/* Card body */}
-      <div className="p-6">
-        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--muted)] mb-2">
-          {formatted} · {slideCount} slides
-        </p>
-        <h3 className="editorial-serif text-2xl text-[var(--foreground)] leading-tight truncate mb-4">
+      {/* Meta */}
+      <div className="flex flex-col gap-3 p-5">
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="sv-kicker-sm inline-flex items-center gap-1.5"
+            style={{ color: "var(--sv-muted)" }}
+          >
+            <span
+              className="inline-block h-[7px] w-[7px] rounded-full"
+              style={{
+                background: isPublished ? "var(--sv-green)" : "var(--sv-ink)",
+                border: "1px solid var(--sv-ink)",
+              }}
+            />
+            {isPublished ? "Publicado" : "Rascunho"} · {rel}
+          </span>
+          <span
+            className="sv-kicker-sm"
+            style={{ color: "var(--sv-muted)" }}
+          >
+            {slideCount} slides
+          </span>
+        </div>
+
+        <h3
+          className="line-clamp-2"
+          style={{
+            fontFamily: "var(--sv-display)",
+            fontSize: 22,
+            lineHeight: 1.05,
+            letterSpacing: "-0.01em",
+            color: "var(--sv-ink)",
+          }}
+        >
           {title}
         </h3>
 
-        <div className="mb-4">
-          <CarouselFeedbackPanel
-            carouselId={carousel.id}
-            userId={userId}
-            supabase={sb}
-            initial={carousel.feedback ?? null}
-            onSaved={onFeedbackSaved}
-            compact
-          />
-        </div>
+        <CarouselFeedbackPanel
+          carouselId={carousel.id}
+          userId={userId}
+          supabase={sb}
+          initial={carousel.feedback ?? null}
+          onSaved={onFeedbackSaved}
+          compact
+        />
 
         {carousel.exportAssets &&
           (carousel.exportAssets.pdfUrl ||
             (carousel.exportAssets.pngUrls?.length ?? 0) > 0) && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3 py-2 text-[11px] font-semibold text-emerald-900">
-              <span className="uppercase tracking-wider text-emerald-700/90">Nuvem</span>
+            <div
+              className="flex flex-wrap items-center gap-2 px-3 py-2"
+              style={{
+                border: "1.5px solid var(--sv-ink)",
+                background: "var(--sv-soft)",
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--sv-ink)",
+              }}
+            >
+              <span style={{ color: "var(--sv-muted)" }}>● Nuvem</span>
               {carousel.exportAssets.pdfUrl ? (
                 <a
                   href={carousel.exportAssets.pdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-emerald-800 shadow-sm ring-1 ring-emerald-200/80 hover:bg-emerald-50"
+                  className="inline-flex items-center gap-1 px-2 py-1"
+                  style={{
+                    background: "var(--sv-white)",
+                    border: "1.5px solid var(--sv-ink)",
+                  }}
                 >
-                  <FileText size={12} />
+                  <FileText size={11} />
                   PDF
                 </a>
               ) : null}
-              {carousel.exportAssets.pngUrls?.slice(0, 8).map((url, idx) => (
+              {carousel.exportAssets.pngUrls?.slice(0, 6).map((url, idx) => (
                 <a
                   key={`${url}-${idx}`}
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
-                  className="inline-flex items-center gap-0.5 rounded-md bg-white px-2 py-1 text-emerald-800 shadow-sm ring-1 ring-emerald-200/80 hover:bg-emerald-50"
+                  className="inline-flex items-center gap-1 px-2 py-1"
+                  style={{
+                    background: "var(--sv-white)",
+                    border: "1.5px solid var(--sv-ink)",
+                  }}
                 >
-                  <ImageIcon size={11} />
+                  <ImageIcon size={10} />
                   {idx + 1}
                 </a>
               ))}
-              {(carousel.exportAssets.pngUrls?.length ?? 0) > 8 ? (
-                <span className="text-emerald-700/80">
-                  +{(carousel.exportAssets.pngUrls?.length ?? 0) - 8} PNG
+              {(carousel.exportAssets.pngUrls?.length ?? 0) > 6 ? (
+                <span style={{ color: "var(--sv-muted)" }}>
+                  +{(carousel.exportAssets.pngUrls?.length ?? 0) - 6} PNG
                 </span>
               ) : null}
             </div>
           )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 pt-4 border-t border-[#0A0A0A]/10">
+        {/* Inline actions (mobile fallback + desktop persistent) */}
+        <div
+          className="flex items-center gap-2 pt-3"
+          style={{ borderTop: "1.5px solid rgba(10,10,10,0.1)" }}
+        >
           <Link
             href={`/app/create?draft=${carousel.id}`}
-            className="btn-scale flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white bg-[var(--accent)] hover:bg-[var(--accent-dark)] transition-colors"
+            className="sv-btn-primary"
+            style={{ padding: "7px 12px", fontSize: 9.5 }}
           >
-            <Pencil size={12} />
-            Editar
+            <Pencil size={11} /> Editar
           </Link>
           <button
             onClick={onDuplicate}
-            className="btn-scale flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:bg-[#0A0A0A]/5 hover:text-[#0A0A0A] transition-colors"
+            className="sv-btn-outline"
+            style={{ padding: "7px 12px", fontSize: 9.5 }}
           >
-            <Copy size={12} />
-            Duplicar
+            <Copy size={11} /> Duplicar
           </button>
-          <Link
-            href={`/app/create?draft=${carousel.id}`}
-            className="btn-scale flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:bg-[#0A0A0A]/5 hover:text-[#0A0A0A] transition-colors"
-          >
-            <Download size={12} />
-            Exportar
-          </Link>
           <button
             onClick={onDelete}
-            className={`btn-scale ml-auto flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
-              deleteConfirm
-                ? "bg-red-100 text-red-600 animate-[pulse_0.3s_ease-in-out]"
-                : "text-[var(--muted)] hover:text-red-500 hover:bg-red-50"
-            }`}
+            className="sv-btn-ghost ml-auto"
+            style={{
+              padding: "7px 10px",
+              fontSize: 9.5,
+              color: deleteConfirm ? "var(--sv-orange)" : "var(--sv-muted)",
+              border: "1.5px solid transparent",
+            }}
+            title={deleteConfirm ? "Confirma exclusão" : "Excluir"}
           >
-            <Trash2 size={12} />
-            {deleteConfirm ? "Confirmar?" : ""}
+            <Trash2 size={11} />
+            {deleteConfirm ? " Confirmar?" : ""}
           </button>
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="card-soft p-12 flex flex-col md:flex-row items-center gap-10">
-      <div className="relative w-48 h-48 md:w-56 md:h-56 flex-shrink-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand/empty-carousels.png"
-          alt="Nenhum carrossel"
-          className="w-full h-full object-contain"
-        />
-      </div>
-      <div className="flex-1 text-center md:text-left">
-        <span className="tag-pill mb-4">
-          <Sparkles size={12} className="text-[var(--accent)]" /> Coleção vazia
-        </span>
-        <h3 className="editorial-serif text-3xl md:text-4xl text-[var(--foreground)] mb-3">
-          Seu estúdio está em branco.
-        </h3>
-        <p className="text-[var(--muted)] mb-6 max-w-md">
-          Crie seu primeiro carrossel e ele aparece aqui. Você pode salvar, editar,
-          duplicar e exportar como quiser.
-        </p>
-        <Link
-          href="/app/create"
-          className="inline-flex items-center gap-2 bg-[var(--accent)] text-white px-6 py-3 rounded-xl text-sm font-bold border border-[#0A0A0A] hover:bg-[var(--accent-dark)] transition-colors"
-          style={{ boxShadow: "4px 4px 0 0 #0A0A0A" }}
+    <section className="sv-card-accent flex flex-col gap-6 p-10 md:flex-row md:items-center md:justify-between md:p-12">
+      <div className="max-w-xl">
+        <span
+          className="sv-eyebrow"
+          style={{ background: "var(--sv-ink)", color: "var(--sv-paper)" }}
         >
-          <PlusCircle size={16} />
-          Criar primeiro carrossel
-        </Link>
+          <span className="sv-dot" />
+          Coleção vazia
+        </span>
+        <h2
+          className="sv-display mt-5"
+          style={{ fontSize: "clamp(32px, 4.5vw, 56px)", lineHeight: 0.95 }}
+        >
+          Seu estúdio está em <em>branco</em>.
+        </h2>
+        <p
+          className="mt-3"
+          style={{ fontFamily: "var(--sv-sans)", fontSize: 16, color: "var(--sv-ink)" }}
+        >
+          Crie seu primeiro carrossel e ele aparece aqui. Dá pra salvar, editar,
+          duplicar e exportar sem perder a ordem.
+        </p>
       </div>
-    </div>
+      <Link href="/app/create" className="sv-btn-ink self-start md:self-auto">
+        <PlusCircle size={13} /> Criar primeiro carrossel
+      </Link>
+    </section>
   );
+}
+
+function formatRelative(date: Date): string {
+  const now = Date.now();
+  const diff = Math.max(0, now - date.getTime());
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < hour) {
+    const mins = Math.max(1, Math.round(diff / minute));
+    return `há ${mins} min`;
+  }
+  if (diff < day) {
+    const hrs = Math.round(diff / hour);
+    return `há ${hrs}h`;
+  }
+  if (diff < 7 * day) {
+    const days = Math.round(diff / day);
+    return `há ${days}d`;
+  }
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }

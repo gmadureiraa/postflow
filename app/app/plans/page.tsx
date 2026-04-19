@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Check, Crown, Sparkles, Star, Zap } from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PLANS, FREE_PLAN_USAGE_LIMIT } from "@/lib/pricing";
 import posthog from "posthog-js";
 
 type PlanCard = {
   id: "free" | "pro" | "business";
+  number: string;
   name: string;
   price: string;
   priceNote: string;
-  anchor?: string;
-  badge?: string;
   tagline: string;
   features: readonly string[];
   ctaLabel: string;
@@ -21,45 +20,74 @@ type PlanCard = {
   highlight?: boolean;
 };
 
+const FREE_FEATURES = [
+  `${FREE_PLAN_USAGE_LIMIT} carrosséis por mês`,
+  "Todas as origens (YouTube, blog, Instagram, ideia)",
+  "Editor completo e export PNG",
+  "Todos os 4 templates editoriais",
+];
+
+const PRO_FEATURES = PLANS.pro.features.slice(0, 4);
+const BUSINESS_FEATURES = [
+  "Carrosséis ilimitados",
+  "3 seats inclusos",
+  "API de integração",
+  "Suporte prioritário",
+];
+
 const CARDS: PlanCard[] = [
   {
     id: "free",
+    number: "01",
     name: "Grátis",
-    price: "US$ 0",
+    price: "R$ 0",
     priceNote: "pra sempre",
-    tagline: "Pra testar o fluxo.",
-    features: [
-      `${FREE_PLAN_USAGE_LIMIT} carrosséis por mês`,
-      "Todas as origens (YouTube, blog, Instagram, ideia)",
-      "Editor completo",
-      "Export PNG com marca d'água",
-    ],
-    ctaLabel: "Continuar no grátis",
-    ctaHref: "/app/create",
+    tagline: "Pra testar o fluxo sem compromisso.",
+    features: FREE_FEATURES,
+    ctaLabel: "Começar agora",
+    ctaHref: "/app/login",
   },
   {
     id: "pro",
-    name: PLANS.pro.name,
-    price: "US$ 9,99",
+    number: "02",
+    name: "Pro",
+    price: "R$ 89",
     priceNote: "por mês",
-    anchor: "US$ 19,99",
-    badge: "Mais popular",
     tagline: "Pra quem posta todo dia.",
-    features: PLANS.pro.features,
+    features: PRO_FEATURES,
     ctaLabel: "Assinar Pro",
     ctaHref: "/app/checkout?plan=pro",
     highlight: true,
   },
   {
     id: "business",
-    name: PLANS.business.name,
-    price: "US$ 29,99",
+    number: "03",
+    name: "Agência",
+    price: "R$ 249",
     priceNote: "por mês",
-    anchor: "US$ 49,99",
     tagline: "Pra times e agências.",
-    features: PLANS.business.features,
-    ctaLabel: "Assinar Business",
+    features: BUSINESS_FEATURES,
+    ctaLabel: "Assinar Agência",
     ctaHref: "/app/checkout?plan=business",
+  },
+];
+
+const FAQ = [
+  {
+    q: "Posso cancelar quando quiser?",
+    a: "Sim. Cancela pelo portal do Stripe nas configurações. O plano fica ativo até o fim do ciclo e depois volta pro grátis.",
+  },
+  {
+    q: "Meus carrosséis ficam salvos se eu voltar pro grátis?",
+    a: "Tudo que você já gerou permanece. O limite mensal só afeta novas gerações a partir do downgrade.",
+  },
+  {
+    q: "Tem plano anual?",
+    a: "Em breve. Enquanto isso, o preço de lançamento continua no mensal, sem fidelidade.",
+  },
+  {
+    q: "Qual a diferença real entre Pro e Agência?",
+    a: "Pro é pra 1 creator. Agência inclui 3 seats, API de integração e suporte prioritário, sem teto prático de geração.",
   },
 ];
 
@@ -69,91 +97,174 @@ export default function PlansPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
+      {/* Hero */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
+        className="mb-10"
       >
-        <span className="tag-pill mb-6">
-          <Sparkles size={13} className="text-[var(--accent)]" />
-          Planos e upgrade
+        <span className="sv-eyebrow mb-6">
+          <span className="sv-dot" />
+          Planos · Edição nº 04
         </span>
-        <h1 className="editorial-serif text-[2.5rem] sm:text-[3.5rem] md:text-[5rem] text-[var(--foreground)] leading-[0.95]">
-          Escolha o plano que{" "}
-          <span className="italic text-[var(--accent)]">cabe no seu ritmo.</span>
+        <h1
+          className="sv-display mt-6"
+          style={{
+            fontSize: "clamp(40px, 7vw, 80px)",
+            lineHeight: 0.95,
+            letterSpacing: "-0.02em",
+            maxWidth: 920,
+          }}
+        >
+          Escolha o plano que <em>cabe</em> no seu ritmo.
         </h1>
-        <p className="mt-4 text-lg text-[var(--muted)] max-w-2xl">
-          Todos os planos têm acesso a todas as origens (YouTube, blog, Instagram,
-          ideia), modo avançado e export em PNG/PDF. A diferença é quantos
-          carrosséis por mês e marca d&apos;água.
+        <p
+          className="mt-5"
+          style={{
+            fontFamily: "var(--sv-sans)",
+            fontSize: 17,
+            color: "var(--sv-muted)",
+            maxWidth: 640,
+            lineHeight: 1.5,
+          }}
+        >
+          Todos os planos: todas as origens, modo avançado, export em PNG e PDF.
+          A diferença é quantos carrosséis por mês e os extras de workflow.
         </p>
       </motion.div>
 
-      {/* Planos */}
+      {/* Plans grid */}
       <div className="mt-10 grid gap-6 md:grid-cols-3">
         {CARDS.map((card, i) => {
           const isCurrent = currentPlan === card.id;
+          const isInk = card.highlight;
+
           return (
             <motion.article
               key={card.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: i * 0.08 }}
-              className={`relative rounded-[28px] border-2 p-7 transition-all ${
-                card.highlight
-                  ? "border-[#0A0A0A] bg-[#FFFDF9] shadow-[6px_6px_0_0_#0A0A0A]"
-                  : "border-black/10 bg-white shadow-[3px_3px_0_0_rgba(10,10,10,0.08)]"
-              }`}
+              className={isInk ? "sv-card-ink relative" : "sv-card relative"}
+              style={{ padding: 28, minHeight: 560, display: "flex", flexDirection: "column" }}
             >
-              {card.badge && (
-                <span className="absolute -top-3 left-7 rounded-full bg-[var(--accent)] border-2 border-[#0A0A0A] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-[2px_2px_0_0_#0A0A0A]">
-                  <Star size={10} className="inline -mt-0.5 mr-1" />
-                  {card.badge}
+              {isInk && (
+                <span
+                  className="absolute left-6 inline-flex items-center gap-1.5"
+                  style={{
+                    top: -14,
+                    padding: "6px 12px",
+                    background: "var(--sv-green)",
+                    border: "1.5px solid var(--sv-paper)",
+                    color: "var(--sv-ink)",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 9.5,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    fontWeight: 700,
+                    boxShadow: "3px 3px 0 0 var(--sv-ink)",
+                  }}
+                >
+                  ✦ Mais escolhido
                 </span>
               )}
 
-              <div className="flex items-center gap-2">
-                {card.id === "free" && <Zap size={18} className="text-[var(--muted)]" />}
-                {card.id === "pro" && <Sparkles size={18} className="text-[var(--accent)]" />}
-                {card.id === "business" && <Crown size={18} className="text-[var(--accent)]" />}
-                <h2 className="editorial-serif text-3xl text-[#0A0A0A]">{card.name}</h2>
-              </div>
-              <p className="mt-1 text-sm text-[var(--muted)]">{card.tagline}</p>
+              <div>
+                <span
+                  className="sv-kicker"
+                  style={{
+                    color: isInk ? "rgba(247,245,239,0.6)" : "var(--sv-muted)",
+                  }}
+                >
+                  ● Plano · Nº {card.number}
+                </span>
 
-              <div className="mt-6 flex items-baseline gap-2">
-                {card.anchor && (
-                  <span className="text-base font-semibold text-zinc-400 line-through">
-                    {card.anchor}
-                  </span>
-                )}
-                <span className="text-4xl font-black text-[#0A0A0A]">
+                <h2
+                  className="sv-display mt-4"
+                  style={{
+                    fontSize: 40,
+                    lineHeight: 1,
+                    letterSpacing: "-0.01em",
+                    color: isInk ? "var(--sv-paper)" : "var(--sv-ink)",
+                  }}
+                >
+                  {card.name}
+                </h2>
+
+                <p
+                  className="mt-2"
+                  style={{
+                    fontFamily: "var(--sv-sans)",
+                    fontSize: 14,
+                    color: isInk ? "rgba(247,245,239,0.7)" : "var(--sv-muted)",
+                  }}
+                >
+                  {card.tagline}
+                </p>
+              </div>
+
+              <div className="mt-7 flex items-baseline gap-2">
+                <span
+                  className="sv-display"
+                  style={{
+                    fontSize: 56,
+                    lineHeight: 0.9,
+                    letterSpacing: "-0.02em",
+                    color: isInk ? "var(--sv-paper)" : "var(--sv-ink)",
+                  }}
+                >
                   {card.price}
                 </span>
-                <span className="text-sm font-medium text-[var(--muted)]">
-                  / {card.priceNote}
+                <span
+                  className="sv-kicker-sm"
+                  style={{
+                    color: isInk ? "rgba(247,245,239,0.6)" : "var(--sv-muted)",
+                  }}
+                >
+                  /{card.priceNote}
                 </span>
               </div>
 
-              <ul className="mt-6 space-y-2.5">
+              <ul className="mt-7 flex-1 space-y-3">
                 {card.features.map((f) => (
                   <li
                     key={f}
-                    className="flex items-start gap-2 text-sm text-[#0A0A0A]/80"
+                    className="flex items-start gap-2.5"
+                    style={{
+                      fontFamily: "var(--sv-sans)",
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                      color: isInk ? "rgba(247,245,239,0.92)" : "var(--sv-ink)",
+                    }}
                   >
                     <Check
                       size={15}
-                      className="mt-0.5 shrink-0 text-[var(--accent)]"
+                      className="mt-0.5 shrink-0"
+                      style={{ color: "var(--sv-green)" }}
+                      strokeWidth={2.5}
                     />
-                    {f}
+                    <span>{f}</span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-7">
+              <div className="mt-8">
                 {isCurrent ? (
-                  <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#0A0A0A]/15 bg-transparent px-5 py-3 text-sm font-bold text-[var(--muted)]">
-                    <Check size={15} />
-                    Plano atual
+                  <div
+                    className="flex w-full items-center justify-center gap-2 px-5 py-3"
+                    style={{
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 10.5,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      fontWeight: 700,
+                      border: `1.5px solid ${isInk ? "rgba(247,245,239,0.25)" : "rgba(10,10,10,0.25)"}`,
+                      color: isInk ? "rgba(247,245,239,0.6)" : "var(--sv-muted)",
+                      background: "transparent",
+                    }}
+                  >
+                    <Check size={13} /> Plano atual
                   </div>
                 ) : (
                   <Link
@@ -164,14 +275,11 @@ export default function PlansPage() {
                         from_plan: currentPlan,
                       })
                     }
-                    className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#0A0A0A] px-5 py-3 text-sm font-bold transition hover:-translate-x-0.5 hover:-translate-y-0.5 ${
-                      card.highlight
-                        ? "bg-[var(--accent)] text-white shadow-[4px_4px_0_0_#0A0A0A] hover:shadow-[6px_6px_0_0_#0A0A0A]"
-                        : "bg-[#FFFDF9] text-[#0A0A0A] shadow-[3px_3px_0_0_#0A0A0A] hover:shadow-[5px_5px_0_0_#0A0A0A]"
-                    }`}
+                    className={isInk ? "sv-btn-primary" : "sv-btn-outline"}
+                    style={{ width: "100%", justifyContent: "center" }}
                   >
                     {card.ctaLabel}
-                    <ArrowRight size={15} />
+                    <ArrowRight size={13} />
                   </Link>
                 )}
               </div>
@@ -180,53 +288,54 @@ export default function PlansPage() {
         })}
       </div>
 
-      {/* FAQ curto */}
+      {/* FAQ */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.4 }}
-        className="mt-16 rounded-[28px] border border-black/10 bg-white p-8"
+        className="mt-16"
       >
-        <h2 className="editorial-serif text-2xl text-[#0A0A0A]">
-          Perguntas rápidas.
-        </h2>
-        <dl className="mt-6 grid gap-6 md:grid-cols-2">
+        <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <dt className="text-sm font-bold text-[#0A0A0A]">
-              Posso cancelar quando quiser?
-            </dt>
-            <dd className="mt-1 text-sm text-[var(--muted)]">
-              Sim. Cancela pelo Stripe Portal nas configurações — o plano
-              permanece ativo até o fim do ciclo e depois volta pro grátis.
-            </dd>
+            <span className="sv-kicker" style={{ color: "var(--sv-muted)" }}>
+              ● FAQ rápido
+            </span>
+            <h2
+              className="sv-display mt-2"
+              style={{
+                fontSize: "clamp(28px, 4vw, 44px)",
+                lineHeight: 1,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Perguntas <em>rápidas</em>.
+            </h2>
           </div>
-          <div>
-            <dt className="text-sm font-bold text-[#0A0A0A]">
-              Meu carrossel permanece se eu voltar pro grátis?
-            </dt>
-            <dd className="mt-1 text-sm text-[var(--muted)]">
-              Tudo que você já gerou continua salvo. O limite só afeta novas
-              gerações a partir do downgrade.
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm font-bold text-[#0A0A0A]">
-              Tem desconto anual?
-            </dt>
-            <dd className="mt-1 text-sm text-[var(--muted)]">
-              Em breve. Enquanto isso, o preço de lançamento (50% Pro / 40%
-              Business) continua no mensal.
-            </dd>
-          </div>
-          <div>
-            <dt className="text-sm font-bold text-[#0A0A0A]">
-              Qual a diferença técnica entre Pro e Business?
-            </dt>
-            <dd className="mt-1 text-sm text-[var(--muted)]">
-              Pro é pra 1 creator. Business inclui 3 seats, API de integração
-              e suporte prioritário. Também remove o teto mensal.
-            </dd>
-          </div>
+        </div>
+
+        <hr className="sv-divider" />
+
+        <dl className="mt-8 grid gap-x-10 gap-y-8 md:grid-cols-2">
+          {FAQ.map((item) => (
+            <div key={item.q}>
+              <dt
+                className="sv-kicker mb-2"
+                style={{ color: "var(--sv-ink)" }}
+              >
+                {item.q}
+              </dt>
+              <dd
+                style={{
+                  fontFamily: "var(--sv-sans)",
+                  fontSize: 15,
+                  lineHeight: 1.55,
+                  color: "var(--sv-muted)",
+                }}
+              >
+                {item.a}
+              </dd>
+            </div>
+          ))}
         </dl>
       </motion.section>
     </div>
