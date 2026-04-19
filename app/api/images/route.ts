@@ -114,6 +114,30 @@ export async function POST(request: Request) {
       .trim()
       .slice(0, 400);
 
+    // Puxa a descrição estética da marca (se configurada em Ajustes →
+    // Branding → Referências visuais). Vai como prefix do prompt do Imagen
+    // pra todas as imagens geradas seguirem a mesma linguagem visual.
+    let brandAesthetic = "";
+    const sbForAesthetic = createServiceRoleSupabaseClient();
+    if (sbForAesthetic && (mode === "generate" || !mode)) {
+      try {
+        const { data: prof } = await sbForAesthetic
+          .from("profiles")
+          .select("brand_analysis")
+          .eq("id", user.id)
+          .single();
+        const ba = prof?.brand_analysis as Record<string, unknown> | null;
+        const aesthetic = ba?.__image_aesthetic as
+          | { description?: string }
+          | undefined;
+        if (aesthetic?.description && typeof aesthetic.description === "string") {
+          brandAesthetic = aesthetic.description.trim();
+        }
+      } catch {
+        /* silently fall back to no aesthetic */
+      }
+    }
+
     // ── MODE: GENERATE (Gemini Imagen) ──────────────────────────────
     if (mode === "generate") {
       const geminiKey = process.env.GEMINI_API_KEY;
@@ -126,6 +150,11 @@ export async function POST(request: Request) {
           const nicheHint = niche ? `Niche/context: ${niche}.` : "";
           const toneHint = tone ? `Editorial tone: ${tone}.` : "";
           const imagePrompt = [
+            // Brand aesthetic vira prefix DOMINANTE quando existe — Imagen
+            // prioriza o começo do prompt.
+            brandAesthetic
+              ? `BRAND AESTHETIC (follow this visual language strictly): ${brandAesthetic}`
+              : "",
             "Hyper-realistic professional photograph for Instagram carousel square frame.",
             tmplMeta.imageGenRealismFragment,
             nicheHint,

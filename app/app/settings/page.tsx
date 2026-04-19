@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, type BrandAnalysis } from "@/lib/auth-context";
@@ -215,6 +215,14 @@ function SettingsPageContent() {
   const [brandColors, setBrandColors] = useState<string[]>([]);
   const [newColorInput, setNewColorInput] = useState("");
 
+  // Imagens de referência visual + estética destilada via Gemini Vision.
+  const [brandImageRefs, setBrandImageRefs] = useState<string[]>([]);
+  const [uploadingRefSlot, setUploadingRefSlot] = useState<number | null>(null);
+  const [analyzingAesthetic, setAnalyzingAesthetic] = useState(false);
+  const [aestheticDescription, setAestheticDescription] = useState("");
+  const refFileInputRef = useRef<HTMLInputElement | null>(null);
+  const refSlotTargetRef = useRef<number | null>(null);
+
   // Voz da IA — campos detalhados persistidos em brand_analysis.
   const [contentPillars, setContentPillars] = useState<string[]>([]);
   const [pillarInput, setPillarInput] = useState("");
@@ -243,6 +251,15 @@ function SettingsPageContent() {
     setCarouselStyle(profile.carousel_style || "white");
     setNotifs(readNotifsFromProfile(profile.brand_analysis));
     setBrandColors(Array.isArray(profile.brand_colors) ? profile.brand_colors : []);
+    setBrandImageRefs(
+      Array.isArray(profile.brand_image_refs) ? profile.brand_image_refs : []
+    );
+    const aesthetic = (profile.brand_analysis as unknown as
+      | Record<string, unknown>
+      | undefined)?.["__image_aesthetic"] as
+      | { description?: string }
+      | undefined;
+    setAestheticDescription(aesthetic?.description || "");
 
     const branding = (profile.brand_analysis as unknown as
       | Record<string, unknown>
@@ -325,6 +342,94 @@ function SettingsPageContent() {
       content_rules: contentRules,
     };
     return merged as unknown as BrandAnalysis;
+  }
+
+  /**
+   * Upload de imagem de referência visual pra slot 0-2. Reusa /api/upload
+   * existente, que guarda no bucket carousel-images. Depois substitui o
+   * slot em brandImageRefs.
+   */
+  async function handleRefUpload(slot: number, file: File) {
+    if (!session) {
+      toast.error("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Arquivo precisa ser imagem.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Imagem grande demais. Máx 8MB.");
+      return;
+    }
+    setUploadingRefSlot(slot);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("carouselId", "brand-ref");
+      form.append("slideIndex", String(slot));
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: session.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload falhou.");
+      const next = [...brandImageRefs];
+      next[slot] = data.url as string;
+      setBrandImageRefs(next.filter(Boolean));
+      // Invalida descrição estética — precisa re-analisar.
+      setAestheticDescription("");
+      toast.success(`Referência ${slot + 1} enviada. Clica "Analisar estética" pra atualizar.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha no upload.");
+    } finally {
+      setUploadingRefSlot(null);
+    }
+  }
+
+  function triggerRefUpload(slot: number) {
+    refSlotTargetRef.current = slot;
+    refFileInputRef.current?.click();
+  }
+
+  function removeRef(slot: number) {
+    setBrandImageRefs(brandImageRefs.filter((_, i) => i !== slot));
+    setAestheticDescription("");
+  }
+
+  /**
+   * Chama /api/brand-aesthetic com as URLs atuais. API roda Gemini Vision
+   * e persiste a descrição em brand_analysis.__image_aesthetic.
+   */
+  async function handleAnalyzeAesthetic() {
+    if (brandImageRefs.length === 0) {
+      toast.error("Adicione pelo menos 1 imagem de referência.");
+      return;
+    }
+    if (!session) {
+      toast.error("Sessão expirada.");
+      return;
+    }
+    setAnalyzingAesthetic(true);
+    try {
+      const res = await fetch("/api/brand-aesthetic", {
+        method: "POST",
+        headers: jsonWithAuth(session),
+        body: JSON.stringify({ imageUrls: brandImageRefs }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha ao analisar.");
+      setAestheticDescription(data.aesthetic || "");
+      await refreshProfile();
+      toast.success("Estética detectada. Todas as imagens geradas via IA vão seguir essa linha.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro na análise.");
+    } finally {
+      setAnalyzingAesthetic(false);
+    }
   }
 
   /**
@@ -413,6 +518,7 @@ function SettingsPageContent() {
         carousel_style: carouselStyle,
         brand_analysis: buildBrandAnalysisUpdate(),
         brand_colors: brandColors,
+        brand_image_refs: brandImageRefs,
       });
       posthog.capture("settings_saved", {
         has_twitter: !!twitterHandle,
@@ -1090,6 +1196,202 @@ function SettingsPageContent() {
                   >
                     Nenhuma cor adicionada. O editor vai usar as cores default.
                   </p>
+                )}
+              </div>
+
+              {/* Referências visuais — 3 imagens que definem a estética
+                   que o Imagen 4 vai seguir ao gerar novas imagens. */}
+              <div className="mt-8">
+                <Label>Referências visuais da marca</Label>
+                <p
+                  style={{
+                    fontFamily: "var(--sv-sans)",
+                    fontSize: 12,
+                    color: "var(--sv-muted)",
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }}
+                >
+                  Suba até 3 imagens que representam a estética da sua marca
+                  (mesma paleta, iluminação, mood). A IA extrai o estilo e
+                  aplica em cada imagem nova que você gerar.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {[0, 1, 2].map((slot) => {
+                    const url = brandImageRefs[slot];
+                    const uploading = uploadingRefSlot === slot;
+                    return (
+                      <div
+                        key={slot}
+                        style={{
+                          width: 120,
+                          height: 120,
+                          border: "1.5px solid var(--sv-ink)",
+                          background: url
+                            ? `url(${url}) center/cover`
+                            : "var(--sv-white)",
+                          position: "relative",
+                          boxShadow: url
+                            ? "3px 3px 0 0 var(--sv-ink)"
+                            : "none",
+                        }}
+                      >
+                        {!url && !uploading && (
+                          <button
+                            type="button"
+                            onClick={() => triggerRefUpload(slot)}
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              border: "1.5px dashed var(--sv-ink)",
+                              background: "transparent",
+                              cursor: "pointer",
+                              fontFamily: "var(--sv-mono)",
+                              fontSize: 10,
+                              letterSpacing: "0.16em",
+                              textTransform: "uppercase",
+                              color: "var(--sv-muted)",
+                              fontWeight: 700,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <Upload size={16} />
+                            Slot {slot + 1}
+                          </button>
+                        )}
+                        {uploading && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "rgba(247,245,239,0.9)",
+                            }}
+                          >
+                            <Loader2
+                              size={20}
+                              className="animate-spin"
+                              style={{ color: "var(--sv-ink)" }}
+                            />
+                          </div>
+                        )}
+                        {url && !uploading && (
+                          <button
+                            type="button"
+                            onClick={() => removeRef(slot)}
+                            className="absolute -right-2 -top-2 flex items-center justify-center"
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              background: "var(--sv-ink)",
+                              color: "var(--sv-paper)",
+                              border: "1.5px solid var(--sv-paper)",
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 900,
+                            }}
+                            aria-label={`Remover ref ${slot + 1}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <input
+                  ref={refFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    const slot = refSlotTargetRef.current ?? 0;
+                    if (file) void handleRefUpload(slot, file);
+                    refSlotTargetRef.current = null;
+                    e.target.value = "";
+                  }}
+                />
+
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleAnalyzeAesthetic()}
+                    disabled={
+                      analyzingAesthetic || brandImageRefs.length === 0
+                    }
+                    className="sv-btn sv-btn-primary"
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: 11,
+                      opacity:
+                        analyzingAesthetic || brandImageRefs.length === 0
+                          ? 0.5
+                          : 1,
+                    }}
+                  >
+                    {analyzingAesthetic ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={12} />
+                    )}
+                    {analyzingAesthetic
+                      ? "Analisando..."
+                      : aestheticDescription
+                        ? "Re-analisar estética"
+                        : "Analisar estética"}
+                  </button>
+                  {aestheticDescription && (
+                    <span
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9.5,
+                        letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: "var(--sv-green, #7CF067)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      ✓ Estética ativa
+                    </span>
+                  )}
+                </div>
+
+                {aestheticDescription && (
+                  <div
+                    className="mt-3 p-3"
+                    style={{
+                      border: "1.5px solid var(--sv-ink)",
+                      background: "var(--sv-paper)",
+                      fontFamily: "var(--sv-sans)",
+                      fontSize: 12.5,
+                      lineHeight: 1.5,
+                      color: "var(--sv-ink)",
+                    }}
+                  >
+                    <div
+                      className="uppercase"
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9,
+                        letterSpacing: "0.16em",
+                        color: "var(--sv-muted)",
+                        fontWeight: 700,
+                        marginBottom: 4,
+                      }}
+                    >
+                      Prefix aplicado ao Imagen
+                    </div>
+                    {aestheticDescription}
+                  </div>
                 )}
               </div>
 

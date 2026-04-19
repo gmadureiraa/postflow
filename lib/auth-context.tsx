@@ -45,6 +45,9 @@ export interface UserProfile {
   brand_analysis?: BrandAnalysis;
   /** Cores de destaque do branding (hex), usadas como swatches no editor. */
   brand_colors?: string[];
+  /** URLs (até 3) de imagens de referência visual da marca. A estética é
+   *  extraída via Gemini Vision e aplicada na geração Imagen 4. */
+  brand_image_refs?: string[];
 }
 
 interface AuthContextValue {
