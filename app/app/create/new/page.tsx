@@ -49,6 +49,21 @@ const SHORTCUTS: { label: string; kicker: string; seed: string }[] = [
     label: "Explicador técnico",
     seed: "Como [processo/mecanismo] realmente funciona — passo a passo sem jargão.",
   },
+  {
+    kicker: "Nº 07 · YOUTUBE",
+    label: "Resumir vídeo",
+    seed: "Cole URL YouTube aqui — vou extrair a transcript e transformar em carrossel. https://youtube.com/watch?v=...",
+  },
+  {
+    kicker: "Nº 08 · ARTIGO",
+    label: "Resumir artigo/link",
+    seed: "Cole um link — vou ler o conteúdo e virar carrossel editorial. https://...",
+  },
+  {
+    kicker: "Nº 09 · POST",
+    label: "Remixar post",
+    seed: "Cole link de um post (X, LinkedIn, Instagram) — vou extrair e remixar no seu tom.",
+  },
 ];
 
 const TONE_OPTS: { id: Tone; label: string }[] = [
@@ -233,10 +248,10 @@ export default function NewCarouselPage() {
             placeholder="Ex: A estratégia dos três zeros da Coca-Cola e por que ela redefine o mercado de bebidas..."
             style={{
               minHeight: 150,
-              fontFamily: "var(--sv-display)",
-              fontSize: 19,
-              lineHeight: 1.2,
-              letterSpacing: "-0.01em",
+              fontFamily: "var(--sv-sans)",
+              fontSize: 15,
+              lineHeight: 1.45,
+              letterSpacing: "-0.005em",
               padding: 16,
               background: "var(--sv-white)",
               border: "1.5px solid var(--sv-ink)",

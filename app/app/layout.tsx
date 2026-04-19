@@ -28,8 +28,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Início", icon: LayoutDashboard },
-  { href: "/app/create", label: "Criar", icon: PlusCircle },
-  { href: "/app/create/new", label: "Criar v2", icon: Sparkles, badge: "Beta" },
+  { href: "/app/create/new", label: "Criar", icon: PlusCircle },
   { href: "/app/carousels", label: "Carrosséis", icon: FolderOpen },
   { href: "/app/plans", label: "Assinar", icon: Sparkles, badge: "Pro" },
   { href: "/app/help", label: "Guia", icon: BookOpen },
@@ -49,7 +48,7 @@ function breadcrumbFor(pathname: string): { kicker: string; title: string } {
   // Mapa exato
   const map: Record<string, { kicker: string; title: string }> = {
     "/app": { kicker: "DASHBOARD", title: "INÍCIO" },
-    "/app/create": { kicker: "NOVO", title: "CARROSSEL" },
+    "/app/create/new": { kicker: "NOVO", title: "CARROSSEL" },
     "/app/carousels": { kicker: "BIBLIOTECA", title: "CARROSSÉIS" },
     "/app/plans": { kicker: "PLANOS", title: "ASSINAR" },
     "/app/settings": { kicker: "CONTA", title: "AJUSTES" },
@@ -167,7 +166,7 @@ function SidebarContent({
 
       {/* CTA: + Novo carrossel */}
       <Link
-        href="/app/create"
+        href="/app/create/new"
         onClick={onNavigate}
         className="flex items-center justify-center gap-2 rounded-full px-3.5 py-[11px] mb-3.5 transition-all"
         style={{
@@ -602,7 +601,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             Sequência <em className="italic">Viral</em>
           </span>
           <Link
-            href="/app/create"
+            href="/app/create/new"
             aria-label="Novo carrossel"
             className="flex h-9 w-9 items-center justify-center rounded-full"
             style={{
@@ -695,7 +694,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <Link
-              href="/app/create"
+              href="/app/create/new"
               className="inline-flex items-center gap-2 whitespace-nowrap transition-all"
               style={{
                 padding: "9px 16px",

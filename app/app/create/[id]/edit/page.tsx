@@ -197,7 +197,7 @@ function pickThumbFg(hex: string): string {
   return l > 140 ? "var(--sv-ink)" : "var(--sv-paper)";
 }
 
-type MobileTab = "variants" | "canvas" | "branding";
+type MobileTab = "sidebar" | "canvas";
 
 /** Swatches do painel "Background". Aplicados por-slide via `slide.bgColor`. */
 const BG_SWATCHES = [
@@ -769,7 +769,7 @@ export default function EditPage(props: {
             profile={previewProfile}
             style={slideStyle}
             showFooter={activeIndex === 0}
-            scale={0.36}
+            scale={0.5}
             isLastSlide={activeIndex === slides.length - 1}
             accentOverride={accentTouched ? accent : undefined}
             displayFontOverride={
@@ -1384,9 +1384,9 @@ export default function EditPage(props: {
         </div>
       </div>
 
-      {/* Mobile tabs */}
+      {/* Mobile tabs: Sidebar (tudo) · Canvas */}
       <div className="lg:hidden mb-4 flex" style={{ border: "1.5px solid var(--sv-ink)", boxShadow: "2px 2px 0 0 var(--sv-ink)" }}>
-        {(["variants", "canvas", "branding"] as MobileTab[]).map((t) => (
+        {(["sidebar", "canvas"] as MobileTab[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -1401,19 +1401,21 @@ export default function EditPage(props: {
               fontWeight: 700,
               background: mobileTab === t ? "var(--sv-ink)" : "var(--sv-white)",
               color: mobileTab === t ? "var(--sv-paper)" : "var(--sv-ink)",
-              borderRight: t !== "branding" ? "1.5px solid var(--sv-ink)" : "none",
+              borderRight: t !== "canvas" ? "1.5px solid var(--sv-ink)" : "none",
             }}
           >
-            {t === "variants" ? "Variantes" : t === "canvas" ? "Canvas" : "Branding"}
+            {t === "sidebar" ? "Controles" : "Canvas"}
           </button>
         ))}
       </div>
 
-      {/* Desktop 3 colunas · Mobile tab único */}
+      {/* Desktop 2 colunas — sidebar esquerda full (variantes + camadas +
+          background + branding + fonte + accent + scale + imagem), canvas
+          flex-1 no centro. Nada à direita. */}
       <div
         className="hidden lg:grid"
         style={{
-          gridTemplateColumns: "180px minmax(0, 1fr) 240px",
+          gridTemplateColumns: "240px minmax(0, 1fr)",
           gap: 0,
           border: "1.5px solid var(--sv-ink)",
           boxShadow: "4px 4px 0 0 var(--sv-ink)",
@@ -1423,25 +1425,29 @@ export default function EditPage(props: {
       >
         <aside
           style={{
-            padding: "14px 12px",
+            padding: "16px 14px",
             borderRight: "1.5px solid var(--sv-ink)",
             background: "var(--sv-white)",
             minWidth: 0,
+            maxHeight: "calc(100vh - 180px)",
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
           }}
         >
           {VariantsCol}
-        </aside>
-        <div style={{ minWidth: 0 }}>{CanvasCol}</div>
-        <aside
-          style={{
-            padding: "14px 12px",
-            borderLeft: "1.5px solid var(--sv-ink)",
-            background: "var(--sv-white)",
-            minWidth: 0,
-          }}
-        >
+          <div
+            style={{
+              height: 1,
+              background: "var(--sv-ink)",
+              opacity: 0.15,
+              margin: "2px 0",
+            }}
+          />
           {BrandingCol}
         </aside>
+        <div style={{ minWidth: 0 }}>{CanvasCol}</div>
       </div>
 
       <div
@@ -1453,9 +1459,20 @@ export default function EditPage(props: {
           padding: "18px 16px",
         }}
       >
-        {mobileTab === "variants" && VariantsCol}
         {mobileTab === "canvas" && CanvasCol}
-        {mobileTab === "branding" && BrandingCol}
+        {mobileTab === "sidebar" && (
+          <div className="flex flex-col gap-5">
+            {VariantsCol}
+            <div
+              style={{
+                height: 1,
+                background: "var(--sv-ink)",
+                opacity: 0.15,
+              }}
+            />
+            {BrandingCol}
+          </div>
+        )}
       </div>
     </motion.div>
   );
