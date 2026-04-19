@@ -22,6 +22,12 @@ export type CarouselSlide = {
   body: string;
   imageQuery: string;
   imageUrl?: string;
+  /** Variante de layout — definida pela IA ou pelo usuário no editor. */
+  variant?: "cover" | "headline" | "photo" | "quote" | "split" | "cta";
+  /** Cor de fundo custom (sobrescreve slideStyle). */
+  bgColor?: string;
+  /** Camadas visíveis no render (title/body/bg). */
+  layers?: { title: boolean; body: boolean; bg: boolean };
 };
 
 export type CarouselVariationMeta = {

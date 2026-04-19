@@ -20,10 +20,53 @@ interface GenerateRequest {
   designTemplate?: DesignTemplateId;
 }
 
+type SlideVariant = "cover" | "headline" | "photo" | "quote" | "split" | "cta";
+
 interface Slide {
   heading: string;
   body: string;
   imageQuery: string;
+  variant: SlideVariant;
+}
+
+const VALID_VARIANTS: readonly SlideVariant[] = [
+  "cover",
+  "headline",
+  "photo",
+  "quote",
+  "split",
+  "cta",
+] as const;
+
+/**
+ * Distribuição narrativa default quando o modelo esquece de preencher variant
+ * ou devolve um valor inválido. A lógica é: primeiro slide sempre cover,
+ * último sempre cta, e no meio alterna entre formatos pra evitar monotonia
+ * visual (headline domina, com photo/split/quote como quebras de ritmo).
+ */
+function fallbackVariant(index: number, total: number): SlideVariant {
+  if (index === 0) return "cover";
+  if (index === total - 1) return "cta";
+  const middle = index - 1;
+  const rotation: SlideVariant[] = [
+    "headline",
+    "split",
+    "headline",
+    "photo",
+    "headline",
+    "quote",
+    "headline",
+    "photo",
+  ];
+  return rotation[middle % rotation.length];
+}
+
+function normalizeVariant(raw: unknown, index: number, total: number): SlideVariant {
+  if (typeof raw === "string") {
+    const v = raw.toLowerCase().trim() as SlideVariant;
+    if (VALID_VARIANTS.includes(v)) return v;
+  }
+  return fallbackVariant(index, total);
 }
 
 interface Variation {
@@ -269,6 +312,26 @@ REQUIRED: every claim has a number ("78%", "R$12k", "23 minutos", "3 em cada 10"
 # STYLE
 Choose: data (statistics/proof-driven), story (narrative/personal), or provocative (contrarian/bold). Pick whichever creates the strongest emotional arc for THIS specific topic.
 
+# VISUAL RHYTHM — per-slide VARIANT (MANDATORY)
+Each slide MUST declare a "variant" that tells the renderer HOW to lay it out. This controls whether the slide is a big headline, a photo spread, a pull-quote, a split screen, etc. Getting this right is what makes the carousel feel DESIGNED, not generic.
+
+Available variants:
+- "cover" — Slide 1 ONLY. Large headline type on bold background. Body line acts as subtitle.
+- "headline" — Default workhorse. Big statement + supporting body. Use for key claims.
+- "photo" — Image-dominant. Body is short caption. Use when the idea benefits from visual anchor.
+- "quote" — Pull-quote format. A short, memorable line you'd screenshot. Use sparingly (1-2 max).
+- "split" — Two columns / before vs after / contrast. Use for comparisons or mechanism reveals.
+- "cta" — LAST slide ONLY. The closing call-to-action.
+
+Rules:
+1. Slide 1 MUST be "cover". Last slide MUST be "cta". No exceptions.
+2. Middle slides MUST alternate — NEVER use the same variant 3 slides in a row.
+3. Use "quote" at most twice per carousel, at moments of maximum tension.
+4. Use "photo" when imageQuery describes a concrete visual scene (not abstract concepts).
+5. Use "split" when the slide contains a contrast ("before X, now Y" / "they think A, reality is B").
+6. Every remaining slide defaults to "headline".
+7. A well-designed 8-slide carousel typically looks like: cover → headline → split → headline → photo → headline → quote → cta.
+
 # OUTPUT FORMAT
 Return valid JSON with exactly 3 variations — one in each style (data, story, provocative).
 Each variation is a DISTINCT creative approach to the same topic.
@@ -280,12 +343,17 @@ Shape:
       "style": "data" | "story" | "provocative",
       "ctaType": "save" | "comment" | "share",
       "slides": [
-        { "heading": "string", "body": "string", "imageQuery": "English keywords for stock search" }
+        {
+          "heading": "string",
+          "body": "string",
+          "imageQuery": "English keywords for stock search",
+          "variant": "cover" | "headline" | "photo" | "quote" | "split" | "cta"
+        }
       ]
     }
   ]
 }
-Each slides array must have 6-10 items.`;
+Each slides array must have 6-10 items. Every slide MUST include a valid "variant".`;
 
     const userMessage =
       sourceContent
@@ -381,6 +449,22 @@ Each slides array must have 6-10 items.`;
         { error: "Invalid AI response structure" },
         { status: 502 }
       );
+    }
+
+    // 5b. Normalize variants — modelo às vezes esquece ou manda valor fora da lista.
+    //     Força slide 1 = cover, último = cta, e aplica rotação no meio pra evitar
+    //     monotonia visual no editor.
+    for (const variation of result.variations) {
+      if (!variation?.slides || !Array.isArray(variation.slides)) continue;
+      const total = variation.slides.length;
+      variation.slides = variation.slides.map((s, i) => ({
+        ...s,
+        variant: (i === 0
+          ? "cover"
+          : i === total - 1
+            ? "cta"
+            : normalizeVariant((s as { variant?: unknown }).variant, i, total)),
+      }));
     }
 
     // Record generation with real token counts (usage already incremented above)

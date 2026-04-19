@@ -10,6 +10,17 @@ import type { CreateConcept, CreateVariation } from "./types";
  * `app/app/create/page.tsx` (versão legada) pra reaproveitar no fluxo novo.
  */
 
+/**
+ * Erro tipado que preserva `status` HTTP, `code` da API e `retryAfterSec`
+ * pro componente montar mensagem específica (rate limit vs. plan limit vs.
+ * IA offline).
+ */
+export interface GenerationError extends Error {
+  status?: number;
+  code?: string;
+  retryAfterSec?: number;
+}
+
 export interface GenerateConceptsInput {
   topic: string;
   niche: string;
@@ -45,11 +56,12 @@ export function useGenerate(session: Session | null) {
         const ct = res.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
           const raw = await res.text();
-          throw new Error(raw.slice(0, 200));
+          throw buildError(raw.slice(0, 200), res);
         }
-        const data: { concepts?: CreateConcept[]; error?: string } =
+        const data: { concepts?: CreateConcept[]; error?: string; code?: string } =
           await res.json();
-        if (!res.ok) throw new Error(data.error || "Falha ao gerar conceitos.");
+        if (!res.ok)
+          throw buildError(data.error || "Falha ao gerar conceitos.", res, data.code);
         if (!data.concepts?.length)
           throw new Error("Nenhum conceito gerado. Tente outro tópico.");
         return data.concepts;
@@ -87,11 +99,15 @@ export function useGenerate(session: Session | null) {
         const ct = res.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
           const raw = await res.text();
-          throw new Error(raw.slice(0, 200));
+          throw buildError(raw.slice(0, 200), res);
         }
-        const data: { variations?: CreateVariation[]; error?: string } =
-          await res.json();
-        if (!res.ok) throw new Error(data.error || "Falha na geração.");
+        const data: {
+          variations?: CreateVariation[];
+          error?: string;
+          code?: string;
+        } = await res.json();
+        if (!res.ok)
+          throw buildError(data.error || "Falha na geração.", res, data.code);
         if (!data.variations?.length)
           throw new Error("Nenhum carrossel gerado.");
         return data.variations;
@@ -114,4 +130,20 @@ export function useGenerate(session: Session | null) {
     loadingCarousel,
     error,
   };
+}
+
+function buildError(
+  message: string,
+  res: Response,
+  code?: string
+): GenerationError {
+  const err = new Error(message) as GenerationError;
+  err.status = res.status;
+  if (code) err.code = code;
+  const retryHeader = res.headers.get("Retry-After");
+  if (retryHeader) {
+    const n = Number.parseInt(retryHeader, 10);
+    if (Number.isFinite(n)) err.retryAfterSec = n;
+  }
+  return err;
 }

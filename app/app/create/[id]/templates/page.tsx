@@ -14,6 +14,32 @@ import { supabase } from "@/lib/supabase";
 import { upsertUserCarousel } from "@/lib/carousel-storage";
 import { useDraft } from "@/lib/create/use-draft";
 import { defaultImagesForTemplate } from "@/lib/create/default-images";
+import type { SlideVariant } from "@/lib/create/types";
+
+/**
+ * Distribuição narrativa default quando um slide vem sem `variant` (rascunhos
+ * antigos ou respostas do Gemini incompletas). Mesma lógica da normalização
+ * do lado servidor em `/api/generate/route.ts`.
+ */
+function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
+  const total = slides.length;
+  const rotation: SlideVariant[] = [
+    "headline",
+    "split",
+    "headline",
+    "photo",
+    "headline",
+    "quote",
+    "headline",
+    "photo",
+  ];
+  return slides.map((s, i) => {
+    if (s.variant) return s;
+    if (i === 0) return { ...s, variant: "cover" as const };
+    if (i === total - 1) return { ...s, variant: "cta" as const };
+    return { ...s, variant: rotation[(i - 1) % rotation.length] };
+  });
+}
 
 /**
  * Tela 02 — Seleção de template. Grid 2×2 com preview REAL dos 4 templates
@@ -94,9 +120,11 @@ export default function TemplatesPage(props: {
     setSaving(true);
     try {
       // Pré-popula imagens default do template, respeitando URLs que o usuário
-      // já tenha definido (imageUrl existente prevalece).
+      // já tenha definido (imageUrl existente prevalece). Também aplica
+      // distribuição narrativa de `variant` em slides que vieram sem um.
       const defaults = defaultImagesForTemplate(selected, draft.slides.length);
-      const slidesWithImages = draft.slides.map((s, i) => ({
+      const withVariants = fillVariants(draft.slides);
+      const slidesWithImages = withVariants.map((s, i) => ({
         ...s,
         imageUrl: s.imageUrl && s.imageUrl.trim() ? s.imageUrl : defaults[i],
       }));

@@ -101,10 +101,20 @@ export default function PreviewPage(props: {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
-  const [scheduleOn, setScheduleOn] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("09:30");
   const [captionMissingKey, setCaptionMissingKey] = useState(false);
+  const [captionStale, setCaptionStale] = useState(false);
+
+  // Hash simples dos slides pra detectar quando legenda ficou desatualizada
+  // (usuário voltou pro /edit e mudou texto). Guardado em localStorage porque
+  // não queremos tocar no schema do draft só pra isso.
+  const currentSlidesHash = useMemo(() => {
+    if (!slides.length) return "";
+    return slides
+      .map((s) => `${(s.heading || "").trim()}|${(s.body || "").trim()}`)
+      .join("||");
+  }, [slides]);
+
+  const hashStorageKey = draft ? `sv_caption_hash_${draft.id}` : null;
 
   const slideStyle = draft?.style === "dark" ? "dark" : "white";
 
@@ -130,7 +140,18 @@ export default function PreviewPage(props: {
     if (Array.isArray(draft.captionHashtags) && draft.captionHashtags.length > 0) {
       setHashtags(draft.captionHashtags);
     }
-  }, [draft]);
+    // Confere se a legenda que carregamos foi gerada pros slides atuais.
+    if (hashStorageKey && typeof window !== "undefined" && draft.caption?.trim()) {
+      try {
+        const saved = window.localStorage.getItem(hashStorageKey);
+        if (saved && currentSlidesHash && saved !== currentSlidesHash) {
+          setCaptionStale(true);
+        }
+      } catch {
+        // storage bloqueado — OK, skip detection
+      }
+    }
+  }, [draft, hashStorageKey, currentSlidesHash]);
 
   // Persiste legenda + hashtags no Supabase preservando todo o resto do draft.
   const persistCaption = useCallback(
@@ -181,6 +202,14 @@ export default function PreviewPage(props: {
         setCaption(result.caption);
         setHashtags(result.hashtags);
         void persistCaption(result.caption, result.hashtags);
+        setCaptionStale(false);
+        if (hashStorageKey && typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem(hashStorageKey, currentSlidesHash);
+          } catch {
+            /* storage bloqueado */
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
         if (/GEMINI_API_KEY|GEMINI_MISSING|não está configurada/i.test(msg)) {
@@ -188,7 +217,16 @@ export default function PreviewPage(props: {
         }
       }
     })();
-  }, [draft, loading, slides, profile, generateCaption, persistCaption]);
+  }, [
+    draft,
+    loading,
+    slides,
+    profile,
+    generateCaption,
+    persistCaption,
+    hashStorageKey,
+    currentSlidesHash,
+  ]);
 
   async function handleRegenerate() {
     if (!draft || slides.length === 0) return;
@@ -206,6 +244,14 @@ export default function PreviewPage(props: {
       setCaption(result.caption);
       setHashtags(result.hashtags);
       void persistCaption(result.caption, result.hashtags);
+      setCaptionStale(false);
+      if (hashStorageKey && typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(hashStorageKey, currentSlidesHash);
+        } catch {
+          /* storage bloqueado */
+        }
+      }
       toast.success("Nova legenda gerada.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Falha ao gerar legenda.";
@@ -269,16 +315,15 @@ export default function PreviewPage(props: {
     return () => window.clearTimeout(t);
   }, [dirtyCaption, caption, hashtags, persistCaption]);
 
-  function handleSchedule() {
-    if (!scheduleOn) {
-      toast.success("Para publicar agora, conecte a conta Instagram.");
-      return;
+  async function handleCopyCaptionForIG() {
+    const tagsLine = hashtags.join(" ");
+    const full = hashtags.length > 0 ? `${caption}\n\n${tagsLine}` : caption;
+    try {
+      await navigator.clipboard.writeText(full);
+      toast.success("Legenda copiada. Cola no Instagram e anexa os PNGs exportados.");
+    } catch {
+      toast.error("Falha ao copiar.");
     }
-    if (!scheduleDate) {
-      toast.error("Escolha uma data para o agendamento.");
-      return;
-    }
-    toast.success(`✓ Agendado para ${scheduleDate} às ${scheduleTime}.`);
   }
 
   if (loading) {
@@ -727,6 +772,43 @@ export default function PreviewPage(props: {
               </div>
             </div>
 
+            {captionStale && !captionLoading && (
+              <div
+                className="mt-3 flex items-center justify-between gap-3"
+                style={{
+                  padding: "10px 12px",
+                  background: "var(--sv-green)",
+                  border: "1.5px solid var(--sv-ink)",
+                  boxShadow: "3px 3px 0 0 var(--sv-ink)",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--sv-sans)",
+                    fontSize: 12,
+                    color: "var(--sv-ink)",
+                    fontWeight: 600,
+                  }}
+                >
+                  ⚠︎ Slides mudaram. A legenda pode estar desatualizada.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleRegenerate()}
+                  disabled={captionLoading}
+                  className="sv-btn sv-btn-ink"
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: 9,
+                    letterSpacing: "0.14em",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Atualizar →
+                </button>
+              </div>
+            )}
+
             <div className="mt-3" style={{ position: "relative" }}>
               <textarea
                 value={caption}
@@ -837,7 +919,7 @@ export default function PreviewPage(props: {
             )}
           </div>
 
-          {/* Agendamento */}
+          {/* Publicar — fluxo manual honesto (Graph API ainda não conectada) */}
           <div
             style={{
               padding: 22,
@@ -855,102 +937,68 @@ export default function PreviewPage(props: {
                 color: "var(--sv-muted)",
                 fontWeight: 700,
                 display: "block",
-                marginBottom: 8,
+                marginBottom: 4,
               }}
             >
-              Nº 03 · Publicação
+              Nº 03 · Publicar
             </label>
-            <div className="flex items-center gap-3 mt-3.5">
-              <button
-                type="button"
-                onClick={() => setScheduleOn((v) => !v)}
-                style={{
-                  width: 42,
-                  height: 22,
-                  background: scheduleOn ? "var(--sv-green)" : "var(--sv-ink)",
-                  borderRadius: 999,
-                  position: "relative",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                  border: 0,
-                  padding: 0,
-                }}
-                aria-label="Agendar"
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    top: 3,
-                    left: scheduleOn ? 23 : 3,
-                    width: 16,
-                    height: 16,
-                    background: scheduleOn ? "var(--sv-ink)" : "var(--sv-paper)",
-                    borderRadius: "50%",
-                    transition: "left .18s",
-                  }}
-                />
-              </button>
-              <div>
-                <b style={{ fontFamily: "var(--sv-sans)", fontSize: 13 }}>
-                  Agendar para depois
-                </b>
-                <div
-                  style={{
-                    fontFamily: "var(--sv-mono)",
-                    fontSize: 8.5,
-                    letterSpacing: "0.16em",
-                    color: "var(--sv-muted)",
-                    textTransform: "uppercase",
-                    marginTop: 2,
-                  }}
-                >
-                  {scheduleOn
-                    ? `${scheduleDate || "escolha data"} · ${scheduleTime}`
-                    : "desligado"}
-                </div>
-              </div>
-            </div>
-
-            {scheduleOn && (
-              <div className="mt-3 grid gap-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                <input
-                  type="date"
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                  className="sv-input"
-                  style={{ fontSize: 13 }}
-                />
-                <input
-                  type="time"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="sv-input"
-                  style={{ fontSize: 13 }}
-                />
-              </div>
-            )}
-
+            <p
+              style={{
+                fontFamily: "var(--sv-sans)",
+                fontSize: 12,
+                color: "var(--sv-muted)",
+                lineHeight: 1.45,
+                marginBottom: 14,
+              }}
+            >
+              Exporta os PNGs, copia a legenda daqui e sobe direto no Instagram
+              ou LinkedIn.
+            </p>
             <button
               type="button"
-              onClick={handleSchedule}
+              onClick={() => void handleCopyCaptionForIG()}
+              disabled={!caption}
               className="sv-btn sv-btn-ink"
-              style={{ width: "100%", marginTop: 16 }}
-            >
-              Publicar no Instagram →
-            </button>
-            <p
-              className="mt-2"
               style={{
-                fontFamily: "var(--sv-mono)",
-                fontSize: 8.5,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "var(--sv-muted)",
+                width: "100%",
+                opacity: caption ? 1 : 0.5,
+                cursor: caption ? "pointer" : "not-allowed",
               }}
             >
-              TODO · Conexão OAuth com Instagram Graph API pendente (MVP stub).
-            </p>
+              Copiar legenda + hashtags
+            </button>
+            <div
+              className="mt-3"
+              style={{
+                padding: "8px 10px",
+                border: "1px dashed var(--sv-ink)",
+                background: "var(--sv-paper)",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 8.5,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                }}
+              >
+                Em breve
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--sv-sans)",
+                  fontSize: 11,
+                  color: "var(--sv-ink)",
+                  marginTop: 2,
+                  lineHeight: 1.4,
+                }}
+              >
+                Agendamento automático + publicação direta via Instagram Graph API.
+              </div>
+            </div>
           </div>
         </div>
       </div>

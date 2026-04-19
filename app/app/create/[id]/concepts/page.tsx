@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -11,8 +11,56 @@ import {
   fetchUserCarousel,
   upsertUserCarousel,
 } from "@/lib/carousel-storage";
-import { useGenerate } from "@/lib/create/use-generate";
+import { useGenerate, type GenerationError } from "@/lib/create/use-generate";
 import type { CreateConcept } from "@/lib/create/types";
+
+/**
+ * Traduz um erro do hook em mensagem específica e decide ação colateral
+ * (ex: mandar pra /plans em caso de PLAN_LIMIT_REACHED).
+ */
+function explainGenError(err: unknown): {
+  message: string;
+  goToPlans: boolean;
+} {
+  if (!(err instanceof Error)) {
+    return { message: "Erro inesperado. Tenta de novo.", goToPlans: false };
+  }
+  const e = err as GenerationError;
+  if (e.code === "PLAN_LIMIT_REACHED" || e.status === 403) {
+    return {
+      message:
+        e.message ||
+        "Você atingiu o limite do plano free. Faça upgrade pra seguir gerando.",
+      goToPlans: true,
+    };
+  }
+  if (e.status === 429) {
+    const wait = e.retryAfterSec ? ` Tenta em ~${e.retryAfterSec}s.` : "";
+    return {
+      message: `Muitas gerações em pouco tempo.${wait}`,
+      goToPlans: false,
+    };
+  }
+  if (e.status === 401) {
+    return {
+      message: "Sessão expirou. Faça login novamente.",
+      goToPlans: false,
+    };
+  }
+  if (e.status === 503) {
+    return {
+      message: "IA indisponível agora. Aguarda 10s e tenta de novo.",
+      goToPlans: false,
+    };
+  }
+  if (e.status === 502) {
+    return {
+      message: "Modelo devolveu resposta inválida. Tenta de novo.",
+      goToPlans: false,
+    };
+  }
+  return { message: e.message, goToPlans: false };
+}
 
 /**
  * Tela 02 — Escolha de caminho / conceito.
@@ -71,9 +119,8 @@ export default function ConceptsPage() {
       });
       setConcepts(result);
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Erro ao carregar o brief.";
-      setError(msg);
+      const { message } = explainGenError(err);
+      setError(message);
       setLoadingDraft(false);
     }
   }, [id, user, router, generateConcepts]);
@@ -95,12 +142,12 @@ export default function ConceptsPage() {
       setConcepts(result);
       setSelectedIdx(null);
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Erro ao gerar conceitos.";
-      setError(msg);
-      toast.error(msg);
+      const { message, goToPlans } = explainGenError(err);
+      setError(message);
+      toast.error(message);
+      if (goToPlans) router.push("/app/plans");
     }
-  }, [topic, niche, tone, language, generateConcepts]);
+  }, [topic, niche, tone, language, generateConcepts, router]);
 
   const handleSelectConcept = useCallback(
     async (idx: number) => {
@@ -132,16 +179,43 @@ export default function ConceptsPage() {
 
         router.push(`/app/create/${id}/templates`);
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Erro ao gerar o carrossel.";
-        toast.error(msg);
+        const { message, goToPlans } = explainGenError(err);
+        toast.error(message);
         setSelectedIdx(null);
+        if (goToPlans) router.push("/app/plans");
       }
     },
     [id, user, concepts, generateCarousel, niche, tone, language, router]
   );
 
   const showLoader = loadingDraft || loadingConcepts;
+
+  // Countdown ETA pra mostrar ao usuário enquanto /api/generate roda.
+  // Typical latency Gemini 2.5 Flash com prompt grande: 8-12s. Usamos 12 como
+  // target superior pra não frustar (se terminar antes, ótimo).
+  const ETA_TARGET_SEC = 12;
+  const [etaElapsed, setEtaElapsed] = useState(0);
+  const etaStartedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!loadingCarousel) {
+      etaStartedRef.current = null;
+      setEtaElapsed(0);
+      return;
+    }
+    etaStartedRef.current = Date.now();
+    const t = window.setInterval(() => {
+      if (!etaStartedRef.current) return;
+      setEtaElapsed(
+        Math.floor((Date.now() - etaStartedRef.current) / 1000)
+      );
+    }, 250);
+    return () => window.clearInterval(t);
+  }, [loadingCarousel]);
+  const etaRemainingSec = Math.max(0, ETA_TARGET_SEC - etaElapsed);
+  const etaPercent = Math.min(
+    97,
+    Math.round((etaElapsed / ETA_TARGET_SEC) * 100)
+  );
 
   const swatches = useMemo(
     () => [
@@ -289,6 +363,117 @@ export default function ConceptsPage() {
           {error}
         </div>
       )}
+
+      {/* Overlay ETA durante geração do carrossel (após escolher concept) */}
+      <AnimatePresence>
+        {loadingCarousel && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center px-4"
+            style={{ background: "rgba(247, 245, 239, 0.92)" }}
+            aria-live="polite"
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 420,
+                padding: 28,
+                background: "var(--sv-white)",
+                border: "1.5px solid var(--sv-ink)",
+                boxShadow: "5px 5px 0 0 var(--sv-ink)",
+              }}
+            >
+              <div
+                className="uppercase"
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.2em",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                  marginBottom: 10,
+                }}
+              >
+                Nº 02 · Escrevendo carrossel
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--sv-display)",
+                  fontSize: 26,
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.02em",
+                  color: "var(--sv-ink)",
+                  marginBottom: 14,
+                }}
+              >
+                Montando <em>{concepts[selectedIdx ?? 0]?.title || "..."}</em>
+              </div>
+              <p
+                style={{
+                  fontFamily: "var(--sv-sans)",
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                  color: "var(--sv-muted)",
+                  marginBottom: 18,
+                }}
+              >
+                A IA está estruturando 6 a 10 slides com variantes visuais,
+                hooks e CTA calibrado pra sua voz.
+              </p>
+
+              {/* Progress bar */}
+              <div
+                style={{
+                  height: 6,
+                  background: "var(--sv-paper)",
+                  border: "1.5px solid var(--sv-ink)",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: `${etaPercent}%`,
+                    background: "var(--sv-green)",
+                    transition: "width .25s linear",
+                  }}
+                />
+              </div>
+
+              <div
+                className="mt-3 flex items-center justify-between"
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  fontWeight: 700,
+                }}
+              >
+                <span>
+                  <Loader2
+                    size={11}
+                    className="animate-spin inline-block mr-1.5 align-[-1px]"
+                  />
+                  {etaElapsed}s decorridos
+                </span>
+                <span>
+                  {etaRemainingSec > 0
+                    ? `~${etaRemainingSec}s restantes`
+                    : "quase lá..."}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Grid de conceitos */}
       <div className="mt-7" style={{ minWidth: 0 }}>
