@@ -91,14 +91,34 @@ export async function GET(request: Request) {
     // tabela vier com erro (RLS policy mudou, coluna removida, timeout
     // pontual), o endpoint devolve stats parciais com `queryErrors`
     // anexado em vez de 500 matar o painel inteiro.
-    const queries = await Promise.allSettled([
-      sb
+    //
+    // Profiles: faz primeiro com colunas Stripe; se der erro de coluna
+    // inexistente (DB antigo sem migration Stripe), refaz sem. Evita
+    // que `column profiles.stripe_customer_id does not exist` mate toda
+    // a listagem de users.
+    const PROFILES_FULL = "id,email,name,plan,usage_count,usage_limit,onboarding_completed,created_at,instagram_handle,twitter_handle,stripe_customer_id,stripe_subscription_id";
+    const PROFILES_FALLBACK = "id,email,name,plan,usage_count,usage_limit,onboarding_completed,created_at,instagram_handle,twitter_handle";
+    const profilesQuery = (async () => {
+      const first = await sb
         .from("profiles")
-        .select(
-          "id,email,name,plan,usage_count,usage_limit,onboarding_completed,created_at,instagram_handle,twitter_handle,stripe_customer_id,stripe_subscription_id"
-        )
+        .select(PROFILES_FULL)
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(500);
+      if (first.error && /column .* does not exist/i.test(first.error.message)) {
+        console.warn(
+          "[admin/stats] profiles full select falhou (coluna ausente). Retry sem Stripe columns."
+        );
+        return sb
+          .from("profiles")
+          .select(PROFILES_FALLBACK)
+          .order("created_at", { ascending: false })
+          .limit(500);
+      }
+      return first;
+    })();
+
+    const queries = await Promise.allSettled([
+      profilesQuery,
       sb
         .from("generations")
         .select(

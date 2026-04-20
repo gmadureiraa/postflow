@@ -523,9 +523,9 @@ function OverviewTab({ stats }: { stats: AdminStats }) {
         />
         <StatCard
           icon={<DollarSign size={14} />}
-          label="Custo API total"
+          label="Custo API · histórico"
           value={fmtUsd(stats.summary.totalCostUsd)}
-          sub="Acumulado últimas 1000 gerações"
+          sub="Gemini + Imagen + Claude (inclui seus testes próprios)"
         />
         <StatCard
           icon={<ImageIcon size={14} strokeWidth={1.8} aria-hidden />}
