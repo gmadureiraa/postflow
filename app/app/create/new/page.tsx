@@ -155,8 +155,9 @@ export default function NewCarouselPage() {
   const [advCustomCta, setAdvCustomCta] = useState("");
   const [advExtraContext, setAdvExtraContext] = useState("");
   const [advNumSlides, setAdvNumSlides] = useState<number | "">("");
-  const [advPreferredStyle, setAdvPreferredStyle] =
-    useState<"" | "data" | "story" | "provocative">("");
+  // advPreferredStyle removido: era confuso porque duplicava o campo "tone" com
+  // outro significado (data/story/provocative vs editorial/informal/direto...).
+  // Manter tom único evita conflito.
   const [advUploadedUrls, setAdvUploadedUrls] = useState<string[]>([]);
   const [advUploading, setAdvUploading] = useState(false);
   const advFileInputRef = useRef<HTMLInputElement>(null);
@@ -401,7 +402,6 @@ export default function NewCarouselPage() {
           advCustomCta.trim() ||
           mergedExtra ||
           advNumSlides !== "" ||
-          advPreferredStyle !== "" ||
           advUploadedUrls.length > 0)
           ? {
               hookDirection: advHookDirection.trim() || undefined,
@@ -411,7 +411,6 @@ export default function NewCarouselPage() {
                 advNumSlides !== ""
                   ? Math.min(12, Math.max(6, Number(advNumSlides)))
                   : undefined,
-              preferredStyle: advPreferredStyle || undefined,
               uploadedImageUrls:
                 advUploadedUrls.length > 0 ? advUploadedUrls : undefined,
             }
@@ -1207,80 +1206,40 @@ export default function NewCarouselPage() {
                       />
                     </label>
 
-                    {/* Num slides + style */}
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="flex flex-col gap-1.5">
-                        <span
-                          style={{
-                            fontFamily: "var(--sv-mono)",
-                            fontSize: 10,
-                            letterSpacing: "0.16em",
-                            textTransform: "uppercase",
-                            color: "var(--sv-muted)",
-                          }}
-                        >
-                          Slides (6-12)
-                        </span>
-                        <input
-                          type="number"
-                          min={6}
-                          max={12}
-                          value={advNumSlides}
-                          onChange={(e) =>
-                            setAdvNumSlides(
-                              e.target.value === "" ? "" : Number(e.target.value)
-                            )
-                          }
-                          placeholder="Auto"
-                          style={{
-                            padding: 10,
-                            fontSize: 13,
-                            fontFamily: "var(--sv-sans)",
-                            border: "1.5px solid var(--sv-ink)",
-                            background: "var(--sv-white)",
-                            outline: 0,
-                          }}
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1.5">
-                        <span
-                          style={{
-                            fontFamily: "var(--sv-mono)",
-                            fontSize: 10,
-                            letterSpacing: "0.16em",
-                            textTransform: "uppercase",
-                            color: "var(--sv-muted)",
-                          }}
-                        >
-                          Travar estilo
-                        </span>
-                        <select
-                          value={advPreferredStyle}
-                          onChange={(e) =>
-                            setAdvPreferredStyle(
-                              e.target.value as
-                                | ""
-                                | "data"
-                                | "story"
-                                | "provocative"
-                            )
-                          }
-                          style={{
-                            padding: 10,
-                            fontSize: 13,
-                            fontFamily: "var(--sv-sans)",
-                            border: "1.5px solid var(--sv-ink)",
-                            background: "var(--sv-white)",
-                            outline: 0,
-                          }}
-                        >
-                          <option value="">Gerar as 3 variações</option>
-                          <option value="data">Só data</option>
-                          <option value="story">Só story</option>
-                          <option value="provocative">Só provocative</option>
-                        </select>
-                      </label>
-                    </div>
+                    {/* Num slides */}
+                    <label className="flex flex-col gap-1.5" style={{ maxWidth: 220 }}>
+                      <span
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          color: "var(--sv-muted)",
+                        }}
+                      >
+                        Slides (6-12)
+                      </span>
+                      <input
+                        type="number"
+                        min={6}
+                        max={12}
+                        value={advNumSlides}
+                        onChange={(e) =>
+                          setAdvNumSlides(
+                            e.target.value === "" ? "" : Number(e.target.value)
+                          )
+                        }
+                        placeholder="Auto"
+                        style={{
+                          padding: 10,
+                          fontSize: 13,
+                          fontFamily: "var(--sv-sans)",
+                          border: "1.5px solid var(--sv-ink)",
+                          background: "var(--sv-white)",
+                          outline: 0,
+                        }}
+                      />
+                    </label>
 
                     {/* Interview toggle — IA pergunta 1-2 questões antes de gerar */}
                     <label
