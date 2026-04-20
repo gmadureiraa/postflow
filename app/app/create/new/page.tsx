@@ -181,6 +181,16 @@ export default function NewCarouselPage() {
   const [advUploading, setAdvUploading] = useState(false);
   const advFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Interview mode — IA faz 1-2 perguntas antes de gerar pra melhorar
+  // qualidade do conteúdo. Opt-in dentro do Modo Avançado.
+  const [advInterview, setAdvInterview] = useState(false);
+  const [interviewLoading, setInterviewLoading] = useState(false);
+  const [interviewQs, setInterviewQs] = useState<
+    { id: string; question: string; why: string; suggestedAnswer?: string }[]
+  >([]);
+  const [interviewAnswers, setInterviewAnswers] = useState<Record<string, string>>({});
+  const [interviewOpen, setInterviewOpen] = useState(false);
+
   // Fase atual do progresso (usado no overlay pra dizer o que está rolando).
   const [phase, setPhase] = useState<
     "generating" | "images" | "finalizing" | null
@@ -309,6 +319,51 @@ export default function NewCarouselPage() {
     }
   }
 
+  /**
+   * Pré-handler: se interview mode está ligado, busca perguntas antes
+   * de prosseguir. Usa sessionStorage pra herdar respostas entre retries.
+   */
+  async function maybeRunInterview(): Promise<boolean> {
+    // retorna true se deve continuar direto (interview off ou já respondido)
+    if (!advOpen || !advInterview) return true;
+    // já respondeu nessa sessão?
+    if (Object.keys(interviewAnswers).length > 0 && interviewQs.length > 0) {
+      return true;
+    }
+    setInterviewLoading(true);
+    try {
+      const res = await fetch("/api/generate/interview", {
+        method: "POST",
+        headers: jsonWithAuth(session),
+        body: JSON.stringify({
+          topic: idea.slice(0, 4900),
+          niche,
+          tone,
+          language: lang,
+        }),
+      });
+      const data = (await res.json()) as {
+        questions?: { id: string; question: string; why: string; suggestedAnswer?: string }[];
+      };
+      const qs = data.questions ?? [];
+      if (qs.length === 0) {
+        toast.info("Briefing já está específico — seguindo direto.");
+        return true;
+      }
+      setInterviewQs(qs);
+      setInterviewAnswers(
+        Object.fromEntries(qs.map((q) => [q.id, ""]))
+      );
+      setInterviewOpen(true);
+      return false; // espera user responder
+    } catch (err) {
+      console.warn("[interview] falhou, seguindo sem perguntas:", err);
+      return true;
+    } finally {
+      setInterviewLoading(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!idea.trim()) {
       toast.error("Escreva uma ideia antes de seguir.");
@@ -318,6 +373,11 @@ export default function NewCarouselPage() {
       toast.error("Faça login para criar um carrossel.");
       return;
     }
+
+    // Interview mode — se ligado e ainda não respondeu, para aqui e mostra modal.
+    const proceed = await maybeRunInterview();
+    if (!proceed) return;
+
     setSubmitting(true);
     setPhase("generating");
     try {
@@ -336,20 +396,37 @@ export default function NewCarouselPage() {
         },
       });
 
+      // Interview answers → injeta no extraContext (se houver).
+      const interviewPack =
+        interviewQs.length > 0
+          ? interviewQs
+              .map((q) => {
+                const ans = (interviewAnswers[q.id] || "").trim();
+                if (!ans) return null;
+                return `Q: ${q.question}\nA: ${ans}`;
+              })
+              .filter(Boolean)
+              .join("\n\n")
+          : "";
+
+      const mergedExtra = [advExtraContext.trim(), interviewPack]
+        .filter(Boolean)
+        .join("\n\n");
+
       // 2) Gera carrossel direto — passa o brief como topic + URL detectada.
       //    Se modo avançado tá aberto, passa overrides junto.
       const advanced =
         advOpen &&
         (advHookDirection.trim() ||
           advCustomCta.trim() ||
-          advExtraContext.trim() ||
+          mergedExtra ||
           advNumSlides !== "" ||
           advPreferredStyle !== "" ||
           advUploadedUrls.length > 0)
           ? {
               hookDirection: advHookDirection.trim() || undefined,
               customCta: advCustomCta.trim() || undefined,
-              extraContext: advExtraContext.trim() || undefined,
+              extraContext: mergedExtra || undefined,
               numSlides:
                 advNumSlides !== ""
                   ? Math.min(12, Math.max(6, Number(advNumSlides)))
@@ -1085,6 +1162,46 @@ export default function NewCarouselPage() {
                       </label>
                     </div>
 
+                    {/* Interview toggle — IA pergunta 1-2 questões antes de gerar */}
+                    <label
+                      className="flex cursor-pointer items-start gap-3"
+                      style={{
+                        padding: "10px 12px",
+                        border: "1.5px solid var(--sv-ink)",
+                        background: advInterview ? "var(--sv-green)" : "var(--sv-white)",
+                        boxShadow: "2px 2px 0 0 var(--sv-ink)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={advInterview}
+                        onChange={(e) => setAdvInterview(e.target.checked)}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div
+                          style={{
+                            fontFamily: "var(--sv-sans)",
+                            fontSize: 13,
+                            fontWeight: 700,
+                          }}
+                        >
+                          🧠 Perguntar antes de gerar
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            color: advInterview ? "var(--sv-ink)" : "var(--sv-muted)",
+                            lineHeight: 1.4,
+                            marginTop: 2,
+                          }}
+                        >
+                          A IA lê seu briefing e devolve 1-2 perguntas cirúrgicas
+                          pra melhorar o output. Depois responde e gera.
+                        </div>
+                      </div>
+                    </label>
+
                     {/* Extra context */}
                     <label className="flex flex-col gap-1.5">
                       <span
@@ -1408,6 +1525,185 @@ export default function NewCarouselPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Interview Modal ── */}
+      <AnimatePresence>
+        {interviewOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            style={{
+              background: "rgba(10,10,10,0.55)",
+              backdropFilter: "blur(4px)",
+            }}
+            onClick={() => setInterviewOpen(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 540,
+                maxHeight: "85vh",
+                overflow: "auto",
+                background: "var(--sv-paper)",
+                border: "1.5px solid var(--sv-ink)",
+                boxShadow: "8px 8px 0 0 var(--sv-ink)",
+                padding: 28,
+              }}
+            >
+              <span
+                className="inline-flex items-center gap-2"
+                style={{
+                  padding: "4px 10px",
+                  background: "var(--sv-green)",
+                  border: "1.5px solid var(--sv-ink)",
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 9.5,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                }}
+              >
+                🧠 Antes de gerar
+              </span>
+              <h2
+                className="sv-display mt-3"
+                style={{
+                  fontSize: 24,
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {interviewQs.length === 1
+                  ? "Uma pergunta rápida."
+                  : "Duas perguntas rápidas."}
+              </h2>
+              <p
+                className="mt-2"
+                style={{
+                  fontSize: 12.5,
+                  color: "var(--sv-muted)",
+                  lineHeight: 1.55,
+                }}
+              >
+                A IA identificou o que mais aumentaria a qualidade do seu carrossel. Responde em 1 linha cada — ou pula se não tiver certeza.
+              </p>
+
+              <div className="mt-5 flex flex-col gap-4">
+                {interviewQs.map((q) => (
+                  <div key={q.id}>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-sans)",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {q.question}
+                    </div>
+                    <div
+                      className="mt-1"
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9.5,
+                        letterSpacing: "0.1em",
+                        color: "var(--sv-muted)",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Por quê: {q.why}
+                    </div>
+                    <textarea
+                      value={interviewAnswers[q.id] ?? ""}
+                      onChange={(e) =>
+                        setInterviewAnswers((prev) => ({
+                          ...prev,
+                          [q.id]: e.target.value,
+                        }))
+                      }
+                      placeholder={q.suggestedAnswer || "Sua resposta..."}
+                      maxLength={500}
+                      rows={2}
+                      style={{
+                        marginTop: 8,
+                        width: "100%",
+                        padding: 10,
+                        fontSize: 13,
+                        fontFamily: "var(--sv-sans)",
+                        border: "1.5px solid var(--sv-ink)",
+                        background: "var(--sv-white)",
+                        outline: 0,
+                        resize: "vertical",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInterviewOpen(false);
+                    setInterviewQs([]);
+                    setInterviewAnswers({});
+                    // Continua sem respostas
+                    void handleSubmit();
+                  }}
+                  className="sv-btn sv-btn-outline"
+                  style={{ padding: "10px 14px", fontSize: 11 }}
+                >
+                  Pular e gerar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInterviewOpen(false);
+                    // handleSubmit vai encontrar interviewQs preenchido e seguir
+                    void handleSubmit();
+                  }}
+                  className="sv-btn sv-btn-primary"
+                  style={{ padding: "10px 14px", fontSize: 11 }}
+                >
+                  Usar respostas e gerar →
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Loading overlay do interview */}
+      {interviewLoading && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center"
+          style={{ background: "rgba(247,245,239,0.85)" }}
+        >
+          <div
+            style={{
+              padding: 20,
+              border: "1.5px solid var(--sv-ink)",
+              background: "var(--sv-white)",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 11,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+            }}
+          >
+            <Loader2 className="inline-block animate-spin mr-2" size={13} />
+            Pensando nas perguntas...
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1041,14 +1041,9 @@ export default function EditPage(props: {
           const on = i === activeIndex;
           const dragging = dragIndex === i;
           const targeted = dragOverIndex === i && dragIndex !== null && dragIndex !== i;
-          const bgAccent =
-            s.bgColor ||
-            (i % 2 === 0 ? "var(--sv-ink)" : "var(--sv-green)");
-          const fgAccent = s.bgColor
-            ? pickThumbFg(s.bgColor)
-            : i % 2 === 0
-              ? "var(--sv-paper)"
-              : "var(--sv-ink)";
+          // Thumb agora renderiza o TEMPLATE REAL em scale minúscula (0.06 ≈
+          // 65×81px). Antes era caixa colorida simulada com texto —
+          // Gabriel reportou que não representava o slide de verdade.
           return (
             <div
               key={i}
@@ -1070,41 +1065,61 @@ export default function EditPage(props: {
                 onDrop={() => handleDrop(i)}
                 onDragEnd={handleDragEnd}
                 style={{
-                  width: 64,
-                  aspectRatio: "4/5",
+                  flexShrink: 0,
                   border: targeted
                     ? "2px solid var(--sv-green, #7CF067)"
-                    : "1.5px solid var(--sv-ink)",
-                  padding: "7px 6px",
-                  fontFamily: "var(--sv-display)",
-                  fontSize: 8,
-                  lineHeight: 1.05,
+                    : on
+                      ? "1.5px solid var(--sv-ink)"
+                      : "1.5px solid var(--sv-ink)",
+                  padding: 0,
                   cursor: dragging ? "grabbing" : "grab",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
                   transition: "transform .12s, opacity .12s",
-                  background: bgAccent,
-                  color: fgAccent,
                   transform: on ? "translateY(-2px)" : "translateY(0)",
                   boxShadow: on ? "3px 3px 0 0 var(--sv-green)" : "none",
                   opacity: dragging ? 0.4 : 1,
+                  background: "transparent",
+                  lineHeight: 0,
+                  position: "relative",
                 }}
                 aria-label={`Slide ${i + 1}. Arraste pra reordenar.`}
               >
+                <TemplateRenderer
+                  templateId={templateId}
+                  heading={s.heading || ""}
+                  body={s.body || ""}
+                  imageUrl={s.imageUrl}
+                  slideNumber={i + 1}
+                  totalSlides={slides.length}
+                  profile={previewProfile}
+                  style={slideStyle}
+                  scale={0.06}
+                  showFooter={i === 0}
+                  isLastSlide={i === slides.length - 1}
+                  accentOverride={accentTouched ? accent : undefined}
+                  displayFontOverride={
+                    fontTouched ? familyFromFontId(fontId) : undefined
+                  }
+                  textScale={scaleTouched ? textScale : undefined}
+                  variant={s.variant ?? "headline"}
+                  bgColor={s.bgColor}
+                  layers={s.layers ?? DEFAULT_LAYERS}
+                />
                 <span
                   style={{
+                    position: "absolute",
+                    top: 3,
+                    left: 3,
+                    padding: "1px 4px",
                     fontFamily: "var(--sv-mono)",
-                    fontSize: 6.5,
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    opacity: 0.65,
+                    fontSize: 7,
+                    letterSpacing: "0.14em",
+                    background: "rgba(10,10,10,0.75)",
+                    color: "var(--sv-paper)",
+                    borderRadius: 2,
+                    pointerEvents: "none",
                   }}
                 >
                   {String(i + 1).padStart(2, "0")}
-                </span>
-                <span style={{ fontStyle: "italic" }}>
-                  {s.heading?.slice(0, 24) || "—"}
                 </span>
               </button>
               {/* Setinhas mobile: só aparecem se tiver mais de 1 slide */}

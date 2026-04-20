@@ -419,12 +419,38 @@ Retorne APENAS 1 variação (array \`variations\` com 1 item), style: "story" co
 
 TESTE ANTES DE RETORNAR: leia os slides gerados. O usuário reconhece as frases dele? Se você reescreveu qualquer frase, VOLTA e usa o wording original.`;
 
+    // ── NICHE CONTEXTUALIZATION — reforço de nicho ──
+    // Nicho entra como tag no prompt, mas Gemini às vezes trata como rótulo
+    // decorativo. Instrução explícita aqui força a IA a trazer REFERÊNCIAS
+    // REAIS do nicho em vez de exemplos genéricos.
+    const nicheGuide =
+      niche && niche !== "general"
+        ? `
+
+# NICHE CONTEXTUALIZATION (obrigatório)
+Nicho alvo: **${niche}**. Todo exemplo, número, nome próprio e ferramenta citado no carrossel DEVE ser do universo desse nicho.
+
+Referências por nicho (use quando fizer sentido):
+- **crypto/web3**: Bitcoin, Ethereum, Solana, Base, Arbitrum, wallets (Metamask, Phantom, Rabby), protocolos DeFi (Uniswap, Aave, Pendle, Jupiter), conceitos (staking, LP, airdrop, MEV), gente real (Vitalik, CZ, Arthur Hayes, Andre Cronje), eventos (ETF BTC, halving, FTX, Terra), tokens ($USDC, $SOL, $ARB), exchanges (Binance, Coinbase, Hyperliquid).
+- **ai**: Claude, GPT-5, Gemini 2.5, modelos open (Llama, Mistral, DeepSeek), tools (Cursor, Windsurf, Lovable, v0, Replit Agent, MCP), conceitos (agents, fine-tune, embeddings, RAG), gente (Sam Altman, Dario Amodei, Dwarkesh Patel), releases recentes.
+- **marketing**: canais (LinkedIn, X, Instagram, TikTok, YouTube), ferramentas (HubSpot, Notion, Figma, Canva, Ahrefs, Loops, Resend), métricas (CAC, LTV, CTR, impressões, engajamento), táticas (SEO, cold outbound, founder-led, newsletter), gente (Rand Fishkin, Harry Dry, Marie Dollé).
+- **business**: KPIs (ARR, MRR, burn, runway, rule of 40), frameworks (north-star, OKR, jobs-to-be-done), VCs (a16z, Sequoia, Kaszek, Canary), eventos (Y Combinator, TechCrunch), gente (Bezos, Buffett, Naval, Shaan Puri).
+
+Se o briefing pede factoide específico que você não conhece bem nesse nicho, use GROUNDING (busca web) pra trazer nomes/números verificáveis. Preferir: fato específico e recente > analogia genérica.
+
+PROIBIDO no contexto de ${niche}:
+- Exemplos de "empresa X" sem nome real
+- Números arredondados sem atribuição ("73% disso", "a maioria das empresas")
+- Analogias fora do nicho ("é como no basquete, onde...")`
+        : "";
+
     // ── WRITER MODE — prompt completo com archetypes + escada ──
     const writerPrompt = `You are a narrative architect for Instagram carousels and LinkedIn document posts. You think like a screenwriter — every slide is a scene that earns the next swipe.
 
 ${languageInstruction}
 TONE: ${tone || "professional"}
 NICHE: ${niche || "general"}
+${nicheGuide}
 ${advancedBlock}
 
 O briefing do usuário é sua INSPIRAÇÃO — use pra entender tema, ângulo e voz. Você VAI escrever o carrossel (não apenas formatar). Preserve dados e nomes específicos que o usuário trouxe (zero invenção), mas aplique hooks, tensão narrativa, cliffhangers e CTA como um copywriter profissional.
@@ -691,15 +717,20 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
 
     // 4. Call Gemini
     // - Writer mode: Pro (qualidade prioritária — criação de conteúdo do zero).
-    //   Gabriel reclamou que Flash entregou conteúdo genérico em vez de
-    //   exemplos concretos ("5 skills do Claude" virou 5 abstrações).
-    //   Pro tem raciocínio muito superior, vale o custo 8x maior.
-    // - Layout-only mode: Flash continua (é só formatação, Flash sobra).
+    //   + Google Search grounding ativo → IA busca fatos recentes quando
+    //     o tópico exige (nome de ferramenta, release, evento, stat). Custo
+    //     extra: $35/1K grounding queries. Vale pra qualidade.
+    //   ⚠️ Tools + responseMimeType="application/json" são mutuamente exclusivos
+    //     no Gemini. Quando grounding ativo, dropamos mimeType e parseamos JSON
+    //     manualmente (regex fallback já existe).
+    // - Layout-only mode: Flash + JSON mime (sem grounding — layout é só
+    //   formatação, não precisa pesquisa).
     const ai = new GoogleGenAI({ apiKey: geminiKey });
     const modelId =
       mode === "layout-only" ? "gemini-2.5-flash" : "gemini-2.5-pro";
     const thinkingBudget = mode === "layout-only" ? 2000 : 10000;
     const maxOutputTokens = mode === "layout-only" ? 10000 : 14000;
+    const useGrounding = mode !== "layout-only";
 
     let textResponse: string;
     let inputTokens = 0;
@@ -710,11 +741,16 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
           model: modelId,
           contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
           config: {
-            systemInstruction: systemPrompt,
+            systemInstruction: useGrounding
+              ? `${systemPrompt}\n\n# OUTPUT ONLY VALID JSON\nYour response must be ONLY the JSON object specified in OUTPUT FORMAT — no markdown code fences, no prose before or after. Parser expects valid JSON from character 0.`
+              : systemPrompt,
             temperature: 0.95,
             topP: 0.95,
             maxOutputTokens,
-            responseMimeType: "application/json",
+            // Grounding não aceita responseMimeType=application/json.
+            ...(useGrounding
+              ? { tools: [{ googleSearch: {} }] }
+              : { responseMimeType: "application/json" }),
             thinkingConfig: { thinkingBudget },
           },
         })

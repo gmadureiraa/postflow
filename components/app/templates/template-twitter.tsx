@@ -50,15 +50,14 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
     const verifiedBlue = accentOverride || defaultVerifiedBlue;
     const borderColor = isDarkBg ? "#262626" : "#e5e7eb";
 
-    // Template Twitter: TODOS os slides renderizam como tweet screenshot.
-    // Variants split/quote/cover quebravam a estética de thread — editor
-    // passava variant e caía em layouts 2-col ou centered-quote, enquanto
-    // o preview de download (que não passa variant) ficava correto.
-    // Agora só `photo` (reduz heading um pouco quando tem imagem) e `cta`
-    // (action bar no último) continuam ativos — são tweaks coerentes com
-    // tweet real.
+    // Template Twitter: todos os slides são tweet screenshots IGUAIS.
+    // Gabriel reclamou que as variants criavam "exagero" no template
+    // — thread real no X não muda layout por slide, todos são o mesmo
+    // formato. Mantemos só `isCta` (último slide) que adiciona action
+    // bar com likes/retweets/replies — único tweak coerente com thread.
+    // Tudo o mais fica desativado.
     const isCover = false;
-    const isPhoto = variant === "photo";
+    const isPhoto = false;
     const isSplit = false;
     const isQuote = false;
     const isCta = variant === "cta";

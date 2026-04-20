@@ -49,18 +49,21 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
  * usando os slides do rascunho. Baseado em `v-templates` do handoff.
  */
 
-const TEMPLATE_ORDER: TemplateId[] = [
-  "manifesto",
-  "futurista",
-  "autoral",
-  "twitter",
-];
+// Apenas 2 templates disponíveis por enquanto — Futurista (id interno
+// "manifesto", renomeado no UI) e Twitter. Autoral + Futurista antigo
+// (dark tech) escondidos mas ainda renderizáveis se o user tem draft
+// salvo com visualTemplate dessas variantes.
+const TEMPLATE_ORDER: TemplateId[] = ["manifesto", "twitter"];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
-  manifesto: "Editorial preto/verde · jornalístico, denso",
-  futurista: "Navy + ciano · Space Grotesk · tech-lean",
-  autoral: "Zine · serif itálica · colagem editorial",
+  manifesto: "Editorial cinemático · caps dramático · imagem dominante",
+  futurista: "Navy + ciano · Space Grotesk · tech-lean (legado)",
+  autoral: "Zine · serif itálica · colagem editorial (legado)",
   twitter: "Mockup de tweet · avatar + handle limpo",
+};
+
+const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {
+  manifesto: "Futurista",
 };
 
 function buildPreviewProfile(profile: {
@@ -340,7 +343,7 @@ export default function TemplatesPage(props: {
                       marginBottom: 4,
                     }}
                   >
-                    {meta.name}
+                    {TEMPLATE_NAME_OVERRIDE[tplId] ?? meta.name}
                   </h3>
                   <div
                     style={{
