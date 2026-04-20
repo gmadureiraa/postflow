@@ -33,7 +33,7 @@ import type {
  * evita pesar a landing e o shell global.
  */
 const DISPLAY_FONTS_HREF =
-  "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Archivo+Black&family=Bebas+Neue&family=Instrument+Serif:ital@0;1&display=swap";
+  "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Anton&family=Oswald:wght@500;700&family=Barlow+Condensed:wght@600;700;800&family=Instrument+Serif:ital@0;1&display=swap";
 
 function useInjectDisplayFonts() {
   useEffect(() => {
@@ -122,37 +122,50 @@ const ACCENT_SWATCHES_DEFAULT = [
 // `displayFontOverride`. `id` bate com o persistido em `style.display_font`.
 // `atelier` = default do Manifesto (editorial). As 4 outras vêm do Google
 // Fonts (ver <link> em `app/app/layout.tsx`).
+// Fontes display do editor — priorizam caixa alta/condensada pra título
+// cinematográfico editorial. Atelier (Kaleidos) foi removida.
 const FONT_OPTS = [
   {
-    id: "atelier",
-    label: "Atelier",
-    family:
-      '"Atelier", "Instrument Serif", "Times New Roman", Georgia, serif',
-    italic: true,
-  },
-  {
-    id: "grotesk",
-    label: "Grotesk",
-    family: '"Space Grotesk", system-ui, sans-serif',
-    italic: false,
-  },
-  {
     id: "archivo",
-    label: "Archivo",
+    label: "Archivo Black",
     family: '"Archivo Black", system-ui, sans-serif',
     italic: false,
+    uppercase: true,
   },
   {
     id: "bebas",
-    label: "Bebas",
+    label: "Bebas Neue",
     family: '"Bebas Neue", system-ui, sans-serif',
     italic: false,
+    uppercase: true,
+  },
+  {
+    id: "anton",
+    label: "Anton",
+    family: '"Anton", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "oswald",
+    label: "Oswald",
+    family: '"Oswald", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
+  },
+  {
+    id: "barlow",
+    label: "Barlow Condensed",
+    family: '"Barlow Condensed", system-ui, sans-serif',
+    italic: false,
+    uppercase: true,
   },
   {
     id: "serif",
     label: "Serif",
     family: '"Instrument Serif", Georgia, serif',
     italic: true,
+    uppercase: false,
   },
 ];
 
@@ -161,8 +174,8 @@ function familyFromFontId(id: string | null | undefined): string | undefined {
   return FONT_OPTS.find((f) => f.id === id)?.family;
 }
 function fontIdFromFamily(family: string | undefined): string {
-  if (!family) return "atelier";
-  return FONT_OPTS.find((f) => f.family === family)?.id ?? "atelier";
+  if (!family) return "archivo";
+  return FONT_OPTS.find((f) => f.family === family)?.id ?? "archivo";
 }
 
 function buildPreviewProfile(profile: {
@@ -272,7 +285,7 @@ export default function EditPage(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [kicker, setKicker] = useState("");
   const [handle, setHandle] = useState("@seuhandle");
-  const [fontId, setFontId] = useState<string>("atelier");
+  const [fontId, setFontId] = useState<string>("archivo");
   const [accent, setAccent] = useState<string>("#7CF067");
   const [textScale, setTextScale] = useState(1);
   const [mobileTab, setMobileTab] = useState<MobileTab>("canvas");

@@ -647,37 +647,25 @@ export default function NewCarouselPage() {
             <div
               className="grid gap-2"
               style={{
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               }}
               role="radiogroup"
             >
               {(
                 [
                   {
+                    // "manifesto" é o id interno; UX chama de "Futurista"
+                    // (mood cinematográfico, caps, preto + imagem dramática).
                     id: "manifesto" as const,
-                    name: "Manifesto",
-                    mood: "Editorial · creme + preto",
+                    name: "Futurista",
+                    mood: "Editorial cinemático · caps dramático",
                     imageType: "IA cinematográfico",
                     accent: "#0A0A0A",
                   },
                   {
-                    id: "futurista" as const,
-                    name: "Futurista",
-                    mood: "Dark tech · navy + mint",
-                    imageType: "IA cinematográfico",
-                    accent: "#00F0A0",
-                  },
-                  {
-                    id: "autoral" as const,
-                    name: "Autoral",
-                    mood: "Zine 35mm · creme + pink",
-                    imageType: "IA cinematográfico",
-                    accent: "#D262B2",
-                  },
-                  {
                     id: "twitter" as const,
                     name: "Thread (X)",
-                    mood: "Tweet screenshot",
+                    mood: "Tweet screenshot · candid",
                     imageType: "Busca stock",
                     accent: "#1D9BF0",
                   },

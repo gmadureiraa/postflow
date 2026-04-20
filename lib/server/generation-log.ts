@@ -10,11 +10,16 @@ import { createServiceRoleSupabaseClient } from "./auth";
  * publicar release de preço novo.
  */
 const PRICING = {
-  // Gemini 2.5 Flash — texto (sem thinking tokens cobrados aqui;
-  // o thinking fica dentro do output na API atual do SDK).
+  // Gemini 2.5 Flash — barato. Usado pra layout-only, concepts, suggestions.
   "gemini-2.5-flash": {
     input: 0.00000015, // $0.15 / 1M input
     output: 0.00000060, // $0.60 / 1M output
+  },
+  // Gemini 2.5 Pro — qualidade muito superior. Usado no writer mode
+  // (criação de conteúdo do zero). ~8x mais caro que Flash mas vale.
+  "gemini-2.5-pro": {
+    input: 0.00000125, // $1.25 / 1M input
+    output: 0.00000500, // $5.00 / 1M output
   },
   // Gemini Imagen 4 — cobrado por imagem gerada, não por token.
   "imagen-4.0-generate-001": {

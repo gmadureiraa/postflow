@@ -74,17 +74,25 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
         ? paper
         : ink;
 
+    // Default agora é Archivo Black (caixa alta cinematográfica).
+    // displayFontOverride ainda permite user trocar pra outra.
     const defaultDisplayStack =
-      '"Atelier", "Instrument Serif", "Times New Roman", Georgia, serif';
+      '"Archivo Black", "Bebas Neue", "Anton", system-ui, sans-serif';
     const displayStack = displayFontOverride || defaultDisplayStack;
     const serifStack =
       '"Instrument Serif", Georgia, "Times New Roman", serif';
     const ts = Math.max(0.6, Math.min(1.6, textScale));
+    // Se a fonte é italic (serif), NÃO aplica uppercase. Senão força caps
+    // — o display editorial fica mais impactante.
+    const displayIsItalic = /Instrument Serif/i.test(displayStack);
+    const displayTransform = displayIsItalic ? "none" : "uppercase";
 
-    const kickerText = `● BRANDSDECODED · Nº ${String(slideNumber).padStart(
-      2,
-      "0"
-    )}/${String(totalSlides).padStart(2, "0")} · MMXXVI`;
+    // Kicker editorial: só o handle do user + contador. Sem marca d'água
+    // BrandsDecoded e sem "Sequência Viral" — user posta como dele.
+    const handleLabel = (profile.handle || "").replace(/^@/, "").trim();
+    const kickerText = handleLabel
+      ? `● @${handleLabel}`
+      : `● Nº ${String(slideNumber).padStart(2, "0")}`;
 
     const coverBgImage = showBg && hasImage && (isCoverLike || isPhoto);
 
@@ -143,7 +151,10 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                     position: "absolute",
                     inset: 0,
                     background:
-                      "linear-gradient(180deg, rgba(10,10,10,0.18) 0%, rgba(10,10,10,0.4) 55%, rgba(10,10,10,0.94) 100%)",
+                      // Overlay mais forte pra garantir legibilidade do texto
+                      // sobre qualquer imagem — estilo BrandsDecoded (zona de
+                      // texto no terço inferior fica bem preta).
+                      "linear-gradient(180deg, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.55) 40%, rgba(10,10,10,0.85) 70%, rgba(10,10,10,0.98) 100%)",
                     zIndex: 1,
                   }}
                 />
@@ -168,24 +179,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
             {kickerText}
           </div>
 
-          {/* Counter chip */}
-          <div
-            style={{
-              position: "absolute",
-              top: 70,
-              right: 90,
-              zIndex: 3,
-              fontFamily: MONO_STACK,
-              fontSize: 20,
-              letterSpacing: "0.18em",
-              color: isCoverLike
-                ? "rgba(247,245,239,0.7)"
-                : "rgba(10,10,10,0.5)",
-            }}
-          >
-            {String(slideNumber).padStart(2, "0")} /{" "}
-            {String(totalSlides).padStart(2, "0")}
-          </div>
+          {/* Counter agora vive só no footer — removido daqui pra evitar duplicação. */}
 
           {/* Conteúdo central — layouts diferentes por variante */}
           {isSplit ? (
@@ -214,12 +208,13 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                     style={{
                       fontFamily: displayStack,
                       fontSize: 86 * ts,
-                      fontWeight: 400,
+                      fontWeight: 700,
                       lineHeight: 1,
-                      letterSpacing: "-0.02em",
+                      letterSpacing: displayIsItalic ? "-0.02em" : "-0.01em",
                       margin: 0,
                       color: resolvedFg,
-                      fontStyle: slideNumber % 2 === 0 ? "italic" : "normal",
+                      fontStyle: displayIsItalic && slideNumber % 2 === 0 ? "italic" : "normal",
+                      textTransform: displayTransform as "uppercase" | "none",
                     }}
                   >
                     {renderRichText(heading, accent)}
@@ -282,12 +277,13 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                   style={{
                     fontFamily: displayStack,
                     fontSize: 96 * ts,
-                    fontWeight: 400,
-                    fontStyle: "italic",
+                    fontWeight: 700,
+                    fontStyle: displayIsItalic ? "italic" : "normal",
                     lineHeight: 1.08,
-                    letterSpacing: "-0.02em",
+                    letterSpacing: displayIsItalic ? "-0.02em" : "-0.01em",
                     margin: 0,
                     color: resolvedFg,
+                    textTransform: displayTransform as "uppercase" | "none",
                   }}
                 >
                   {renderRichText(heading, accent)}
@@ -340,12 +336,15 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                   style={{
                     fontFamily: displayStack,
                     fontSize: (isCoverLike ? 130 : 118) * ts,
-                    fontWeight: 400,
+                    fontWeight: 700,
                     lineHeight: 0.98,
-                    letterSpacing: "-0.02em",
+                    letterSpacing: displayIsItalic ? "-0.02em" : "-0.01em",
                     margin: 0,
                     color: resolvedFg,
-                    fontStyle: slideNumber % 2 === 0 ? "italic" : "normal",
+                    fontStyle: displayIsItalic && slideNumber % 2 === 0 ? "italic" : "normal",
+                    textTransform: displayTransform as "uppercase" | "none",
+                    // Sombra sutil quando tem imagem de fundo pra melhorar contraste.
+                    textShadow: isCoverLike && hasImage ? "0 4px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4)" : undefined,
                   }}
                 >
                   {renderRichText(heading, accent)}
@@ -359,9 +358,11 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                     fontSize: 36 * ts,
                     lineHeight: 1.42,
                     margin: 0,
-                    color: isCoverLike ? "rgba(247,245,239,0.88)" : resolvedFg,
+                    // Subtítulo: branco puro quando em cover com imagem ou bg escuro.
+                    color: (isCoverLike || styleIsDark) ? "#FFFFFF" : resolvedFg,
                     maxWidth: 860,
                     whiteSpace: "pre-line",
+                    textShadow: isCoverLike && hasImage ? "0 2px 12px rgba(0,0,0,0.6)" : undefined,
                   }}
                 >
                   {renderRichText(body, accent)}
@@ -395,7 +396,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
             </div>
           )}
 
-          {/* Footer: wordmark + handle */}
+          {/* Footer: só contador de slide (user posta como dele, sem marca SV). */}
           <div
             style={{
               position: "relative",
@@ -403,21 +404,10 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
               padding: "0 90px 70px",
               display: "flex",
               alignItems: "flex-end",
-              justifyContent: "space-between",
+              justifyContent: "flex-end",
               color: isCoverLike ? paper : ink,
             }}
           >
-            <div
-              style={{
-                fontFamily: displayStack,
-                fontSize: 46,
-                fontStyle: "italic",
-                lineHeight: 1,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              Sequência Viral
-            </div>
             <div
               style={{
                 fontFamily: MONO_STACK,
@@ -429,7 +419,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                   : "rgba(10,10,10,0.6)",
               }}
             >
-              {profile.handle}
+              {String(slideNumber).padStart(2, "0")} / {String(totalSlides).padStart(2, "0")}
             </div>
           </div>
 

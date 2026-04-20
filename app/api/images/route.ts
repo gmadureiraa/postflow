@@ -164,25 +164,31 @@ export async function POST(request: Request) {
           const avoidHex = tmplMeta.avoidPalette.length
             ? `AVOID these colors (conflict with template accent): ${tmplMeta.avoidPalette.join(", ")}.`
             : "";
-          // Baseline editorial premium (BrandsDecoded-like) quando o usuário
-          // não configurou brand aesthetic — evita o modelo cair em stock
-          // genérico por default.
+          // Baseline BRANDSDECODED-like (cinematográfico, dramático,
+          // futurista, editorial moderno) quando o usuário não configurou
+          // brand aesthetic.
           const DEFAULT_BASELINE =
-            "BASELINE AESTHETIC: editorial premium photography. Muted palette (off-white, warm neutrals, single restrained accent). Natural window light, soft directional shadows. Close-up or medium format compression. 35mm film grain subtle. No saturated colors, no neon, no 3D render, no stock office, no generic smiling subjects. Think print magazine spread — quiet, premium, unhurried.";
+            "BASELINE AESTHETIC: cinematic editorial photography inspired by BrandsDecoded / Netflix poster / Vogue magazine cover. Strong dramatic lighting (red glow, amber sunset, blue hour, hard neon, harsh sun-shadow). High contrast. Subject in center frame or powerful environmental shot. Cinematic color grading, film grain, shallow depth of field. Futuristic but grounded — real humans in real scenes, not 3D render. Mood: powerful, cool, modern, scroll-stopping.";
           const aestheticPrefix = brandAesthetic
             ? `BRAND AESTHETIC (follow this visual language strictly): ${brandAesthetic}`
             : DEFAULT_BASELINE;
 
-          // Cover (slide 1) recebe reforço dramático — é a primeira impressão
-          // do carrossel. Precisa ser CINEMATOGRÁFICO e MUITO ligado ao tema.
-          const coverBoost = isCover
-            ? "COVER SHOT: this is the opening slide of a scroll-stopping carousel. Make it DRAMATIC, cinematic, editorial-magazine-cover quality. Strong composition: single subject in center-frame OR powerful environmental shot that screams the topic. High contrast, intentional lighting (red/amber glow, blue hour, hard window light). This image must look like a Netflix poster or a Vogue cover — not a stock photo. Tight emotional framing, subject centered, visual tension. Viewer must stop scroll in 0.3s."
+          // CINEMATIC BOOST pra TODOS os slides de template editorial
+          // (Gabriel reclamou que só a capa ficava cinematográfica). Cover
+          // ainda recebe reforço adicional por ser a primeira impressão.
+          const isTwitterTpl = tmplId === "twitter";
+          const cinematicBase = isTwitterTpl
+            ? ""
+            : "CINEMATIC SHOT: make this a scroll-stopping cinematic frame. Intentional lighting (red/amber glow, blue hour, hard window light, neon reflection). High contrast, emotional framing, visual tension. This must look like a Netflix poster, Vogue editorial, or BrandsDecoded carousel cover — NOT a stock photo.";
+          const coverBoost = isCover && !isTwitterTpl
+            ? " COVER SHOT: this is the OPENING SLIDE — the viewer must stop scrolling in 0.3 seconds. Maximum drama. Subject dead-centered or composed with rule of thirds. The single strongest composition from the slide theme."
             : "";
           const imagePrompt = [
             // 1. Estética dominante (brand + template style guide)
             aestheticPrefix,
             `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
-            // 2. Cover boost se aplicável
+            // 2. Cinematic base pra todo slide (exceto twitter) + cover boost
+            cinematicBase,
             coverBoost,
             // 3. Frame + people
             "Instagram carousel square frame (1:1).",
@@ -190,19 +196,21 @@ export async function POST(request: Request) {
             // 4. Contexto de nicho/tom
             nicheHint,
             toneHint,
-            // 5. Tema do slide (REFORÇADO — aparece 2x pra Imagen pesar mais)
+            // 5. Tema do slide (REFORÇADO)
             slideThemeHint
-              ? `CRITICAL — this image must DIRECTLY depict: ${slideThemeHint}. The mood, setting, and subject must be unmistakably connected to this theme. No readable text in the frame.`
+              ? `CRITICAL — this image must DIRECTLY depict: ${slideThemeHint}. The mood, setting, and subject must be unmistakably connected to this theme.`
               : "",
             `Primary subject / visual focus: ${query}.`,
             // 6. Paleta
             preferHex,
             avoidHex,
-            // 7. Técnica + constraints duros
-            isCover
-              ? "Technical: ultra-sharp focus, cinematic color grading, dramatic shadows, film grain, 8K detail, shallow depth of field, editorial magazine photography."
-              : "Technical: sharp focus on subject, natural color, believable shadows, 8K detail level, documentary realism.",
-            "Hard constraints: no text, no letters, no watermarks, no logos, no UI mockups with readable text.",
+            // 7. Técnica
+            isTwitterTpl
+              ? "Technical: sharp focus on subject, natural color, believable shadows, 8K detail, documentary realism."
+              : "Technical: ultra-sharp focus, cinematic color grading, dramatic shadows, subtle film grain, 8K detail, shallow depth of field, editorial magazine photography.",
+            // 8. NO-TEXT constraint (CRÍTICO — Imagen às vezes coloca
+            //    letras borradas no fundo). Reforçamos 3x pra pesar.
+            "ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS in the image. No signs, no labels, no billboards with readable content, no newspaper headlines, no street signs. No logos, no watermarks, no UI mockups. If the scene would normally contain text (e.g. a screen, a book, a poster), render those surfaces BLANK or BLURRED beyond recognition. This is a hard constraint — any readable character is a failure.",
           ]
             .filter(Boolean)
             .join(" ");

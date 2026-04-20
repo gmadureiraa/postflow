@@ -521,6 +521,22 @@ PROIBIDO no CTA (viraram assinatura genérica de produto — detectáveis):
 BANNED forever: "muitas pessoas", "resultados incríveis", "game-changer", "nesse sentido", "atualmente", "e por isso que", "a maioria", "muito tempo", "grandes resultados", "descubra como", "o segredo", "guia definitivo"
 REQUIRED: todo claim tem um número (verificável!), um nome próprio, ou um exemplo concreto. Zero exceção.
 
+# REGRA DA CONTAGEM E EXEMPLOS CONCRETOS (crítica)
+Se o briefing pede N itens específicos ("5 skills do Claude", "3 ferramentas de automação", "10 hacks de LinkedIn"), você ENTREGA EXATAMENTE N itens REAIS com NOMES PRÓPRIOS.
+
+- "5 skills do Claude" → entregue 5 capabilities REAIS do Claude com nome: Computer Use, Artifacts, Projects, Custom Instructions, Claude Code, MCP servers, Extended Thinking, Vision, Tool Use, Code Execution, File API, Batches. Escolha as 5 mais relevantes pro contexto, NÃO "5 coisas incríveis que o Claude faz" (genérico = falha).
+- "3 ferramentas de automação" → nomeie 3 ferramentas reais (n8n, Zapier, Make, Pipedream, etc) com o que cada uma faz melhor.
+- "melhores gadgets de 2026" → produtos com marca+modelo (ex: "Apple Vision Pro 2", "Meta Quest 4", "Rabbit R2").
+
+Se você NÃO SABE 5 exemplos reais do tema, é melhor:
+(a) reduzir o escopo ("3 skills principais do Claude que mudam workflow de dev") e entregar 3 com nome, OU
+(b) pedir que o usuário especifique no briefing.
+
+JAMAIS invente nomes de produtos, empresas, skills, que não existem. PREFIRA ser específico sobre poucos itens do que genérico sobre muitos.
+
+# FATOS VERIFICÁVEIS
+Quando o briefing exige conhecimento factual (features de um produto, preços, datas, specs, nomes de fundadores, etc), traga apenas informações que você conhece com confiança. Se tem dúvida, use hedge ("uma das principais features é...", "o fundador é...") em vez de afirmar algo incerto. SEMPRE prefira: um fato específico e verdadeiro > vários fatos abstratos e vagos > um fato inventado (pior opção).
+
 # STYLE — as 3 variações DEVEM ser radicalmente diferentes
 Escolha: data / story / provocative. Cada variação NÃO é só o mesmo carrossel com adjetivos trocados — é uma arquitetura narrativa diferente:
 
@@ -673,27 +689,33 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
       }
     }
 
-    // 4. Call Gemini 2.5 Flash
+    // 4. Call Gemini
+    // - Writer mode: Pro (qualidade prioritária — criação de conteúdo do zero).
+    //   Gabriel reclamou que Flash entregou conteúdo genérico em vez de
+    //   exemplos concretos ("5 skills do Claude" virou 5 abstrações).
+    //   Pro tem raciocínio muito superior, vale o custo 8x maior.
+    // - Layout-only mode: Flash continua (é só formatação, Flash sobra).
     const ai = new GoogleGenAI({ apiKey: geminiKey });
+    const modelId =
+      mode === "layout-only" ? "gemini-2.5-flash" : "gemini-2.5-pro";
+    const thinkingBudget = mode === "layout-only" ? 2000 : 10000;
+    const maxOutputTokens = mode === "layout-only" ? 10000 : 14000;
+
     let textResponse: string;
     let inputTokens = 0;
     let outputTokens = 0;
     try {
       const genResult = await geminiWithRetry(() =>
         ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: modelId,
           contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
           config: {
             systemInstruction: systemPrompt,
-            // Temperatura alta continua (ajuda variedade das aberturas),
-            // mas thinking/maxOutput mais conservadores — thinking 5000 +
-            // maxOutput 12000 estavam estourando o maxDuration de 60s no
-            // Vercel Hobby, causando "Erro interno".
             temperature: 0.95,
             topP: 0.95,
-            maxOutputTokens: 10000,
+            maxOutputTokens,
             responseMimeType: "application/json",
-            thinkingConfig: { thinkingBudget: 2000 },
+            thinkingConfig: { thinkingBudget },
           },
         })
       );
@@ -846,12 +868,17 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
 
     // Record generation with real token counts (usage already incremented above)
     if (sb) {
-      // Gemini 2.5 Flash pricing (approx): $0.15/1M input, $0.60/1M output
-      const costUsd = (inputTokens * 0.00000015) + (outputTokens * 0.0000006);
+      // Pricing by model: Flash ($0.15/$0.60 per 1M) vs Pro ($1.25/$5.00 per 1M).
+      const pricing =
+        modelId === "gemini-2.5-pro"
+          ? { input: 0.00000125, output: 0.0000050 }
+          : { input: 0.00000015, output: 0.00000060 };
+      const costUsd =
+        inputTokens * pricing.input + outputTokens * pricing.output;
       try {
         await sb.from("generations").insert({
           user_id: user.id,
-          model: "gemini-2.5-flash",
+          model: modelId,
           provider: "google",
           input_tokens: inputTokens,
           output_tokens: outputTokens,
