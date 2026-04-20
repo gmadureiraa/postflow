@@ -22,8 +22,8 @@ export function WelcomeEmail({
       </EmailHeadline>
       <EmailText>
         Você tem 5 carrosséis grátis por mês. Cola um link de YouTube, um
-        artigo, um reel do Instagram ou escreve uma ideia — a IA gera 3
-        variações (dados, história, provocação) em uns 15 segundos.
+        artigo, um reel do Instagram ou escreve uma ideia — a IA escreve no
+        seu tom e monta os slides em ~60 segundos.
       </EmailText>
       <EmailButton href={`${appUrl}/app/create`}>
         Criar meu primeiro carrossel

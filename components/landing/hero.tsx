@@ -204,7 +204,7 @@ function PhoneMockup() {
           <span>
             {phase === "typing" ? "Digitando" : phase === "hold" ? "Pronto" : "Limpando"}
           </span>
-          <span>~15s</span>
+          <span>~60s</span>
         </div>
       </div>
     </div>
@@ -220,7 +220,7 @@ export interface HeroProps {
   subtitle?: React.ReactNode;
   /** Label do CTA principal quando user não logado. Default: "Criar primeiro grátis". */
   primaryCtaLabel?: string;
-  /** Badge decorativo topo-direito. Default: "✦ Em 15 seg". */
+  /** Badge decorativo topo-direito. Default: "✦ Em 60 seg". */
   topBadge?: string;
   /** Badge decorativo canto-esquerdo-baixo. Default: "Seu conteúdo · seu ritmo". */
   bottomBadge?: string;

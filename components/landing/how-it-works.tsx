@@ -36,7 +36,7 @@ const DEFAULT_STEPS: HowItWorksStep[] = [
         A IA <em>pensa</em>.
       </>
     ),
-    body: "Cinco conceitos primeiro pra você escolher o ângulo. Depois, três carrosséis completos: dados, narrativa e provocação.",
+    body: "A IA lê sua fonte, aprende seu tom pelo DNA das suas redes e monta um carrossel completo com imagens próprias em ~60 segundos.",
   },
   {
     n: "03",

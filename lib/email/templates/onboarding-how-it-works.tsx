@@ -25,13 +25,13 @@ export function OnboardingHowItWorksEmail({
         {firstName}, você tem 3 formas de alimentar a IA.
       </EmailHeadline>
       <EmailText>
-        A gente desenhou o fluxo pra você sair com um carrossel em menos de
-        30 segundos, não importa o ponto de partida:
+        A gente desenhou o fluxo pra você sair com um carrossel em ~60
+        segundos, não importa o ponto de partida:
       </EmailText>
       <EmailText>
         <strong>1. Ideia em texto</strong> — descreve o tema (ex: &quot;5
-        erros que matam engajamento no Instagram&quot;) e a IA escreve 3
-        variações (dados, história, provocação).
+        erros que matam engajamento no Instagram&quot;) e a IA escreve no
+        seu tom, com a estética da sua marca.
       </EmailText>
       <EmailText>
         <strong>2. Link de artigo/post</strong> — cola uma URL (Medium,

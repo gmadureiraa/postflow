@@ -293,7 +293,7 @@ export function PricingSection() {
               "5 carrosséis/mês",
               "Export PNG em alta",
               "Modo rápido + avançado",
-              "4 templates editoriais",
+              "Templates Futurista + Twitter",
               "1 perfil de marca",
             ]}
             cta="Começar agora"

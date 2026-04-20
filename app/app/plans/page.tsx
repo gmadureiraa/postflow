@@ -27,7 +27,7 @@ const FREE_FEATURES = [
   `${FREE_PLAN_USAGE_LIMIT} carrosséis por mês`,
   "Todas as origens (YouTube, blog, Instagram, ideia)",
   "Editor completo e export PNG",
-  "Todos os 4 templates editoriais",
+  "Templates Futurista + Twitter",
 ];
 
 const PRO_FEATURES = PLANS.pro.features.slice(0, 5);

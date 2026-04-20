@@ -28,9 +28,9 @@ export function FirstCarouselEmail({
         Abrir minha biblioteca
       </EmailButton>
       <EmailText>
-        Tip: teste as outras 2 variações (dados, história, provocação). Elas
-        ficam disponíveis no mesmo fluxo, escolhendo outra opção no topo da
-        página de criação.
+        Tip: regenera a capa no editor (botão ✦ Nova capa) se quiser outra
+        imagem cinemática. Ou troca de template (Futurista ↔ Twitter) no passo
+        02 sem perder o conteúdo.
       </EmailText>
       <EmailText>
         Quando atingir 3 carrosséis no mês, a gente te manda um email com

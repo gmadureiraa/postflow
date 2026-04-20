@@ -75,7 +75,7 @@ const literata = Literata({
 export const metadata: Metadata = {
   title: "Sequência Viral — Carrosséis com IA para Instagram, LinkedIn e X",
   description:
-    "Cinco conceitos, três variações por tema, formato thread (Twitter/X), modo rápido ou avançado. Export PNG num fluxo só.",
+    "Carrossel pronto em ~60 segundos. Cola um link, a IA escreve no seu tom, monta os slides e entrega pra postar. Templates Futurista + Twitter.",
   metadataBase: new URL("https://viral.kaleidos.com.br"),
   keywords: [
     "gerador de carrossel",
@@ -94,7 +94,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Sequência Viral — Carrosséis com IA em um fluxo só",
     description:
-      "Conceitos, variações, preview estilo thread e edição completa antes do export. Instagram, LinkedIn e X.",
+      "Cola um link, a IA escreve com a sua voz, monta os slides e exporta PNG. Instagram, LinkedIn e X em um fluxo só.",
     type: "website",
     url: "https://viral.kaleidos.com.br",
     siteName: "Sequência Viral",
@@ -104,7 +104,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Sequência Viral — Carrosséis com IA",
     description:
-      "Cinco conceitos e três variações por tema, formato thread, export PNG. Para quem publica em escala.",
+      "Carrossel pronto em ~60s. Voz sua, visual na sua estética, export PNG pra postar. Instagram, LinkedIn e X.",
     site: "@sequencia-viral",
     creator: "@sequencia-viral",
   },
@@ -126,7 +126,7 @@ const jsonLd = {
   "@type": "SoftwareApplication",
   name: "Sequência Viral",
   description:
-    "Geração de carrosséis com IA para Instagram, X e LinkedIn. Cinco conceitos, três variações, formato thread, modo rápido ou avançado.",
+    "Geração de carrosséis com IA para Instagram, X e LinkedIn. Cola um link, a IA escreve no seu tom e entrega slides prontos em ~60s. Templates Futurista + Twitter.",
   url: "https://viral.kaleidos.com.br",
   applicationCategory: "DesignApplication",
   operatingSystem: "Web",
@@ -156,13 +156,13 @@ const jsonLd = {
     },
   ],
   featureList: [
-    "5 conceitos e até 3 variações de carrossel por tema (dados, narrativa, provocação)",
-    "Preview no formato thread (Twitter/X)",
+    "IA escreve com a sua voz (DNA capturado das suas redes)",
+    "2 templates visuais: Futurista (editorial) + Twitter (screenshot)",
     "Modo rápido ou modo avançado para a copy",
-    "Branding com foto de perfil e @handle",
-    "Entrada por URL, vídeo (YouTube), Instagram ou texto",
-    "Imagens por busca ou geração com IA alinhadas ao tema do slide",
-    "Export em PNG otimizado para redes (PDF em roadmap)",
+    "Branding com foto de perfil, @handle e paleta própria",
+    "Entrada por URL, vídeo (YouTube), post Instagram/X ou texto",
+    "Imagens por busca Google ou geração com IA (Imagen 4)",
+    "Export em PNG otimizado para Instagram, LinkedIn e X",
   ],
 };
 

@@ -91,7 +91,7 @@ export function SectionHead({
 export function Ticker() {
   const items = [
     { k: "2.143", v: "carrosséis gerados" },
-    { k: "~15s", v: "por carrossel" },
+    { k: "~60s", v: "por carrossel" },
     { k: "4 origens", v: "· YouTube · Blog · Reel · Ideia" },
     { k: "30 posts", v: "/mês no Pro" },
   ];

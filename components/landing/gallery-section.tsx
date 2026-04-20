@@ -627,7 +627,7 @@ export function GallerySection() {
               color: "var(--sv-muted)",
             }}
           >
-            ~15s por carrossel · sem cartão
+            ~60s por carrossel · sem cartão
           </span>
         </motion.div>
       </div>
