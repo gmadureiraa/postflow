@@ -275,7 +275,7 @@ export function PricingSection() {
         }
       `}</style>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="08" sub="Pricing" tag="Preço de lançamento">
+        <SectionHead num="06" sub="Pricing" tag="Preço de lançamento">
           Preço <em>honesto</em>.{" "}
           <span style={{ color: "var(--sv-muted)" }}>Cancele quando quiser.</span>
         </SectionHead>
@@ -332,7 +332,7 @@ export function PricingSection() {
             anchor={isAnnual ? "$29.90/mês no mensal" : "$39.90"}
             annualSaving={isAnnual ? `Cobrado ${agencyYearTotal}` : undefined}
             features={[
-              "Carrosséis ilimitados",
+              "150 carrosséis/mês",
               "Voz da IA configurável",
               "3 referências visuais por marca",
               "Export PNG pronto pra postar",

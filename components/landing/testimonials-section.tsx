@@ -86,7 +86,7 @@ export function TestimonialsSection(props: TestimonialsSectionProps = {}) {
   return (
     <section style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="09" sub={sub} tag={tag}>
+        <SectionHead num="07" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Criador posta <em>mais</em>.{" "}

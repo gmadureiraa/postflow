@@ -39,9 +39,9 @@ export const PLANS = {
     priceMonthly: 2990, // $29.90
     priceAnnual: 28704, // $287.04/ano (20% off sobre $29.90 × 12 = $358.80)
     priceAnchor: 3990, // $39.90 preço normal planejado
-    carouselsPerMonth: -1, // unlimited
+    carouselsPerMonth: 150, // Limite real pra sustentar margem (custo IA ~$0.10/carrossel)
     features: [
-      "Carrosséis ilimitados",
+      "150 carrosséis/mês",
       "Todas as origens (YouTube, blog, Instagram, ideia)",
       "Sem marca d'água",
       "Todos os 4 templates editoriais",
@@ -82,7 +82,7 @@ export function isPaidPlanId(id: string): id is PlanId {
 }
 
 export function usageLimitForPaidPlan(planId: PlanId): number {
-  if (planId === "business") return BUSINESS_USAGE_LIMIT_SENTINEL;
+  if (planId === "business") return PLANS.business.carouselsPerMonth;
   return PLANS.pro.carouselsPerMonth;
 }
 

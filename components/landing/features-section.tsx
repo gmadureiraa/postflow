@@ -1,7 +1,172 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { REVEAL, SectionHead } from "./shared";
+
+/**
+ * Briefs simulados rotativos pro card animado. Passa sensação de uma
+ * ferramenta ouvindo o user — não um prompt filler.
+ */
+const TYPE_BRIEFS = [
+  "faz um post sobre o novo algoritmo do Instagram...",
+  "carrossel sobre por que ninguém salva meus posts...",
+  "3 hooks pro meu reel sobre produtividade real...",
+  "quebra esse artigo do Bloomberg em 8 slides...",
+];
+
+/**
+ * Card animado "brief engine" — antes vivia no hero, agora virou feature card
+ * junto com os outros 3. Usa um state machine simples (typing → hold → thinking
+ * → ready → clearing) pra deixar claro cada fase, uma de cada vez, em vez de
+ * múltiplas animações concorrentes visualmente competindo.
+ */
+function BriefEngineCard() {
+  const [briefIdx, setBriefIdx] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [phase, setPhase] = useState<
+    "typing" | "hold" | "thinking" | "ready" | "clearing"
+  >("typing");
+
+  useEffect(() => {
+    const current = TYPE_BRIEFS[briefIdx];
+    let t: ReturnType<typeof setTimeout>;
+    if (phase === "typing") {
+      if (typed.length < current.length) {
+        t = setTimeout(() => setTyped(current.slice(0, typed.length + 1)), 40);
+      } else {
+        t = setTimeout(() => setPhase("hold"), 600);
+      }
+    } else if (phase === "hold") {
+      t = setTimeout(() => setPhase("thinking"), 700);
+    } else if (phase === "thinking") {
+      t = setTimeout(() => setPhase("ready"), 1600);
+    } else if (phase === "ready") {
+      t = setTimeout(() => setPhase("clearing"), 1400);
+    } else if (phase === "clearing") {
+      if (typed.length > 0) {
+        t = setTimeout(() => setTyped(current.slice(0, typed.length - 1)), 14);
+      } else {
+        setBriefIdx((v) => (v + 1) % TYPE_BRIEFS.length);
+        setPhase("typing");
+      }
+    }
+    return () => clearTimeout(t);
+  }, [typed, phase, briefIdx]);
+
+  const statusLabel =
+    phase === "typing"
+      ? "Digitando"
+      : phase === "hold"
+        ? "Lendo briefing"
+        : phase === "thinking"
+          ? "Processando voz + estética"
+          : phase === "ready"
+            ? "Carrossel pronto"
+            : "Limpando";
+
+  return (
+    <motion.div
+      {...REVEAL}
+      className="sv-card sv-feat"
+      style={{ gridColumn: "span 6" }}
+    >
+      <FeatKicker>Brief engine</FeatKicker>
+      <FeatTitle>
+        Um <em>editor</em> que pensa,
+        <br />
+        não só um gerador.
+      </FeatTitle>
+      <FeatBody>
+        Escreve o briefing e a IA processa contexto, voz e referências —
+        antes de virar slide.
+      </FeatBody>
+
+      <div
+        className="mt-4"
+        style={{
+          border: "1.5px solid var(--sv-ink)",
+          background: "var(--sv-white)",
+          boxShadow: "3px 3px 0 0 var(--sv-ink)",
+          padding: "10px 12px",
+          minHeight: 100,
+          fontFamily: "var(--sv-sans)",
+          fontSize: 12,
+          lineHeight: 1.45,
+          color: "var(--sv-ink)",
+        }}
+      >
+        <div
+          className="uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 8,
+            letterSpacing: "0.22em",
+            color: "var(--sv-muted)",
+            marginBottom: 6,
+          }}
+        >
+          Seu brief
+        </div>
+        <span>{typed}</span>
+        <span className="sv-cursor" style={{ marginLeft: 1, verticalAlign: "-1px" }} />
+      </div>
+
+      <div
+        className="mt-3 flex items-center justify-between gap-2"
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 8.5,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+        }}
+      >
+        <span
+          style={{
+            padding: "4px 8px",
+            border: "1px solid var(--sv-ink)",
+            background:
+              phase === "thinking"
+                ? "var(--sv-pink)"
+                : phase === "ready"
+                  ? "var(--sv-green)"
+                  : "var(--sv-paper)",
+            boxShadow: "1.5px 1.5px 0 0 var(--sv-ink)",
+            transition: "background .3s",
+          }}
+        >
+          {phase === "ready" ? "✓ Pronto" : phase === "thinking" ? "Pensando…" : "Instagram"}
+        </span>
+        <span
+          style={{
+            padding: "4px 8px",
+            border: "1px solid var(--sv-ink)",
+            background: phase === "thinking" ? "var(--sv-ink)" : "var(--sv-white)",
+            color: phase === "thinking" ? "var(--sv-paper)" : "var(--sv-ink)",
+            boxShadow: "1.5px 1.5px 0 0 var(--sv-ink)",
+            transition: "background .3s, color .3s",
+          }}
+        >
+          {phase === "thinking" ? "Processando →" : "Gerar →"}
+        </span>
+      </div>
+
+      <div
+        className="mt-3 text-center uppercase"
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: 8.5,
+          letterSpacing: "0.2em",
+          color:
+            phase === "ready" ? "var(--sv-ink)" : "var(--sv-muted)",
+          fontWeight: 700,
+        }}
+      >
+        {statusLabel}
+      </div>
+    </motion.div>
+  );
+}
 
 function FeatKicker({ children }: { children: React.ReactNode }) {
   return (
@@ -215,7 +380,7 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
   return (
     <section id="features" style={{ padding: "96px 0" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="03" sub={sub} tag={tag}>
+        <SectionHead num="04" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Um editor que <em>pensa</em>,{" "}
@@ -233,11 +398,13 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
             gridAutoRows: "minmax(140px, auto)",
           }}
         >
+          <BriefEngineCard />
+
           {/* Referências visuais c-4 */}
           <motion.div
             {...REVEAL}
             className="sv-card sv-feat relative"
-            style={{ gridColumn: "span 4" }}
+            style={{ gridColumn: "span 6" }}
           >
             <span
               className="absolute"
@@ -311,7 +478,7 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
           <motion.div
             {...REVEAL}
             className="sv-card sv-feat"
-            style={{ gridColumn: "span 4" }}
+            style={{ gridColumn: "span 6" }}
           >
             <FeatKicker>{voiceCard?.kicker ?? "Voz da IA"}</FeatKicker>
             <FeatTitle>
@@ -357,7 +524,7 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
           <motion.div
             {...REVEAL}
             className="sv-card sv-feat"
-            style={{ gridColumn: "span 4" }}
+            style={{ gridColumn: "span 6" }}
           >
             <FeatKicker>{editorCard?.kicker ?? "Editor"}</FeatKicker>
             <FeatTitle>

@@ -25,14 +25,15 @@ export interface CompareSectionProps {
 }
 
 const DEFAULT_ROWS: string[][] = [
-  ["Tempo por carrossel", "~ 15 segundos", "45–60 min", "20 min + edição", "2–3 horas"],
-  ["Transcreve YouTube", "✦ Automático", "—", "Copia/cola", "Manual"],
-  ["Usa o seu tom", "✦ Voz configurável", "—", "Com prompt", "✓"],
-  ["Referências visuais", "✦ 3 imagens da marca", "Manual", "—", "Manual"],
-  ["Imagem por slide", "✦ Contextual por IA", "Stock photo", "—", "Manual"],
-  ["Export pronto pra postar", "✦ 1 clique", "Manual", "—", "Manual"],
-  ["Preview real (WYSIWYG)", "✦ Sim", "✓", "—", "✓"],
-  ["Preço (pra postar todo dia)", "$9.90/mês", "$15/mês", "$20/mês", "Seu tempo"],
+  ["Tempo por carrossel", "~ 60 segundos", "45–60 min", "20 min + edição", "2–3 horas"],
+  ["Transcreve YouTube", "✦ Automático", "✕", "Copia/cola", "Manual"],
+  ["Lê legenda de IG/X", "✦ Com OCR dos slides", "✕", "Parcial", "Manual"],
+  ["Escreve com a SUA voz", "✦ Voz configurável por DNA", "✕", "Depende do prompt", "Precisa revisar"],
+  ["Referências visuais da marca", "✦ 3 imagens → paleta/mood", "Manual", "✕", "Manual"],
+  ["Imagem por slide", "✦ Cinemática contextual", "Stock photo", "✕", "Manual"],
+  ["Export pronto pra postar", "✦ 1 clique", "Manual", "✕", "Manual"],
+  ["Preview real (WYSIWYG)", "✦ Sim", "✓", "✕", "✓"],
+  ["Preço pra postar todo dia", "$9.90/mês", "$15/mês", "$20/mês", "Seu tempo"],
 ];
 
 export function CompareSection(props: CompareSectionProps = {}) {
@@ -50,7 +51,7 @@ export function CompareSection(props: CompareSectionProps = {}) {
         <SectionHead num="05" sub={sub} tag={tag}>
           {heading ?? (
             <>
-              Sem Sequência Viral. <em>Com.</em>
+              Com <em>Sequência Viral</em> vs. sem.
             </>
           )}
         </SectionHead>
@@ -93,20 +94,25 @@ export function CompareSection(props: CompareSectionProps = {}) {
                   {r.map((c, j) => {
                     const isFirst = j === 0;
                     const isSV = j === 1;
+                    const isMissing = c === "✕";
                     return (
                       <td
                         key={j}
                         style={{
                           padding: "14px 18px",
-                          textAlign: "left",
+                          textAlign: isFirst || isSV ? "left" : "center",
                           borderBottom:
                             i < rows.length - 1 ? "1px solid var(--sv-ink)" : "none",
                           fontSize: 13,
                           fontFamily: isFirst ? "var(--sv-mono)" : undefined,
                           letterSpacing: isFirst ? "0.16em" : undefined,
                           textTransform: isFirst ? "uppercase" : undefined,
-                          color: isFirst ? "var(--sv-muted)" : undefined,
-                          fontWeight: isFirst ? 500 : isSV ? 600 : undefined,
+                          color: isFirst
+                            ? "var(--sv-muted)"
+                            : isMissing
+                              ? "var(--sv-pink)"
+                              : undefined,
+                          fontWeight: isFirst ? 500 : isSV ? 600 : isMissing ? 700 : undefined,
                           background: isSV
                             ? "color-mix(in srgb, var(--sv-green) 22%, var(--sv-white))"
                             : undefined,

@@ -262,10 +262,7 @@ export function Hero(props: HeroProps = {}) {
         }
       `}</style>
       <div
-        className="sv-hero-grid mx-auto grid max-w-[1240px] items-center gap-10 px-6"
-        style={{
-          gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 0.95fr)",
-        }}
+        className="sv-hero-grid mx-auto max-w-[860px] px-6 text-center"
       >
         <motion.div {...REVEAL}>
           <span className="sv-eyebrow">
@@ -298,12 +295,12 @@ export function Hero(props: HeroProps = {}) {
           </h1>
 
           <p
-            className="mt-[22px]"
+            className="mt-[22px] mx-auto"
             style={{
               fontSize: 14.5,
               lineHeight: 1.55,
               color: "var(--sv-muted)",
-              maxWidth: 460,
+              maxWidth: 560,
             }}
           >
             {subtitle ?? (
@@ -320,7 +317,7 @@ export function Hero(props: HeroProps = {}) {
             )}
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-[10px]">
+          <div className="mt-6 flex flex-wrap justify-center gap-[10px]">
             <Link
               href={primaryHref}
               className="sv-btn sv-btn-primary"
@@ -332,7 +329,7 @@ export function Hero(props: HeroProps = {}) {
           </div>
 
           <div
-            className="mt-[22px] flex flex-wrap gap-x-6 gap-y-[18px]"
+            className="mt-[22px] flex flex-wrap justify-center gap-x-6 gap-y-[18px]"
             style={{
               fontFamily: "var(--sv-mono)",
               fontSize: 9.5,
@@ -354,10 +351,11 @@ export function Hero(props: HeroProps = {}) {
 
         <motion.div
           {...REVEAL}
-          className="sv-hero-visual relative mx-auto w-full"
+          className="sv-hero-visual relative mx-auto mt-12 w-full"
           style={{
             maxWidth: 520,
             aspectRatio: "1 / 1.02",
+            display: "none",
           }}
         >
           <img

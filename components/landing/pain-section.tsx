@@ -89,7 +89,7 @@ export function PainSection(props: PainSectionProps = {}) {
       }}
     >
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="00" sub={sub} tag={tag}>
+        <SectionHead num="01" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Você tem <em>ideia</em>.{" "}

@@ -136,7 +136,7 @@ export function DemoSection(props: DemoSectionProps = {}) {
   return (
     <section id="demo" style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="04" sub={sub} tag={tag}>
+        <SectionHead num="03" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Cola um <em>link</em>.{" "}

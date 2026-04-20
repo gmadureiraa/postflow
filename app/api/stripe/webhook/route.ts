@@ -212,10 +212,7 @@ async function handleEvent(event: Stripe.Event, supabaseAdmin: SupabaseClient) {
         const recipientEmail = profileRow?.email || session.customer_email;
         if (recipientEmail) {
           const planMeta = PLANS[planId];
-          const carouselsPerMonth =
-            planMeta.carouselsPerMonth === -1
-              ? ("ilimitado" as const)
-              : planMeta.carouselsPerMonth;
+          const carouselsPerMonth: number | "ilimitado" = planMeta.carouselsPerMonth;
           await sendPaymentSuccess(
             { email: recipientEmail, name: profileRow?.name || undefined },
             { planName: planMeta.name, carouselsPerMonth }

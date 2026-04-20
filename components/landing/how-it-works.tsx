@@ -61,7 +61,7 @@ export function HowItWorks(props: HowItWorksProps = {}) {
   return (
     <section id="como" style={{ padding: "96px 0" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="01" sub={sub} tag={tag}>
+        <SectionHead num="02" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Três passos.{" "}
