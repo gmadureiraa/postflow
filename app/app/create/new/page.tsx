@@ -145,7 +145,7 @@ export default function NewCarouselPage() {
   // - twitter: busca stock (Serper)
   // - manifesto/futurista/autoral: gera imagem cinematográfica (Imagen)
   const [designTemplate, setDesignTemplate] = useState<
-    "manifesto" | "futurista" | "autoral" | "twitter"
+    "manifesto" | "twitter"
   >("manifesto");
 
   // Modo avançado — dá mais controle ao usuário sobre a geração.

@@ -70,7 +70,7 @@ export async function sendFirstCarousel(
 
 export async function sendPaymentSuccess(
   user: Recipient,
-  args: { planName: string; carouselsPerMonth: number | "ilimitado" }
+  args: { planName: string; carouselsPerMonth: number }
 ) {
   return sendEmail({
     to: user.email,

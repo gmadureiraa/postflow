@@ -14,7 +14,7 @@ export function PaymentSuccessEmail({
 }: {
   name?: string;
   planName: string;
-  carouselsPerMonth: number | "ilimitado";
+  carouselsPerMonth: number;
   appUrl: string;
 }) {
   const firstName = (name || "").trim().split(" ")[0] || "você";
@@ -26,13 +26,8 @@ export function PaymentSuccessEmail({
       </EmailHeadline>
       <EmailText>
         Limite mensal:{" "}
-        <strong>
-          {carouselsPerMonth === "ilimitado"
-            ? "carrosséis ilimitados"
-            : `${carouselsPerMonth} carrosséis por mês`}
-        </strong>
-        . Tudo liberado: sem marca d&apos;água, todos os templates, export PNG
-        e PDF.
+        <strong>{carouselsPerMonth} carrosséis por mês</strong>. Tudo liberado:
+        sem marca d&apos;água, todos os templates, export PNG e PDF.
       </EmailText>
       <EmailButton href={`${appUrl}/app/create`}>Ir para o estúdio</EmailButton>
       <EmailText>

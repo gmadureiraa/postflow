@@ -71,12 +71,6 @@ export const AUTOPUBLISH_BUMP = {
 /** Limite mensal do plano gratuito (alinha com `profiles.usage_limit` padrão). */
 export const FREE_PLAN_USAGE_LIMIT = 5;
 
-/**
- * Valor armazenado em `profiles.usage_limit` para plano Business (ilimitado na prática).
- * Mantém um número finito para compatibilidade com colunas integer.
- */
-export const BUSINESS_USAGE_LIMIT_SENTINEL = 999_999;
-
 export function isPaidPlanId(id: string): id is PlanId {
   return id === "pro" || id === "business";
 }
