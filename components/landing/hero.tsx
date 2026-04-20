@@ -9,7 +9,7 @@ import { BASE_ASSET, REVEAL } from "./shared";
 
 const PHONE_SLIDES: {
   tag: string;
-  bg: "ink" | "green" | "dots" | "pink";
+  bg: "ink" | "green" | "tweet" | "pink";
   body: React.ReactNode;
   foot: string;
 }[] = [
@@ -47,16 +47,15 @@ const PHONE_SLIDES: {
     foot: "Deslize →",
   },
   {
-    tag: "03 / 04 · Prática",
-    bg: "dots",
+    tag: "03 / 04 · Thread",
+    bg: "tweet",
     body: (
       <>
-        Não é <em>falta</em>
-        <br />
-        de ideia. É falta de <em>método</em>.
+        Não é <em>falta</em> de ideia.
+        <br />É falta de <em>método</em>.
       </>
     ),
-    foot: "Deslize →",
+    foot: "@seuhandle · 2h",
   },
   {
     tag: "04 / 04 · CTA",
@@ -93,13 +92,14 @@ function PhoneMockup() {
         };
       case "green":
         return { background: "var(--sv-green)", color: "var(--sv-ink)" };
-      case "dots":
+      case "tweet":
+        // Mock de tweet: fundo branco, texto ink, border fino no topo
+        // simulando avatar+handle. Contraste forte (ao contrário do
+        // "dots" que era cinza em cinza).
         return {
           background: "var(--sv-white)",
           color: "var(--sv-ink)",
-          backgroundImage:
-            "radial-gradient(circle at 2px 2px, var(--sv-ink) 1px, transparent 1.5px)",
-          backgroundSize: "8px 8px",
+          borderTop: "3px solid var(--sv-ink)",
         };
       case "pink":
         return { background: "var(--sv-pink)", color: "var(--sv-ink)" };
@@ -202,10 +202,8 @@ function PhoneMockup() {
             const isDone = i < idx;
             const isActive = i === idx;
             const barBg =
-              slide.bg === "ink" || slide.bg === "dots"
-                ? slide.bg === "ink"
-                  ? "rgba(255,255,255,.22)"
-                  : "rgba(0,0,0,.18)"
+              slide.bg === "ink"
+                ? "rgba(255,255,255,.22)"
                 : "rgba(0,0,0,.18)";
             return (
               <i
@@ -292,16 +290,16 @@ export function Hero() {
           <p
             className="mt-[22px]"
             style={{
-              fontSize: 16,
+              fontSize: 14.5,
               lineHeight: 1.55,
               color: "var(--sv-muted)",
-              maxWidth: 480,
+              maxWidth: 460,
             }}
           >
             A IA lê sua fonte e devolve um carrossel editorial{" "}
             <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>com a sua voz</b>
-            , com imagens contextuais na sua estética. Não é template.
-            Não é ChatGPT cheiroso. É uma ferramenta que entende que{" "}
+            , com imagens contextuais na sua estética. Não é ChatGPT
+            cheiroso — é uma ferramenta que entende que{" "}
             <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>
               você já tem algo a dizer
             </b>
@@ -518,7 +516,7 @@ export function Hero() {
               } as React.CSSProperties
             }
           >
-            Sua voz · não template
+            Seu conteúdo · seu ritmo
           </span>
         </motion.div>
       </div>

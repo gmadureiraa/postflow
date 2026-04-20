@@ -3,17 +3,17 @@ import { Hero } from "@/components/landing/hero";
 import { Ticker } from "@/components/landing/shared";
 import { PainSection } from "@/components/landing/pain-section";
 import { HowItWorks } from "@/components/landing/how-it-works";
-import { Manifesto } from "@/components/landing/manifesto";
 import { DemoSection } from "@/components/landing/demo-section";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { CompareSection } from "@/components/landing/compare-section";
-import { GallerySection } from "@/components/landing/gallery-section";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { TestimonialsSection } from "@/components/landing/testimonials-section";
 import { FAQSection } from "@/components/landing/faq-section";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 import { WelcomePopup } from "@/components/landing/welcome-popup";
+// Manifesto (banner Kaleidos) e GallerySection (exemplos reais) escondidos
+// por enquanto — reativar importando + inserindo no JSX abaixo.
 
 /* ─────────────────────────────────────────────────────────────────
    Sequência Viral — Landing brutalist editorial (Kaleidos Digital)
@@ -37,11 +37,9 @@ export default function HomePage() {
       <Ticker />
       <PainSection />
       <HowItWorks />
-      <Manifesto />
       <DemoSection />
       <FeaturesSection />
       <CompareSection />
-      <GallerySection />
       <PricingSection />
       <TestimonialsSection />
       <FAQSection />

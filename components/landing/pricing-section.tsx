@@ -110,6 +110,7 @@ function PlanCard({
           letterSpacing: "-0.02em",
           lineHeight: 0.95,
           fontStyle: "italic",
+          color: featured ? "var(--sv-paper)" : "var(--sv-ink)",
         }}
       >
         {title}
@@ -122,7 +123,7 @@ function PlanCard({
               fontFamily: "var(--sv-mono)",
               fontSize: 10,
               textDecoration: "line-through",
-              color: "var(--sv-muted)",
+              color: featured ? "rgba(255,255,255,.5)" : "var(--sv-muted)",
             }}
           >
             {anchor}
@@ -131,7 +132,14 @@ function PlanCard({
         <div className="flex items-baseline gap-[6px]">
           <span
             className="sv-display"
-            style={{ fontSize: 44, letterSpacing: "-0.025em", lineHeight: 1 }}
+            style={{
+              fontSize: 44,
+              letterSpacing: "-0.025em",
+              lineHeight: 1,
+              // Força cor explícita — sem isso, sv-display pode cascatear
+              // cor do CSS global (sv-ink) mesmo em card featured escuro.
+              color: featured ? "var(--sv-paper)" : "var(--sv-ink)",
+            }}
           >
             {price}
           </span>

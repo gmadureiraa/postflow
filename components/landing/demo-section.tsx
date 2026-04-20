@@ -172,9 +172,11 @@ export function DemoSection() {
   return (
     <section id="demo" style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="04" sub="Demo ao vivo" tag="15 segundos">
-          Parece <em>mágica</em>.{" "}
-          <span style={{ color: "var(--sv-muted)" }}>É só engenharia boa.</span>
+        <SectionHead num="04" sub="Cola → lê → entrega" tag="~15 segundos">
+          Cola um <em>link</em>.{" "}
+          <span style={{ color: "var(--sv-muted)" }}>
+            Sai um carrossel com a sua voz.
+          </span>
         </SectionHead>
 
         <style>{`
@@ -278,11 +280,26 @@ export function DemoSection() {
           </motion.div>
 
           <motion.div {...REVEAL}>
-            <DemoLabel className="mb-3 block">03 · Saída</DemoLabel>
+            <DemoLabel className="mb-3 block">03 · Carrossel pronto</DemoLabel>
             <div className="grid grid-cols-3 gap-3">
-              <DemoSlide variant="white" meta="01 · 03" body={<>A IA leu o seu <em>vídeo.</em></>} sub="Transcreveu, resumiu, achou o gancho." />
-              <DemoSlide variant="ink" meta="02 · 03" body={<>E achou o <em style={{ color: "var(--sv-green)" }}>ângulo</em> certo.</>} sub="Dados · Narrativa · Provocação." />
-              <DemoSlide variant="green" meta="03 · 03" body={<>Com a <em>sua</em> voz.</>} sub="Tom vem dos seus 30 posts." />
+              <DemoSlide
+                variant="white"
+                meta="Capa"
+                body={<>Hook que <em>interrompe</em> o scroll.</>}
+                sub="Arquétipo escolhido pelo tema."
+              />
+              <DemoSlide
+                variant="ink"
+                meta="Meio"
+                body={<>Escada narrativa com <em style={{ color: "var(--sv-green)" }}>dado concreto</em>.</>}
+                sub="Nome próprio, número, cena real."
+              />
+              <DemoSlide
+                variant="green"
+                meta="CTA"
+                body={<>Fecha o <em>loop</em> do slide 1.</>}
+                sub="Ação específica, não genérica."
+              />
             </div>
           </motion.div>
         </div>

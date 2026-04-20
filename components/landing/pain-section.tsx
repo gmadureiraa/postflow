@@ -28,11 +28,11 @@ const PAINS: { tag: string; title: React.ReactNode; body: string; cross: string 
     tag: "Sintoma 03",
     title: (
       <>
-        Template pronto te deixa <em>igual</em> aos outros.
+        Arrastar texto no Canva é <em>produção</em>, não criação.
       </>
     ),
-    body: "Abre o Canva, vê 200 templates iguais. Troca a foto, muda duas palavras e posta. Seis meses depois, você olha pro feed e não reconhece mais o que é seu.",
-    cross: "Marca invisível",
+    body: "Cada slide vira 20 minutos de alinhar caixa, escolher cor, revisar fonte. Você achou que ia ter ideia — só tá operando ferramenta. A energia some antes do 3º slide.",
+    cross: "Execução cansa criação",
   },
   {
     tag: "Sintoma 04",
@@ -59,9 +59,8 @@ export function PainSection() {
     >
       <div className="mx-auto max-w-[1240px] px-6">
         <SectionHead num="00" sub="A dor antes da cura" tag="Familiar?">
-          Criar conteúdo virou{" "}
-          <span style={{ color: "var(--sv-muted)" }}>uma segunda jornada</span>{" "}
-          <em>não-paga.</em>
+          Você tem <em>ideia</em>.{" "}
+          <span style={{ color: "var(--sv-muted)" }}>O que falta é tempo pra virar post.</span>
         </SectionHead>
 
         <div

@@ -178,8 +178,8 @@ export function FeaturesSection() {
     <section id="features" style={{ padding: "96px 0" }}>
       <div className="mx-auto max-w-[1240px] px-6">
         <SectionHead num="03" sub="Features" tag="Produto">
-          Tudo que você precisa.{" "}
-          <span style={{ color: "var(--sv-muted)" }}>Nada que não precisa.</span>
+          Engenharia de <em>voz</em>,{" "}
+          <span style={{ color: "var(--sv-muted)" }}>não preenchimento de template.</span>
         </SectionHead>
 
         <div
@@ -297,12 +297,12 @@ export function FeaturesSection() {
             >
               Novo
             </span>
-            <FeatKicker>Referências visuais</FeatKicker>
+            <FeatKicker>DNA visual da sua marca</FeatKicker>
             <FeatTitle>
-              Cole <em>3 imagens</em> da sua marca.
+              Sua <em>estética</em> virou prompt.
             </FeatTitle>
             <FeatBody>
-              A IA extrai paleta, textura e linguagem visual. Toda imagem gerada vira uma extensão coerente da sua estética.
+              Cola 3 imagens de referência. A IA destila paleta, iluminação, textura e mood — e replica em TODA imagem gerada. Seu feed para de parecer genérico.
             </FeatBody>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {[

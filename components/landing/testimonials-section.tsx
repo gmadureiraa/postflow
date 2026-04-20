@@ -68,10 +68,10 @@ export function TestimonialsSection() {
   return (
     <section style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="09" sub="Feedback do beta" tag="Beta fechado">
-          O que o <em>beta</em> está dizendo.{" "}
+        <SectionHead num="09" sub="Quem já usa" tag="Creators">
+          Criador posta <em>mais</em>.{" "}
           <span style={{ color: "var(--sv-muted)" }}>
-            Depoimentos ilustrativos dos primeiros testers.
+            Porque parou de brigar com Canva.
           </span>
         </SectionHead>
 
@@ -98,7 +98,7 @@ export function TestimonialsSection() {
               animation: "sv-pulse 1.3s infinite",
             }}
           />
-          Ilustrativo · vídeos reais chegam após o open beta
+          Exemplos ilustrativos · depoimentos reais chegam em breve
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
