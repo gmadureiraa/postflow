@@ -275,7 +275,7 @@ export function PricingSection() {
         }
       `}</style>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="06" sub="Pricing" tag="Preço de lançamento">
+        <SectionHead num="05" sub="Pricing" tag="Preço de lançamento">
           Preço <em>honesto</em>.{" "}
           <span style={{ color: "var(--sv-muted)" }}>Cancele quando quiser.</span>
         </SectionHead>

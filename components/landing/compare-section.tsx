@@ -48,7 +48,7 @@ export function CompareSection(props: CompareSectionProps = {}) {
   return (
     <section id="compare" style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="05" sub={sub} tag={tag}>
+        <SectionHead num="04" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Com <em>Sequência Viral</em> vs. sem.

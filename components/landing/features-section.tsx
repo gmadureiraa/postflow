@@ -380,7 +380,7 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
   return (
     <section id="features" style={{ padding: "96px 0" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="04" sub={sub} tag={tag}>
+        <SectionHead num="03" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Um editor que <em>pensa</em>,{" "}

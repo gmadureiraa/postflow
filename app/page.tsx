@@ -37,7 +37,6 @@ export default function HomePage() {
       <Ticker />
       <PainSection />
       <HowItWorks />
-      <DemoSection />
       <FeaturesSection />
       <CompareSection />
       <PricingSection />

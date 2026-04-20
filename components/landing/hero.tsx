@@ -230,11 +230,11 @@ export interface HeroProps {
 
 export function Hero(props: HeroProps = {}) {
   const {
-    eyebrow = "YouTube · Reels · Blog · Ideia",
+    eyebrow = "De ideia a post em 1 minuto",
     h1,
     subtitle,
     primaryCtaLabel,
-    topBadge = "✦ Em 15 seg",
+    topBadge = "✦ Em 60 seg",
     bottomBadge = "Seu conteúdo · seu ritmo",
     trustPills,
   } = props;
@@ -282,13 +282,10 @@ export function Hero(props: HeroProps = {}) {
             {h1 ?? (
               <>
                 <span className="block">
-                  Engenharia de <span className="sv-splash">voz</span>,
+                  <em><span className="sv-splash">Carrossel pronto</span></em>
                 </span>
                 <span className="block">
-                  não preenchimento
-                </span>
-                <span className="block">
-                  de <span className="sv-under">template</span>.
+                  antes do <span className="sv-under">café</span> esfriar.
                 </span>
               </>
             )}
@@ -305,12 +302,11 @@ export function Hero(props: HeroProps = {}) {
           >
             {subtitle ?? (
               <>
-                Cola um link, cola uma ideia. A IA lê sua fonte e devolve um carrossel{" "}
-                <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>com a sua voz</b>
-                , com imagens contextuais na sua estética. Não é ChatGPT cheiroso,
-                é uma ferramenta que entende que{" "}
+                Cola o link, escolhe o template, gera. A IA escreve{" "}
+                <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>no seu tom</b>,
+                monta os slides e deixa tudo pronto pra postar — em{" "}
                 <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>
-                  você já tem algo a dizer
+                  menos tempo do que você levaria pra abrir o Canva
                 </b>
                 .
               </>
