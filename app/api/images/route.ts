@@ -147,25 +147,42 @@ export async function POST(request: Request) {
           const { GoogleGenAI } = await import("@google/genai");
           const ai = new GoogleGenAI({ apiKey: geminiKey });
           const peopleInstr = imagePeopleModeImagenInstruction(peopleMode);
-          const styleHint = `Layout: ${tmplMeta.name} — ${tmplMeta.desc} Keywords: ${tmplMeta.imageSearchStyleHint}.`;
           const nicheHint = niche ? `Niche/context: ${niche}.` : "";
           const toneHint = tone ? `Editorial tone: ${tone}.` : "";
+          const preferHex = tmplMeta.preferPalette.length
+            ? `Prefer palette: ${tmplMeta.preferPalette.join(", ")}.`
+            : "";
+          const avoidHex = tmplMeta.avoidPalette.length
+            ? `AVOID these colors (conflict with template accent): ${tmplMeta.avoidPalette.join(", ")}.`
+            : "";
+          // Baseline editorial premium (BrandsDecoded-like) quando o usuário
+          // não configurou brand aesthetic — evita o modelo cair em stock
+          // genérico por default.
+          const DEFAULT_BASELINE =
+            "BASELINE AESTHETIC: editorial premium photography. Muted palette (off-white, warm neutrals, single restrained accent). Natural window light, soft directional shadows. Close-up or medium format compression. 35mm film grain subtle. No saturated colors, no neon, no 3D render, no stock office, no generic smiling subjects. Think print magazine spread — quiet, premium, unhurried.";
+          const aestheticPrefix = brandAesthetic
+            ? `BRAND AESTHETIC (follow this visual language strictly): ${brandAesthetic}`
+            : DEFAULT_BASELINE;
+
           const imagePrompt = [
-            // Brand aesthetic vira prefix DOMINANTE quando existe — Imagen
-            // prioriza o começo do prompt.
-            brandAesthetic
-              ? `BRAND AESTHETIC (follow this visual language strictly): ${brandAesthetic}`
-              : "",
-            "Hyper-realistic professional photograph for Instagram carousel square frame.",
-            tmplMeta.imageGenRealismFragment,
+            // 1. Estética dominante (brand + template style guide)
+            aestheticPrefix,
+            `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
+            // 2. Frame + people
+            "Instagram carousel square frame (1:1).",
+            peopleInstr,
+            // 3. Contexto de nicho/tom
             nicheHint,
             toneHint,
-            styleHint,
-            peopleInstr,
+            // 4. Tema do slide
             slideThemeHint
               ? `Slide theme — the image mood, setting, and subject matter must directly reflect this content (no readable text in frame): ${slideThemeHint}.`
               : "",
             `Primary subject / visual focus: ${query}.`,
+            // 5. Paleta
+            preferHex,
+            avoidHex,
+            // 6. Técnica + constraints duros
             "Technical: sharp focus on subject, natural color, believable shadows, 8K detail level, documentary realism.",
             "Hard constraints: no text, no letters, no watermarks, no logos, no UI mockups with readable text.",
           ]
@@ -285,16 +302,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Strategy 2: Fallback — return placeholder images using Unsplash
-    const encodedQuery = encodeURIComponent(searchQuery);
-    const fallbackImages = Array.from({ length: 5 }, (_, i) => ({
-      url: `https://source.unsplash.com/800x600/?${encodedQuery}&sig=${i}`,
-      title: `${query} - Image ${i + 1}`,
-      source: "Unsplash",
-      generated: false,
-    }));
-
-    return Response.json({ images: fallbackImages });
+    // Strategy 2: Sem fallback — devolver array vazio com aviso.
+    // O endpoint source.unsplash.com foi deprecado em 2024 e retorna 404.
+    // Preferimos sinalizar explicitamente pro front mostrar placeholder
+    // + botão de "gerar com IA" ou "upload manual".
+    return Response.json({
+      images: [],
+      warning: "Nenhuma fonte de imagem disponível. Tente gerar com IA ou subir uma imagem.",
+    });
   } catch (error) {
     console.error("Images API error:", error);
     return Response.json(

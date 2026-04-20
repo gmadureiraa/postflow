@@ -9,6 +9,21 @@ import { GoogleGenAI } from "@google/genai";
 
 export const maxDuration = 60;
 
+interface AdvancedGenerationOptions {
+  /** CTA exato que o usuário quer fechar o carrossel. Sobrescreve CTA auto-gerado. */
+  customCta?: string;
+  /** Direcionamento do gancho / ângulo do slide 1 (ex: "foca em founders B2B que já tentaram ads"). */
+  hookDirection?: string;
+  /** Número de slides desejado (6-12). Default: 8. */
+  numSlides?: number;
+  /** Se setado, trava essa variação (não gera 3 variações, só 1). */
+  preferredStyle?: "data" | "story" | "provocative";
+  /** Contexto extra que o usuário quer injetar no prompt (links, dados, quotes). */
+  extraContext?: string;
+  /** URLs de imagens upadas pelo usuário pra usar em slides específicos (ordem = slide). */
+  uploadedImageUrls?: string[];
+}
+
 interface GenerateRequest {
   topic: string;
   sourceType: "idea" | "link" | "video" | "instagram" | "ai";
@@ -18,6 +33,8 @@ interface GenerateRequest {
   language: string;
   /** Aceito por compatibilidade; a redação não depende do template (só preview/imagens no app). */
   designTemplate?: DesignTemplateId;
+  /** Modo avançado — campos opcionais pra dar mais controle ao usuário. */
+  advanced?: AdvancedGenerationOptions;
 }
 
 type SlideVariant = "cover" | "headline" | "photo" | "quote" | "split" | "cta";
@@ -27,6 +44,8 @@ interface Slide {
   body: string;
   imageQuery: string;
   variant: SlideVariant;
+  /** Optional: URL direta quando o usuário subiu imagem no modo avançado. */
+  imageUrl?: string;
 }
 
 const VALID_VARIANTS: readonly SlideVariant[] = [
@@ -110,6 +129,7 @@ export async function POST(request: Request) {
     // Single query: plan check + brand context
     const sb = createServiceRoleSupabaseClient();
     let brandContext = "";
+    let feedbackContext = "";
     if (sb) {
       const { data: prof } = await sb
         .from("profiles")
@@ -160,11 +180,97 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
           }
         }
       }
+
+      // Últimos 5 carrosséis com feedback negativo ou positivo + comment,
+      // pra IA aprender com o sinal do próprio usuário. Falha silenciosa.
+      try {
+        const { data: fbRows } = await sb
+          .from("carousels")
+          .select("title,style,updated_at")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(40);
+        if (Array.isArray(fbRows) && fbRows.length > 0) {
+          const negatives: string[] = [];
+          const positives: string[] = [];
+          for (const row of fbRows) {
+            const fb = (row.style as Record<string, unknown> | null)?.feedback as
+              | Record<string, unknown>
+              | undefined;
+            if (!fb || typeof fb !== "object") continue;
+            const s = fb.sentiment;
+            const comment =
+              typeof fb.comment === "string" ? fb.comment.trim() : "";
+            if (s === "down") {
+              negatives.push(
+                `- "${(row.title || "sem título").slice(0, 60)}"${comment ? ` — ${comment.slice(0, 280)}` : ""}`
+              );
+            } else if (s === "up" && comment) {
+              positives.push(
+                `- "${(row.title || "sem título").slice(0, 60)}" — ${comment.slice(0, 280)}`
+              );
+            }
+            if (negatives.length >= 5 && positives.length >= 3) break;
+          }
+          const parts: string[] = [];
+          if (negatives.length) {
+            parts.push(
+              `CARROSSÉIS QUE ESTE USUÁRIO MARCOU COMO RUINS — EVITE esses padrões (tema, estrutura, clichês, tom):\n${negatives.slice(0, 5).join("\n")}`
+            );
+          }
+          if (positives.length) {
+            parts.push(
+              `CARROSSÉIS QUE ESTE USUÁRIO MARCOU COMO BONS — reforce esses padrões quando fizer sentido:\n${positives.slice(0, 3).join("\n")}`
+            );
+          }
+          if (parts.length) {
+            feedbackContext = `\n${parts.join("\n\n")}\n`;
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "[generate] falha ao ler feedback do user:",
+          err instanceof Error ? err.message : err
+        );
+      }
     }
 
     const body: GenerateRequest = await request.json();
-    const { topic, sourceType, sourceUrl, niche, tone, language } = body;
+    const { topic, sourceType, sourceUrl, niche, tone, language, advanced } = body;
     // designTemplate no body é ignorado: mesmo prompt v1 para qualquer visual escolhido no cliente.
+
+    // Sanitiza campos do modo avançado — proteção contra prompt injection e tamanhos absurdos.
+    const advCustomCta =
+      typeof advanced?.customCta === "string"
+        ? advanced.customCta.trim().slice(0, 300)
+        : "";
+    const advHookDirection =
+      typeof advanced?.hookDirection === "string"
+        ? advanced.hookDirection.trim().slice(0, 400)
+        : "";
+    const advExtraContext =
+      typeof advanced?.extraContext === "string"
+        ? advanced.extraContext.trim().slice(0, 2000)
+        : "";
+    const advNumSlides =
+      typeof advanced?.numSlides === "number" &&
+      advanced.numSlides >= 6 &&
+      advanced.numSlides <= 12
+        ? Math.round(advanced.numSlides)
+        : null;
+    const advPreferredStyle =
+      advanced?.preferredStyle === "data" ||
+      advanced?.preferredStyle === "story" ||
+      advanced?.preferredStyle === "provocative"
+        ? advanced.preferredStyle
+        : null;
+    const advUploadedImages = Array.isArray(advanced?.uploadedImageUrls)
+      ? advanced.uploadedImageUrls
+          .filter((u): u is string => typeof u === "string" && u.length < 2000)
+          .slice(0, 12)
+      : [];
+    const advancedActive =
+      !!(advCustomCta || advHookDirection || advExtraContext || advNumSlides || advPreferredStyle);
 
     if (sourceType === "idea" && !topic) {
       return Response.json({ error: "Topic is required" }, { status: 400 });
@@ -243,15 +349,30 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
           ? "LANGUAGE: ESPAÑOL. Escribe todo el heading, body y CTA en español."
           : `LANGUAGE: ${language}`;
 
+    // Bloco de direcionamento do MODO AVANÇADO (sobrescreve defaults quando presente).
+    const advancedBlock = advancedActive
+      ? `
+# MODO AVANÇADO — DIRECIONAMENTOS EXPLÍCITOS DO USUÁRIO (prioridade alta)
+Esses direcionamentos VENCEM as defaults do prompt. Respeite literalmente.
+${advHookDirection ? `- Gancho (slide 1) deve: ${advHookDirection}\n` : ""}${advCustomCta ? `- CTA final EXATO a usar (não reescreva, mantenha a intenção): "${advCustomCta}"\n` : ""}${advNumSlides ? `- Número de slides desejado: EXATAMENTE ${advNumSlides} (incluindo hook e CTA).\n` : ""}${advPreferredStyle ? `- Estilo forçado: ENTREGUE APENAS A VARIAÇÃO "${advPreferredStyle}" (ignore as outras 2 — array variations terá 1 item só).\n` : ""}${advExtraContext ? `- Contexto adicional a considerar (dados, provas, quotes, exemplos do usuário):\n"""\n${advExtraContext}\n"""\n` : ""}
+Se algum desses itens contradizer outra instrução genérica, o direcionamento do usuário vence.
+`
+      : "";
+
     const systemPrompt = `You are a narrative architect for Instagram carousels and LinkedIn document posts. You think like a screenwriter — every slide is a scene that earns the next swipe.
 
 ${languageInstruction}
 TONE: ${tone || "professional"}
 NICHE: ${niche || "general"}
+${advancedBlock}
 ${brandContext ? `
 # BRAND VOICE INTEGRATION
 ${brandContext}
 IMPORTANT: Don't just acknowledge these brand signals — WEAVE them into the content. If the creator talks about marketing, use marketing examples. If their audience is founders, write FOR founders. If their tone is irreverent, match that energy. The carousel must sound like THIS creator wrote it, not a generic AI.
+` : ""}${feedbackContext ? `
+# LEARNING FROM USER FEEDBACK
+${feedbackContext}
+Trate esse sinal como ground truth da preferência do criador. Se contradizer outra instrução genérica, o feedback vence.
 ` : ""}
 
 # YOUR MISSION
@@ -259,60 +380,92 @@ Create 1 carousel (6-10 slides) built on NARRATIVE TENSION — a conflict betwee
 
 Formula: surface reading → friction → reframe → mechanism → proof → implication → expanded closing
 
-# SLIDE 1 — THE HOOK (0.7 seconds to stop the scroll)
-Max 8 words in the heading. Every word must earn its place.
+# GROUND TRUTH (regra inegociável — leia antes de tudo)
+NUNCA INVENTE: números, percentuais, nomes de empresas, valores em R$/US$, datas, fontes, citações atribuídas. Se o source content do usuário não traz um dado, você tem 3 opções:
+1. Usar número DERIVÁVEL de lógica (ex: "1 em cada 3") com caveat.
+2. Frame como anedota ("no meu último teste com X clientes...").
+3. Remover a métrica e ir pela especificidade qualitativa (nome de empresa, cena, objeto).
+Se em dúvida entre "R$47k em 23 dias" inventado vs "meu último ciclo de contratação" real, prefira o segundo. A sensação de especificidade vem de NOMES CONCRETOS, não de números fabricados.
 
-Hook patterns (pick the STRONGEST for this topic):
-- **Specific number + consequence**: "78% dos criadores cometem esse erro no slide 1"
-- **Contrarian rupture**: "Pare de fazer conteudo educativo." (challenges a belief)
-- **Vulnerable story**: "Perdi R$47k em 23 dias." (specificity + curiosity gap)
-- **Named tension**: "O algoritmo nao odeia voce. Seu hook sim."
+# HOOK ARCHETYPE LIBRARY — 12 arquétipos
+Escolha 1 arquétipo por variação. As 3 variações DEVEM usar 3 arquétipos DIFERENTES — nunca repita.
 
-Rules:
-- Heading = INTERRUPTION. Body = OPEN LOOP that only swiping resolves.
-- Never reveal the answer in slide 1. Create a gap the reader NEEDS to close.
-- Body's last line must tease slide 2. Example: "E o motivo nao e o que parece."
+1. DATA SHOCK — estatística específica que flipa crença comum. "95% das agências que escalam falham aos 18 meses."
+2. CONFESSION — erro admitido em primeira pessoa com custo. "Queimei R$230k contratando pra 'crescer'."
+3. ENEMY NAMING — nomear o vilão que o público já suspeita. "Sua meta de LinkedIn não tá falhando. Seu ICP tá errado."
+4. FORBIDDEN KNOWLEDGE — reveal de insider. "O que agência 50+ NUNCA te conta sobre margem."
+5. ANTI-GURU — contradiz conselho popular com aposta. "Pare de postar todo dia. Aqui o que substituí."
+6. SPECIFIC LOSS — número exato + janela curta. "Perdi 3 clientes em 11 dias. Um padrão só."
+7. TIME COMPRESSION — promessa absurda com plausibilidade. "O briefing de 40 min que vale R$18k."
+8. BEFORE/AFTER — declaração de mudança radical. "2023: 70h/semana. 2026: 20h. O que tirei."
+9. RITUAL EXPOSÉ — descrever comportamento escondido da elite. "O que founders Série A fazem às 6h e ninguém posta."
+10. META-CRITIQUE — virar o formato contra si. "Você vai scrollar 90% desse carrossel. Eu também faria."
+11. STATUS GAME — enquadrar insider vs outsider. "Existe um mercado de M&A em agência. Você não foi convidado."
+12. QUESTION DE RUPTURA — pergunta que contém a provocação. "E se o problema não for o alcance?"
 
-# SLIDES 2 to N-1 — THE BUILD (narrative engine)
+Regra: o hook do slide 1 tem max 8 palavras. Body do slide 1 abre um LOOP que só o próximo slide fecha.
 
-MICRO-CLIFFHANGER RULE: Every slide's body MUST end with a line that pulls the reader to the next slide. This is non-negotiable. Examples:
-- "Mas tem um detalhe que muda tudo."
-- "Esse nao e nem o maior problema."
-- "O terceiro e o mais perigoso."
-- "E aqui que a maioria para. Erro."
+# STAIRCASE RULE — estrutura narrativa obrigatória
+Cada slide tem um PAPEL NARRATIVO explícito. Planeje a escada ANTES de escrever. Slide N deve RESPONDER a pergunta levantada pelo slide N-1 — se o leitor ler só o slide N-1 e perguntar "e daí?" ou "por quê?", o slide N responde.
 
-PATTERN INTERRUPT RULE: Every 3rd slide must break the rhythm.
-- If slides 1-3 are statements → slide 4 is a question or surprising statistic
-- If slides 2-4 are analytical → slide 5 is a short personal story or metaphor
-- Never let 4 slides in a row follow the same structure
+Papéis disponíveis (não repita 2 seguidos):
+- SETUP: apresenta a dor/cenário em cena concreta
+- CLAIM: afirma a tese central (1 frase cortante)
+- EVIDENCE: traz o dado / caso / print
+- MECHANISM: explica POR QUE o fenômeno acontece
+- EXCEPTION: traz o "menos em X situação" que refina a tese
+- APPLICATION: mostra como aplicar
+- STAKES: eleva a consequência de ignorar
+- TWIST: reverte expectativa do leitor
+- CALLBACK-CTA: último slide, referencia hook + ação
 
-EMOTIONAL TRIGGER per slide (pick one):
-- CURIOSITY: "O que realmente acontece quando..."
-- FOMO: "Enquanto 92% ignora isso..."
-- AHA-MOMENT: "Aqui esta o mecanismo que ninguem explica."
+Exemplo de escada para 8 slides (data): HOOK → EVIDENCE → CLAIM → MECHANISM → EXCEPTION → APPLICATION → STAKES → CALLBACK-CTA
+Exemplo (story): HOOK → SETUP → STAKES → CLAIM → MECHANISM → TWIST → APPLICATION → CALLBACK-CTA
 
-Each slide:
-- ONE clear idea. One. Not two crammed together.
-- First 3 words = mini-hook that earns the swipe
-- Concrete specifics: names, percentages, timeframes. Never "muitas empresas" — always "3 em cada 10 startups Series A"
-- Body: max 3 short lines with line breaks for scan-reading
+TESTE DA ESCADA: lendo só os headings em sequência, a história fecha? Se não, reescreva.
 
-# LAST SLIDE — THE CTA (callback loop)
-The CTA MUST reference slide 1's hook — close the loop the reader opened.
+# SLIDES 2 to N-1 — THE BUILD
 
-Structure:
-1. Line 1: Callback to slide 1. If slide 1 said "78% dos criadores cometem esse erro" → CTA says "Agora que voce sabe qual e o erro dos 78%..."
-2. Line 2: Action optimized for algorithm. Priority: save > share > comment > like. Example: "Salva esse carrossel pra revisar antes do proximo post."
-3. Line 3: Social proof nudge. Example: "Manda pra aquele amigo que ainda acha que alcance organico morreu."
+MICRO-CLIFFHANGER: cada body termina com linha que puxa pro próximo slide. MAS proibido usar estas frases clichê (viraram meme):
+- "Mas tem um detalhe que muda tudo"
+- "Esse não é nem o maior problema"
+- "E aqui que a maioria para"
+- "Aguenta aí, porque..."
+Substitua por cliffhangers que SÓ funcionam nesse slide específico (referenciam dado, nome, cena do próprio slide).
 
-Never use: "me siga", "curta esse post", "comente abaixo" alone. Always tie the CTA to the CONTENT.
+PATTERN INTERRUPT: a cada 3 slides, quebre o ritmo. 3 statements → 1 pergunta. 3 analíticos → 1 metáfora curta. Nunca 4 slides em sequência com mesma estrutura.
+
+Cada slide: UMA ideia. Não duas. Primeiros 3 palavras = mini-hook. Body max 3 linhas com quebra de linha pra leitura rápida.
+
+# LAST SLIDE — CTA SEMÂNTICO (não templático)
+
+O CTA é a melhor linha do carrossel. Trate como tal.
+
+Regras semânticas — em qualquer ordem:
+(a) FECHAR o loop aberto no slide 1 (callback por TEMA, não por paráfrase literal)
+(b) Dar UMA ação específica ao conteúdo. NÃO peça "save / share / comment" genérico — peça algo que SÓ FAZ SENTIDO depois de ler ESSE carrossel. Ex: "Releia o slide 4 antes de mandar seu próximo briefing." ou "Testa isso em 1 cliente essa semana. Me conta o que aconteceu."
+(c) Opcional: prova social IMPLÍCITA (nome de empresa, número, resultado) — nunca "manda pra aquele amigo que...".
+
+PROIBIDO no CTA (viraram assinatura genérica de produto — detectáveis):
+- "Salva esse carrossel"
+- "Salva pra revisar depois"
+- "Me siga para mais"
+- "Manda pra aquele amigo que..."
+- "Comente X abaixo"
+- Qualquer frase que funcione em QUALQUER carrossel. Teste: troca o tema e o CTA ainda serve? Falhou — reescreva.
 
 # RADICAL SPECIFICITY (mandatory)
-BANNED forever: "muitas pessoas", "resultados incriveis", "game-changer", "nesse sentido", "atualmente", "e por isso que", "a maioria", "muito tempo", "grandes resultados"
-REQUIRED: every claim has a number ("78%", "R$12k", "23 minutos", "3 em cada 10"), a name, or a concrete example. No exceptions.
+BANNED forever: "muitas pessoas", "resultados incríveis", "game-changer", "nesse sentido", "atualmente", "e por isso que", "a maioria", "muito tempo", "grandes resultados", "descubra como", "o segredo", "guia definitivo"
+REQUIRED: todo claim tem um número (verificável!), um nome próprio, ou um exemplo concreto. Zero exceção.
 
-# STYLE
-Choose: data (statistics/proof-driven), story (narrative/personal), or provocative (contrarian/bold). Pick whichever creates the strongest emotional arc for THIS specific topic.
+# STYLE — as 3 variações DEVEM ser radicalmente diferentes
+Escolha: data / story / provocative. Cada variação NÃO é só o mesmo carrossel com adjetivos trocados — é uma arquitetura narrativa diferente:
+
+- **data**: arco construído sobre 3-5 dados que se encadeiam. Voz analítica. Paleta de números. Mechanism explícito.
+- **story**: arco em primeira pessoa ou case específico. Cena, personagem, tempo, consequência. Sem lista — narrativa linear.
+- **provocative**: contradiz uma premissa do nicho, nomeia um inimigo (prática/crença/pessoa), traz prova. NÃO é "data com ponto de exclamação" — é Nassim Taleb, não Pablo Marçal.
+
+Se as 3 variações têm estruturas parecidas trocando só adjetivos, VOCÊ FALHOU. Reescreva.
 
 # VISUAL RHYTHM — per-slide VARIANT (MANDATORY)
 Cada slide DECLARA seu layout. O carrossel só "funciona visualmente" se você variar. Dois slides seguidos iguais = carrossel morto.
@@ -349,15 +502,16 @@ O campo "imageQuery" alimenta geração/busca de imagem. Regras:
 1. ESPECIFICIDADE TOTAL pra o slide: leia heading E body inteiro antes de escrever. A imagem deve ser a CENA que esse slide conta.
 2. 4-8 keywords em inglês (não 3-6). Mais específico = melhor.
 3. Sempre inclua SUBJECT + AÇÃO/ESTADO + AMBIENTE. Ex: "young founder" (subject) + "staring at laptop" (ação) + "dim home office late night" (ambiente).
-4. Se o slide é sobre dado/contraste: descreva a CENA da consequência (não o gráfico abstrato). "burnout entrepreneur receipts scattered desk" é melhor que "financial crisis chart".
-5. Modifier estéticos obrigatórios: sempre termine com 1 desses pra dar direção visual:
-   - "editorial photography documentary style natural light"
-   - "cinematic still hard shadow 35mm film grain"
-   - "overhead flat-lay soft window light"
-   - "close-up macro shallow depth of field"
-   - "wide environmental portrait golden hour"
+4. Se o slide é sobre algo abstrato (estratégia, IA, futuro), CONVERTA EM CENA: pergunte "QUEM faz isso, EM QUAL ambiente, COM QUAL objeto físico?" e descreva.
+5. Se o slide é sobre dado/contraste: descreva a CENA da consequência (não o gráfico abstrato). "burnout entrepreneur receipts scattered desk" é melhor que "financial crisis chart".
 
-BANIDAS (nunca use — puxam stock genérico): "strategy", "innovation", "growth", "AI", "future", "success", "business", "digital", "mindset", "impact", "transformation", "leadership", "teamwork", "collaboration".
+MODIFIER ESTÉTICO — 1 POR VARIAÇÃO (coerência inter-slide):
+Escolha UM modifier abaixo e aplique em TODOS os slides da MESMA variação (não troque slide-a-slide — isso é que faz o carrossel parecer "de fotógrafos diferentes"):
+- Variação **data** → SEMPRE "close-up macro shallow depth of field 35mm film grain"
+- Variação **story** → SEMPRE "cinematic still hard shadow 35mm film grain warm palette"
+- Variação **provocative** → SEMPRE "editorial documentary natural window light muted palette"
+
+BANIDAS (nunca use — puxam stock genérico): "strategy", "innovation", "growth", "AI", "future", "success", "business", "digital", "mindset", "impact", "transformation", "leadership", "teamwork", "collaboration", "technology" (sim, esse também).
 
 Exemplos bons (heading/body → imageQuery):
 - "78% dos criadores travam no slide 1" / "O hook é a maior queda de visualização"
@@ -368,6 +522,22 @@ Exemplos bons (heading/body → imageQuery):
   → "three gears turning metal machinery close-up macro shallow depth of field"
 - "O algoritmo não te odeia" / "Seu post médio odeia"
   → "person scrolling phone in dark room blue screen glow cinematic still hard shadow 35mm film grain"
+
+# QUALITY GATES — antes de emitir o JSON, FAÇA ESSE CHECK MENTAL
+Cada item abaixo deve passar. Se qualquer um falhar, REESCREVA — não retorne carrossel fraco.
+
+[ ] 1. TESTE DA ESCADA: lendo só os headings em sequência, a história fecha?
+[ ] 2. TESTE DA REMOÇÃO: removendo qualquer slide do meio, o carrossel PERDE algo real? Se não, mate e reescreva.
+[ ] 3. TESTE DA ESPECIFICIDADE: cada claim tem número, nome próprio, ou cena concreta — nenhum "muitas empresas"?
+[ ] 4. TESTE DA INVENÇÃO: todo número/empresa/dado citado existe no source ou está formulado como anedota/estimativa?
+[ ] 5. TESTE DO CTA: o CTA funcionaria SÓ para esse carrossel? Se serve pra qualquer, falhou.
+[ ] 6. TESTE DO ARQUÉTIPO: as 3 variações usaram 3 arquétipos DIFERENTES de hook (dos 12)?
+[ ] 7. TESTE DO SLIDE 2: o slide 2 entrega um segundo golpe (dado, contraste, cena) — não é expansão morna do slide 1?
+[ ] 8. TESTE DA VARIANT: nenhum variant visual se repete 2x seguidas; slide 1 e 2 são diferentes.
+[ ] 9. TESTE DA VOZ: se o usuário forneceu voice_samples, pelo menos 2 tiques de linguagem das amostras aparecem no output.
+[ ] 10. TESTE DO JARGÃO: nenhuma banida aparece; nenhum "você precisa / você deve" guru; cliffhanger não-clichê.
+
+Só depois, retorne o JSON.
 
 # OUTPUT FORMAT
 Return valid JSON with exactly 3 variations — one in each style (data, story, provocative).
@@ -516,6 +686,7 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
           body?: unknown;
           imageQuery?: unknown;
           variant?: unknown;
+          imageUrl?: unknown;
         };
         const heading =
           typeof raw.heading === "string" && raw.heading.trim()
@@ -527,6 +698,10 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
             : "";
         const imageQuery =
           typeof raw.imageQuery === "string" ? raw.imageQuery : "";
+        const imageUrl =
+          typeof raw.imageUrl === "string" && raw.imageUrl.trim()
+            ? raw.imageUrl
+            : undefined;
         // Só força CTA no último (closing sempre precisa fechar o loop).
         // Slide 1 fica como o Gemini decidiu (cover, headline, quote, etc.).
         // Se veio lixo, cai na distribuição de fallback (cover pra o primeiro).
@@ -538,7 +713,7 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
         } else {
           variant = normalizeVariant(raw.variant, i, total);
         }
-        return { heading, body, imageQuery, variant };
+        return { heading, body, imageQuery, variant, ...(imageUrl ? { imageUrl } : {}) };
       });
 
       // Anti-monotonia: se os 2 primeiros slides saíram com o mesmo variant
@@ -560,6 +735,26 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
             variant: contrast[v1] ?? "photo",
           };
         }
+      }
+    }
+
+    // MODO AVANÇADO — pós-processamento
+    // Se o user travou um estilo, filtra as variações pra ficar só com ele.
+    if (advPreferredStyle && result.variations.length > 1) {
+      const filtered = result.variations.filter(
+        (v) => (v as { style?: string }).style === advPreferredStyle
+      );
+      if (filtered.length > 0) {
+        result.variations = filtered.slice(0, 1);
+      }
+    }
+
+    // Se o user subiu imagens, injeta como imageUrl final nos slides na ordem
+    // fornecida. Front pula fetch de imagem pra esses slides.
+    if (advUploadedImages.length > 0 && result.variations[0]?.slides) {
+      for (let i = 0; i < Math.min(advUploadedImages.length, result.variations[0].slides.length); i++) {
+        (result.variations[0].slides[i] as { imageUrl?: string }).imageUrl =
+          advUploadedImages[i];
       }
     }
 

@@ -105,22 +105,19 @@ ${brand.pillars ? `- Pilares de conteúdo: ${brand.pillars}\n` : ""}${brand.audi
 
 Dada uma sequência de slides de carrossel, escreva a LEGENDA do post seguindo:
 
-ESTRUTURA OBRIGATÓRIA:
-1) HOOK (1 linha, interrompe o scroll, sem clickbait vazio)
-2) [linha em branco]
-3) CORPO (2 a 4 parágrafos CURTOS, com linha em branco entre cada um.
-   Desenvolve a promessa do carrossel. Inclua PELO MENOS 1 dado concreto
-   OU contraste provocador. Máximo 3 frases por parágrafo.)
-4) [linha em branco]
-5) CTA final (1 linha — pergunta genuína OU chamada direta)
-6) [linha em branco]
-7) [---]
-8) [linha em branco]
-9) HASHTAGS: 5 a 8 hashtags contextuais, relevantes. Inclua 1-2 mais nichadas
-   e 1-2 mais abrangentes.
+ESTRUTURA SEMÂNTICA (não visual — sem separadores tipo "---" ou "━━━"):
+- Comece com um hook que REFLETE o slide 1 (sem copiar literal).
+- Desenvolva em 1 a 3 parágrafos curtos (max 3 frases cada), com linha em branco entre eles.
+- Inclua pelo menos 1 dado concreto OU contraste do carrossel — nunca invente dado novo que não estava nos slides.
+- Feche com UMA pergunta genuína OU uma provocação (não "salva esse carrossel").
+- Hashtags: 3 a 6 no máximo, TODAS nichadas (zero #love #brasil #instagood). NO LINKEDIN (se \`niche\` indicar): ZERO hashtag.
 
-BANIDO: emojis decorativos. "descubra como", "o segredo", "você precisa saber",
-"muitas pessoas". Hashtags genéricas tipo #instagood #love #brasil.
+BANIDO:
+- Separadores visuais ("---", "━━━", "===")
+- Emojis decorativos
+- Clichês: "descubra como", "o segredo", "guia definitivo", "você precisa saber", "muitas pessoas"
+- CTA genérico: "salva esse carrossel", "me siga para mais", "manda pra aquele amigo"
+- Hashtags mainstream
 
 TOM: ${tone || "profissional, direto, analítico"}
 IDIOMA: ${language || "pt-BR"}
@@ -129,10 +126,10 @@ ${brandBlock}
 Retorne JSON: { "caption": "texto completo com quebras \\n", "hashtags": ["#a", "#b"] }
 
 Importante:
-- A "caption" deve conter \\n explicitamente entre parágrafos e antes/depois do separador "---".
+- A "caption" deve conter \\n explicitamente entre parágrafos. SEM separador visual "---".
 - Não envolva a caption em aspas extras nem em markdown.
 - As hashtags no array NÃO precisam aparecer duplicadas dentro da caption; elas serão renderizadas separadas.
-- Total da caption ~800 a 1500 caracteres (conta sem hashtags).`;
+- Total da caption ~500 a 1200 caracteres (conta sem hashtags). Menor e mais denso vence maior e diluído.`;
 }
 
 function buildUserMessage(

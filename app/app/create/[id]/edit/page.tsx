@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useDraft, useAutoSaveDraft } from "@/lib/create/use-draft";
 import { useImages } from "@/lib/create/use-images";
+import CarouselFeedbackPanel from "@/components/app/carousel-feedback";
+import { supabase } from "@/lib/supabase";
 import type {
   CreateSlide,
   SlideLayers,
@@ -534,6 +536,7 @@ export default function EditPage(props: {
         contextHeading: s.heading,
         contextBody: s.body,
         mode: "search",
+        designTemplate: templateId,
       });
       if (res.appliedUrl) updateSlide(targetIndex, { imageUrl: res.appliedUrl });
     } catch {
@@ -559,6 +562,7 @@ export default function EditPage(props: {
         contextHeading: s.heading,
         contextBody: s.body,
         mode: "generate",
+        designTemplate: templateId,
       });
       if (res.appliedUrl) {
         updateSlide(targetIndex, { imageUrl: res.appliedUrl });
@@ -1488,6 +1492,22 @@ export default function EditPage(props: {
         }}
       >
         Template: <strong>{selectedMeta?.name ?? templateId}</strong>
+      </div>
+
+      <div
+        style={{
+          marginTop: 14,
+          paddingTop: 14,
+          borderTop: "1px dashed var(--sv-ink)",
+        }}
+      >
+        <CarouselFeedbackPanel
+          carouselId={draft?.id ?? null}
+          userId={user?.id}
+          supabase={supabase}
+          initial={draft?.feedback ?? null}
+          compact
+        />
       </div>
     </div>
   );

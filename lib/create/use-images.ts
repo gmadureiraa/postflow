@@ -17,6 +17,8 @@ export interface RefetchImageInput {
   peopleMode?: "auto" | "with_people" | "no_people";
   contextHeading?: string;
   contextBody?: string;
+  /** Template visual do carrossel — determina style guide do prompt Imagen. */
+  designTemplate?: "manifesto" | "futurista" | "autoral" | "twitter";
 }
 
 export function useImages(session: Session | null) {
@@ -40,7 +42,7 @@ export function useImages(session: Session | null) {
             mode,
             niche: input.niche,
             tone: input.tone,
-            designTemplate: "twitter",
+            designTemplate: input.designTemplate ?? "manifesto",
             peopleMode: input.peopleMode ?? "auto",
             contextHeading: input.contextHeading?.slice(0, 400),
             contextBody: input.contextBody?.slice(0, 500),

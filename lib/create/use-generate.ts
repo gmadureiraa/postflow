@@ -30,6 +30,15 @@ export interface GenerateConceptsInput {
   sourceUrl?: string;
 }
 
+export interface AdvancedGenerationOptions {
+  customCta?: string;
+  hookDirection?: string;
+  numSlides?: number;
+  preferredStyle?: "data" | "story" | "provocative";
+  extraContext?: string;
+  uploadedImageUrls?: string[];
+}
+
 export interface GenerateCarouselInput {
   concept: CreateConcept;
   niche: string;
@@ -38,6 +47,7 @@ export interface GenerateCarouselInput {
   designTemplate?: string;
   sourceType?: "idea" | "link" | "video" | "instagram" | "ai";
   sourceUrl?: string;
+  advanced?: AdvancedGenerationOptions;
 }
 
 export function useGenerate(session: Session | null) {
@@ -84,7 +94,7 @@ export function useGenerate(session: Session | null) {
       setError(null);
       setLoadingCarousel(true);
       try {
-        const { concept } = input;
+        const { concept, advanced } = input;
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: jsonWithAuth(session),
@@ -95,7 +105,8 @@ export function useGenerate(session: Session | null) {
             niche: input.niche,
             tone: input.tone,
             language: input.language,
-            designTemplate: input.designTemplate ?? "twitter",
+            designTemplate: input.designTemplate ?? "manifesto",
+            advanced: advanced ?? undefined,
           }),
         });
         const ct = res.headers.get("content-type") || "";

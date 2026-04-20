@@ -155,6 +155,19 @@ export default function NewCarouselPage() {
   const [lang, setLang] = useState<Lang>("pt-br");
   const [submitting, setSubmitting] = useState(false);
 
+  // Modo avançado — dá mais controle ao usuário sobre a geração.
+  // Fica escondido atrás de um toggle pra não assustar usuário novo.
+  const [advOpen, setAdvOpen] = useState(false);
+  const [advHookDirection, setAdvHookDirection] = useState("");
+  const [advCustomCta, setAdvCustomCta] = useState("");
+  const [advExtraContext, setAdvExtraContext] = useState("");
+  const [advNumSlides, setAdvNumSlides] = useState<number | "">("");
+  const [advPreferredStyle, setAdvPreferredStyle] =
+    useState<"" | "data" | "story" | "provocative">("");
+  const [advUploadedUrls, setAdvUploadedUrls] = useState<string[]>([]);
+  const [advUploading, setAdvUploading] = useState(false);
+  const advFileInputRef = useRef<HTMLInputElement>(null);
+
   // Fase atual do progresso (usado no overlay pra dizer o que está rolando).
   const [phase, setPhase] = useState<
     "generating" | "images" | "finalizing" | null
@@ -240,6 +253,47 @@ export default function NewCarouselPage() {
     return e.message;
   }
 
+  async function handleAdvancedUpload(files: FileList | null) {
+    if (!files || files.length === 0 || !user || !supabase) return;
+    if (advUploadedUrls.length + files.length > 8) {
+      toast.error("Máximo de 8 imagens no modo avançado.");
+      return;
+    }
+    setAdvUploading(true);
+    try {
+      const uploads = Array.from(files).map(async (file) => {
+        if (!file.type.startsWith("image/")) {
+          throw new Error(`"${file.name}" não é imagem.`);
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(`"${file.name}" maior que 5MB.`);
+        }
+        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = `user-uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error } = await supabase!.storage
+          .from("carousel-images")
+          .upload(path, file, {
+            contentType: file.type,
+            upsert: false,
+            cacheControl: "31536000",
+          });
+        if (error) throw new Error(error.message);
+        const { data: pub } = supabase!.storage
+          .from("carousel-images")
+          .getPublicUrl(path);
+        return pub.publicUrl;
+      });
+      const urls = await Promise.all(uploads);
+      setAdvUploadedUrls((prev) => [...prev, ...urls]);
+      toast.success(`${urls.length} imagem(ns) adicionada(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao subir imagem.");
+    } finally {
+      setAdvUploading(false);
+      if (advFileInputRef.current) advFileInputRef.current.value = "";
+    }
+  }
+
   async function handleSubmit() {
     if (!idea.trim()) {
       toast.error("Escreva uma ideia antes de seguir.");
@@ -268,6 +322,29 @@ export default function NewCarouselPage() {
       });
 
       // 2) Gera carrossel direto — passa o brief como topic + URL detectada.
+      //    Se modo avançado tá aberto, passa overrides junto.
+      const advanced =
+        advOpen &&
+        (advHookDirection.trim() ||
+          advCustomCta.trim() ||
+          advExtraContext.trim() ||
+          advNumSlides !== "" ||
+          advPreferredStyle !== "" ||
+          advUploadedUrls.length > 0)
+          ? {
+              hookDirection: advHookDirection.trim() || undefined,
+              customCta: advCustomCta.trim() || undefined,
+              extraContext: advExtraContext.trim() || undefined,
+              numSlides:
+                advNumSlides !== ""
+                  ? Math.min(12, Math.max(6, Number(advNumSlides)))
+                  : undefined,
+              preferredStyle: advPreferredStyle || undefined,
+              uploadedImageUrls:
+                advUploadedUrls.length > 0 ? advUploadedUrls : undefined,
+            }
+          : undefined;
+
       const variations = await generateCarousel({
         concept: {
           title: idea.slice(0, 80),
@@ -280,6 +357,7 @@ export default function NewCarouselPage() {
         language: lang,
         sourceType,
         sourceUrl,
+        advanced,
       });
       const chosen = variations[0];
       if (!chosen) throw new Error("IA não devolveu slides.");
@@ -291,6 +369,13 @@ export default function NewCarouselPage() {
       setImagesProgress({ done: 0, total: chosen.slides.length });
       const slidesWithImages = await Promise.all(
         chosen.slides.map(async (slide, idx) => {
+          // Se já veio imageUrl (modo avançado com upload), pula fetch.
+          if (slide.imageUrl && typeof slide.imageUrl === "string") {
+            setImagesProgress((prev) =>
+              prev ? { ...prev, done: prev.done + 1 } : null
+            );
+            return slide;
+          }
           const query = (slide.imageQuery || slide.heading || "").slice(0, 300);
           if (!query.trim()) {
             setImagesProgress((prev) =>
@@ -308,7 +393,7 @@ export default function NewCarouselPage() {
                 mode: "search",
                 niche,
                 tone,
-                designTemplate: "twitter",
+                designTemplate: "manifesto",
                 peopleMode: "auto",
                 contextHeading: slide.heading?.slice(0, 400) ?? "",
                 contextBody: slide.body?.slice(0, 500) ?? "",
@@ -545,6 +630,345 @@ export default function NewCarouselPage() {
             >
               A IA decide a quantidade de slides e o CTA ideal pra cada ângulo.
             </p>
+          </div>
+
+          {/* ───── MODO AVANÇADO (collapsible) ───── */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setAdvOpen((v) => !v)}
+              className="flex w-full items-center justify-between transition-colors"
+              style={{
+                padding: "11px 14px",
+                border: "1.5px solid var(--sv-ink)",
+                background: advOpen ? "var(--sv-ink)" : "var(--sv-white)",
+                color: advOpen ? "var(--sv-paper)" : "var(--sv-ink)",
+                boxShadow: "3px 3px 0 0 var(--sv-ink)",
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10.5,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: advOpen ? "var(--sv-green)" : "var(--sv-muted)",
+                  }}
+                />
+                Modo avançado
+              </span>
+              <span style={{ fontSize: 14, lineHeight: 1 }}>
+                {advOpen ? "−" : "+"}
+              </span>
+            </button>
+
+            <AnimatePresence initial={false}>
+              {advOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <div
+                    className="mt-3 flex flex-col gap-4"
+                    style={{
+                      padding: "16px",
+                      border: "1.5px solid var(--sv-ink)",
+                      background: "var(--sv-paper)",
+                    }}
+                  >
+                    {/* Hook direction */}
+                    <label className="flex flex-col gap-1.5">
+                      <span
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          color: "var(--sv-muted)",
+                        }}
+                      >
+                        Gancho · direcionamento
+                      </span>
+                      <input
+                        type="text"
+                        value={advHookDirection}
+                        onChange={(e) => setAdvHookDirection(e.target.value)}
+                        maxLength={400}
+                        placeholder="Ex: foca em founder B2B que já queimou dinheiro com ads"
+                        style={{
+                          padding: 10,
+                          fontSize: 13,
+                          fontFamily: "var(--sv-sans)",
+                          border: "1.5px solid var(--sv-ink)",
+                          background: "var(--sv-white)",
+                          outline: 0,
+                        }}
+                      />
+                    </label>
+
+                    {/* Custom CTA */}
+                    <label className="flex flex-col gap-1.5">
+                      <span
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          color: "var(--sv-muted)",
+                        }}
+                      >
+                        CTA · texto ou intenção
+                      </span>
+                      <input
+                        type="text"
+                        value={advCustomCta}
+                        onChange={(e) => setAdvCustomCta(e.target.value)}
+                        maxLength={300}
+                        placeholder="Ex: convida pro meu grupo no WhatsApp / baixe o template"
+                        style={{
+                          padding: 10,
+                          fontSize: 13,
+                          fontFamily: "var(--sv-sans)",
+                          border: "1.5px solid var(--sv-ink)",
+                          background: "var(--sv-white)",
+                          outline: 0,
+                        }}
+                      />
+                    </label>
+
+                    {/* Num slides + style */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="flex flex-col gap-1.5">
+                        <span
+                          style={{
+                            fontFamily: "var(--sv-mono)",
+                            fontSize: 10,
+                            letterSpacing: "0.16em",
+                            textTransform: "uppercase",
+                            color: "var(--sv-muted)",
+                          }}
+                        >
+                          Slides (6-12)
+                        </span>
+                        <input
+                          type="number"
+                          min={6}
+                          max={12}
+                          value={advNumSlides}
+                          onChange={(e) =>
+                            setAdvNumSlides(
+                              e.target.value === "" ? "" : Number(e.target.value)
+                            )
+                          }
+                          placeholder="Auto"
+                          style={{
+                            padding: 10,
+                            fontSize: 13,
+                            fontFamily: "var(--sv-sans)",
+                            border: "1.5px solid var(--sv-ink)",
+                            background: "var(--sv-white)",
+                            outline: 0,
+                          }}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span
+                          style={{
+                            fontFamily: "var(--sv-mono)",
+                            fontSize: 10,
+                            letterSpacing: "0.16em",
+                            textTransform: "uppercase",
+                            color: "var(--sv-muted)",
+                          }}
+                        >
+                          Travar estilo
+                        </span>
+                        <select
+                          value={advPreferredStyle}
+                          onChange={(e) =>
+                            setAdvPreferredStyle(
+                              e.target.value as
+                                | ""
+                                | "data"
+                                | "story"
+                                | "provocative"
+                            )
+                          }
+                          style={{
+                            padding: 10,
+                            fontSize: 13,
+                            fontFamily: "var(--sv-sans)",
+                            border: "1.5px solid var(--sv-ink)",
+                            background: "var(--sv-white)",
+                            outline: 0,
+                          }}
+                        >
+                          <option value="">Gerar as 3 variações</option>
+                          <option value="data">Só data</option>
+                          <option value="story">Só story</option>
+                          <option value="provocative">Só provocative</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {/* Extra context */}
+                    <label className="flex flex-col gap-1.5">
+                      <span
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          color: "var(--sv-muted)",
+                        }}
+                      >
+                        Contexto extra · dados, quotes, cases
+                      </span>
+                      <textarea
+                        value={advExtraContext}
+                        onChange={(e) => setAdvExtraContext(e.target.value)}
+                        maxLength={2000}
+                        rows={4}
+                        placeholder="Cola aqui dados, quotes, links, cases que você quer que a IA considere..."
+                        style={{
+                          padding: 10,
+                          fontSize: 13,
+                          fontFamily: "var(--sv-sans)",
+                          border: "1.5px solid var(--sv-ink)",
+                          background: "var(--sv-white)",
+                          outline: 0,
+                          resize: "vertical",
+                          minHeight: 80,
+                        }}
+                      />
+                    </label>
+
+                    {/* Uploaded images */}
+                    <div className="flex flex-col gap-2">
+                      <span
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          color: "var(--sv-muted)",
+                        }}
+                      >
+                        Suas imagens (max 8)
+                      </span>
+                      {advUploadedUrls.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {advUploadedUrls.map((url, i) => (
+                            <div
+                              key={url}
+                              style={{
+                                position: "relative",
+                                width: 56,
+                                height: 56,
+                                border: "1.5px solid var(--sv-ink)",
+                                background: "var(--sv-white)",
+                              }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`Upload ${i + 1}`}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAdvUploadedUrls((prev) =>
+                                    prev.filter((u) => u !== url)
+                                  )
+                                }
+                                aria-label="Remover"
+                                style={{
+                                  position: "absolute",
+                                  top: -8,
+                                  right: -8,
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: "50%",
+                                  background: "var(--sv-ink)",
+                                  color: "var(--sv-paper)",
+                                  border: 0,
+                                  fontSize: 10,
+                                  lineHeight: 1,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <input
+                        ref={advFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleAdvancedUpload(e.target.files)}
+                        style={{ display: "none" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => advFileInputRef.current?.click()}
+                        disabled={advUploading || advUploadedUrls.length >= 8}
+                        className="self-start"
+                        style={{
+                          padding: "9px 14px",
+                          border: "1.5px dashed var(--sv-ink)",
+                          background: "var(--sv-white)",
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 10,
+                          letterSpacing: "0.16em",
+                          textTransform: "uppercase",
+                          cursor:
+                            advUploading || advUploadedUrls.length >= 8
+                              ? "not-allowed"
+                              : "pointer",
+                          opacity:
+                            advUploading || advUploadedUrls.length >= 8
+                              ? 0.5
+                              : 1,
+                        }}
+                      >
+                        {advUploading ? "Subindo..." : "+ Adicionar foto"}
+                      </button>
+                      <p
+                        style={{
+                          fontFamily: "var(--sv-mono)",
+                          fontSize: 9,
+                          color: "var(--sv-muted)",
+                          letterSpacing: "0.1em",
+                          marginTop: 2,
+                        }}
+                      >
+                        As fotos entram na ordem (1ª foto → slide 1, 2ª → slide 2…).
+                        Max 5MB cada.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <button
