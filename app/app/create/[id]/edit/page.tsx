@@ -1440,22 +1440,6 @@ export default function EditPage(props: {
       <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <button
           type="button"
-          onClick={() => void openGalleryFor(activeIndex)}
-          className="sv-btn sv-btn-outline"
-          style={{
-            width: "100%",
-            justifyContent: "center",
-            padding: "8px 10px",
-            fontSize: 9.5,
-            gridColumn: "1 / -1",
-            background: "var(--sv-green)",
-            fontWeight: 700,
-          }}
-        >
-          ✦ Escolher da minha galeria
-        </button>
-        <button
-          type="button"
           onClick={() => void handleSearchImage(activeIndex)}
           disabled={imagesHook.loadingIndex === activeIndex}
           className="sv-btn sv-btn-outline"

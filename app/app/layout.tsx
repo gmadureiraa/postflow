@@ -32,7 +32,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/app", label: "Início", icon: LayoutDashboard },
   { href: "/app/create/new", label: "Criar", icon: PlusCircle },
   { href: "/app/carousels", label: "Carrosséis", icon: FolderOpen },
-  { href: "/app/gallery", label: "Galeria", icon: ImageIcon },
+  // Galeria temporariamente oculta (/app/gallery, /api/gallery ainda existem).
+  // Pra reativar, descomentar a linha abaixo.
+  // { href: "/app/gallery", label: "Galeria", icon: ImageIcon },
   { href: "/app/plans", label: "Assinar", icon: Sparkles, badge: "Pro" },
   { href: "/app/help", label: "Guia", icon: BookOpen },
   { href: "/app/roadmap", label: "Roadmap", icon: Map },

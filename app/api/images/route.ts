@@ -11,6 +11,8 @@ import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { costForImages, recordGeneration } from "@/lib/server/generation-log";
 import { saveToUserGallery } from "@/lib/server/user-images";
 
+export const maxDuration = 60;
+
 const MAX_QUERY_LEN = 500;
 
 function clip(s: string, n: number): string {
@@ -43,9 +45,36 @@ export async function POST(request: Request) {
     }
     const { user } = auth;
 
+    const body = await request.json();
+    const {
+      query,
+      mode,
+      niche,
+      tone,
+      designTemplate,
+      contextHeading,
+      contextBody,
+      peopleMode: peopleModeRaw,
+      isCover,
+    } = body as {
+      query?: string;
+      mode?: "search" | "generate";
+      niche?: string;
+      tone?: string;
+      designTemplate?: DesignTemplateId;
+      contextHeading?: string;
+      contextBody?: string;
+      peopleMode?: ImagePeopleMode;
+      isCover?: boolean;
+    };
+
+    // Rate limit dividido por modo: generate (Imagen, $0.04/imagem) é
+    // mais restrito que search (Serper, ~grátis).
+    const rlBucket = mode === "generate" ? "images-generate" : "images-search";
+    const rlLimit = mode === "generate" ? 40 : 120;
     const limiter = checkRateLimit({
-      key: getRateLimitKey(request, "images-search", user.id),
-      limit: 100,
+      key: getRateLimitKey(request, rlBucket, user.id),
+      limit: rlLimit,
       windowMs: 60 * 60 * 1000,
     });
     if (!limiter.allowed) {
@@ -59,27 +88,6 @@ export async function POST(request: Request) {
         }
       );
     }
-
-    const body = await request.json();
-    const {
-      query,
-      mode,
-      niche,
-      tone,
-      designTemplate,
-      contextHeading,
-      contextBody,
-      peopleMode: peopleModeRaw,
-    } = body as {
-      query?: string;
-      mode?: "search" | "generate";
-      niche?: string;
-      tone?: string;
-      designTemplate?: DesignTemplateId;
-      contextHeading?: string;
-      contextBody?: string;
-      peopleMode?: ImagePeopleMode;
-    };
 
     if (!query || typeof query !== "string") {
       return Response.json(
@@ -165,26 +173,35 @@ export async function POST(request: Request) {
             ? `BRAND AESTHETIC (follow this visual language strictly): ${brandAesthetic}`
             : DEFAULT_BASELINE;
 
+          // Cover (slide 1) recebe reforço dramático — é a primeira impressão
+          // do carrossel. Precisa ser CINEMATOGRÁFICO e MUITO ligado ao tema.
+          const coverBoost = isCover
+            ? "COVER SHOT: this is the opening slide of a scroll-stopping carousel. Make it DRAMATIC, cinematic, editorial-magazine-cover quality. Strong composition: single subject in center-frame OR powerful environmental shot that screams the topic. High contrast, intentional lighting (red/amber glow, blue hour, hard window light). This image must look like a Netflix poster or a Vogue cover — not a stock photo. Tight emotional framing, subject centered, visual tension. Viewer must stop scroll in 0.3s."
+            : "";
           const imagePrompt = [
             // 1. Estética dominante (brand + template style guide)
             aestheticPrefix,
             `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
-            // 2. Frame + people
+            // 2. Cover boost se aplicável
+            coverBoost,
+            // 3. Frame + people
             "Instagram carousel square frame (1:1).",
             peopleInstr,
-            // 3. Contexto de nicho/tom
+            // 4. Contexto de nicho/tom
             nicheHint,
             toneHint,
-            // 4. Tema do slide
+            // 5. Tema do slide (REFORÇADO — aparece 2x pra Imagen pesar mais)
             slideThemeHint
-              ? `Slide theme — the image mood, setting, and subject matter must directly reflect this content (no readable text in frame): ${slideThemeHint}.`
+              ? `CRITICAL — this image must DIRECTLY depict: ${slideThemeHint}. The mood, setting, and subject must be unmistakably connected to this theme. No readable text in the frame.`
               : "",
             `Primary subject / visual focus: ${query}.`,
-            // 5. Paleta
+            // 6. Paleta
             preferHex,
             avoidHex,
-            // 6. Técnica + constraints duros
-            "Technical: sharp focus on subject, natural color, believable shadows, 8K detail level, documentary realism.",
+            // 7. Técnica + constraints duros
+            isCover
+              ? "Technical: ultra-sharp focus, cinematic color grading, dramatic shadows, film grain, 8K detail, shallow depth of field, editorial magazine photography."
+              : "Technical: sharp focus on subject, natural color, believable shadows, 8K detail level, documentary realism.",
             "Hard constraints: no text, no letters, no watermarks, no logos, no UI mockups with readable text.",
           ]
             .filter(Boolean)

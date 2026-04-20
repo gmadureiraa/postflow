@@ -629,11 +629,28 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
     const systemPrompt =
       mode === "layout-only" ? layoutOnlyPrompt : writerPrompt;
 
+    // Source content (transcrição YouTube, scrape de link, legenda de Instagram):
+    // antes fatiava em 3000 chars — transcript de vídeo longo perdia metade.
+    // Raise pra 6000 (custa ~1.5k tokens extras, vale a pena pra fidelidade).
+    const SOURCE_SLICE = 6000;
+    if (sourceContent) {
+      console.log(
+        `[generate] sourceType=${sourceType} sourceContent=${sourceContent.length}chars (sliced to ${Math.min(
+          sourceContent.length,
+          SOURCE_SLICE
+        )})`
+      );
+    }
+
     const userMessage =
       mode === "layout-only"
-        ? `TEXTO DO USUÁRIO PRA FORMATAR EM SLIDES (preserve wording, ordem, dados, CTA):\n\n"""\n${topic}\n"""${sourceContent ? `\n\nFonte adicional (se relevante pra citar):\n${sourceContent.slice(0, 3000)}` : ""}`
+        ? // Em layout-only + source: o transcript/scrape VIRA o texto a ser formatado
+          // (não é "fonte adicional", é O conteúdo). Topic do user é só hint/contexto.
+          sourceContent
+          ? `TEXTO PRA FORMATAR EM SLIDES — extraído da fonte (${sourceType}). Preserve wording, ordem, dados, fale da cabeça do autor quando fizer sentido:\n\n"""\n${sourceContent.slice(0, SOURCE_SLICE)}\n"""${topic && topic.trim().length > 50 ? `\n\nContexto/direcionamento do usuário:\n${topic.slice(0, 1000)}` : ""}`
+          : `TEXTO DO USUÁRIO PRA FORMATAR EM SLIDES (preserve wording, ordem, dados, CTA):\n\n"""\n${topic}\n"""`
         : sourceContent
-          ? `Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
+          ? `Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}\n\nSource (${sourceType}):\n${sourceContent.slice(0, SOURCE_SLICE)}`
           : `Create 3 carousel variations (data, story, provocative) about: ${topic}`;
 
     // 3. Increment usage BEFORE calling AI — ensures quota is always counted

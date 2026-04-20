@@ -159,6 +159,13 @@ export default function NewCarouselPage() {
   // Default writer (comportamento antigo). Layout-only = preserva wording.
   const [mode, setMode] = useState<"writer" | "layout-only">("writer");
 
+  // Template visual escolhido antes de gerar — determina a lógica de imagem:
+  // - twitter: busca stock (Serper)
+  // - manifesto/futurista/autoral: gera imagem cinematográfica (Imagen)
+  const [designTemplate, setDesignTemplate] = useState<
+    "manifesto" | "futurista" | "autoral" | "twitter"
+  >("manifesto");
+
   // Modo avançado — dá mais controle ao usuário sobre a geração.
   // Fica escondido atrás de um toggle pra não assustar usuário novo.
   const [advOpen, setAdvOpen] = useState(false);
@@ -289,16 +296,6 @@ export default function NewCarouselPage() {
       });
       const urls = await Promise.all(uploads);
       setAdvUploadedUrls((prev) => [...prev, ...urls]);
-      // Registra cada upload na galeria pra reuso futuro.
-      void Promise.all(
-        urls.map((url) =>
-          fetch("/api/gallery", {
-            method: "POST",
-            headers: jsonWithAuth(session),
-            body: JSON.stringify({ url, source: "uploaded" }),
-          }).catch(() => null)
-        )
-      );
       toast.success(`${urls.length} imagem(ns) adicionada(s).`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao subir imagem.");
@@ -375,6 +372,7 @@ export default function NewCarouselPage() {
         language: lang,
         sourceType,
         sourceUrl,
+        designTemplate,
         advanced,
         mode,
       });
@@ -386,6 +384,13 @@ export default function NewCarouselPage() {
       //    pode trocar pra Imagen no editor depois.
       setPhase("images");
       setImagesProgress({ done: 0, total: chosen.slides.length });
+      // Lógica por template:
+      // - twitter: busca stock (Serper) — imagens candid pra ficar como "post real"
+      // - manifesto/futurista/autoral: gera cinematográfico (Imagen) na capa + headlines/photo
+      //   variants; quote/cta sem imagem (são tipográficos); restante buscar stock
+      //   editorial se não for cover.
+      const imageMode: "search" | "generate" =
+        designTemplate === "twitter" ? "search" : "generate";
       const slidesWithImages = await Promise.all(
         chosen.slides.map(async (slide, idx) => {
           // Se já veio imageUrl (modo avançado com upload), pula fetch.
@@ -395,6 +400,17 @@ export default function NewCarouselPage() {
             );
             return slide;
           }
+          // Quote/cta em templates editoriais não precisam de imagem (são puramente tipográficos).
+          const skipImage =
+            imageMode === "generate" &&
+            (slide.variant === "quote" || slide.variant === "cta");
+          if (skipImage) {
+            setImagesProgress((prev) =>
+              prev ? { ...prev, done: prev.done + 1 } : null
+            );
+            return slide;
+          }
+
           const query = (slide.imageQuery || slide.heading || "").slice(0, 300);
           if (!query.trim()) {
             setImagesProgress((prev) =>
@@ -402,6 +418,10 @@ export default function NewCarouselPage() {
             );
             return slide;
           }
+
+          // Capa (idx 0) recebe reforço dramático/cinematográfico.
+          const isCover = idx === 0;
+
           try {
             const res = await fetch("/api/images", {
               method: "POST",
@@ -409,15 +429,18 @@ export default function NewCarouselPage() {
               body: JSON.stringify({
                 query,
                 count: 1,
-                mode: "search",
+                mode: imageMode,
                 niche,
                 tone,
-                designTemplate: "manifesto",
+                designTemplate,
                 peopleMode: "auto",
                 contextHeading: slide.heading?.slice(0, 400) ?? "",
                 contextBody: slide.body?.slice(0, 500) ?? "",
+                // Flag extra pra /api/images reforçar o prompt do Imagen quando cover.
+                isCover,
               }),
-              signal: AbortSignal.timeout(12_000),
+              // Imagen demora mais que Serper — timeout maior pra gerar.
+              signal: AbortSignal.timeout(imageMode === "generate" ? 45_000 : 12_000),
             });
             if (!res.ok) throw new Error(`images ${res.status}`);
             const data = (await res.json()) as {
@@ -438,7 +461,9 @@ export default function NewCarouselPage() {
         })
       );
 
-      // 4) Persiste slides com imagens.
+      // 4) Persiste slides com imagens. Template já foi escolhido antes
+      //    de gerar — salva visualTemplate pra pular /templates e ir direto
+      //    pro editor.
       setPhase("finalizing");
       await upsertUserCarousel(supabase, user.id, {
         id: row.id,
@@ -446,13 +471,15 @@ export default function NewCarouselPage() {
         slides: slidesWithImages,
         slideStyle: "white",
         status: "draft",
+        visualTemplate: designTemplate,
         variation: {
           title: chosen.title || idea.slice(0, 80),
           style: `${tone}|${lang}|${niche}`,
         },
       });
 
-      router.push(`/app/create/${row.id}/templates`);
+      // Template já escolhido — pula /templates e vai direto pro editor.
+      router.push(`/app/create/${row.id}/edit?template=${designTemplate}`);
     } catch (err) {
       toast.error(explainGenError(err));
     } finally {
@@ -596,6 +623,132 @@ export default function NewCarouselPage() {
                       }}
                     >
                       {opt.sub}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── SELETOR DE TEMPLATE VISUAL ── */}
+          <div>
+            <div
+              className="mb-2"
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10.5,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+              }}
+            >
+              Template visual · define estética e tipo de imagem
+            </div>
+            <div
+              className="grid gap-2"
+              style={{
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              }}
+              role="radiogroup"
+            >
+              {(
+                [
+                  {
+                    id: "manifesto" as const,
+                    name: "Manifesto",
+                    mood: "Editorial · creme + preto",
+                    imageType: "IA cinematográfico",
+                    accent: "#0A0A0A",
+                  },
+                  {
+                    id: "futurista" as const,
+                    name: "Futurista",
+                    mood: "Dark tech · navy + mint",
+                    imageType: "IA cinematográfico",
+                    accent: "#00F0A0",
+                  },
+                  {
+                    id: "autoral" as const,
+                    name: "Autoral",
+                    mood: "Zine 35mm · creme + pink",
+                    imageType: "IA cinematográfico",
+                    accent: "#D262B2",
+                  },
+                  {
+                    id: "twitter" as const,
+                    name: "Thread (X)",
+                    mood: "Tweet screenshot",
+                    imageType: "Busca stock",
+                    accent: "#1D9BF0",
+                  },
+                ] as const
+              ).map((tpl) => {
+                const selected = designTemplate === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setDesignTemplate(tpl.id)}
+                    className="text-left transition-all"
+                    style={{
+                      padding: "10px 12px",
+                      border: "1.5px solid var(--sv-ink)",
+                      background: selected
+                        ? "var(--sv-ink)"
+                        : "var(--sv-white)",
+                      color: selected ? "var(--sv-paper)" : "var(--sv-ink)",
+                      boxShadow: selected
+                        ? `3px 3px 0 0 ${tpl.accent}`
+                        : "2px 2px 0 0 var(--sv-ink)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        style={{
+                          display: "inline-block",
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: tpl.accent,
+                          border: `1.5px solid ${selected ? "var(--sv-paper)" : "var(--sv-ink)"}`,
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontFamily: "var(--sv-sans)",
+                          fontSize: 13,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {tpl.name}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9.5,
+                        letterSpacing: "0.06em",
+                        marginTop: 4,
+                        opacity: selected ? 0.75 : 0.6,
+                      }}
+                    >
+                      {tpl.mood}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 9,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        marginTop: 2,
+                        opacity: selected ? 0.6 : 0.5,
+                      }}
+                    >
+                      {tpl.imageType}
                     </div>
                   </button>
                 );
