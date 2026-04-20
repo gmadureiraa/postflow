@@ -32,7 +32,7 @@ const FREE_FEATURES = [
 
 const PRO_FEATURES = PLANS.pro.features.slice(0, 5);
 const BUSINESS_FEATURES = [
-  "Carrosséis ilimitados",
+  "150 carrosséis/mês",
   "Voz da IA configurável",
   "Referências visuais por marca",
   "1 perfil de marca",

@@ -52,7 +52,7 @@ const PLAN_META: Record<
     price: 2990,       // $29.90 lançamento
     discountLabel: "25% de lançamento",
     features: [
-      "Carrosséis ilimitados",
+      "150 carrosséis/mês",
       "3 seats inclusos",
       "Custom branding",
       "Analytics avançado",

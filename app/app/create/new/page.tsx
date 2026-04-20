@@ -451,15 +451,13 @@ export default function NewCarouselPage() {
       //   editorial se não for cover.
       const imageMode: "search" | "generate" =
         designTemplate === "twitter" ? "search" : "generate";
-      // Slides que o usuário subiu imagem: primeiros N recebem em ordem,
-      // pulando slides que são quote/cta (tipográficos) quando isso economiza
-      // upload desperdiçado em slide sem imagem. Mantém ordem pra ser
-      // previsível ("minha primeira foto vira a capa").
-      const uploadedQueue = [...advUploadedUrls];
-
+      // Nota: server já injetou as imagens do usuário nos slides 0..N-1 (ordem
+      // fornecida). Aqui só tratamos slides SEM imageUrl (precisam fetch).
+      // Isso evita o bug de duplicar URLs entre slides que o server já cobriu
+      // e o resto da sequência.
       const slidesWithImages = await Promise.all(
         chosen.slides.map(async (slide, idx) => {
-          // Se já veio imageUrl (raro — algum fluxo antigo), pula fetch.
+          // Se já veio imageUrl (server injetou do upload do user), pula fetch.
           if (slide.imageUrl && typeof slide.imageUrl === "string") {
             setImagesProgress((prev) =>
               prev ? { ...prev, done: prev.done + 1 } : null
@@ -475,15 +473,6 @@ export default function NewCarouselPage() {
               prev ? { ...prev, done: prev.done + 1 } : null
             );
             return slide;
-          }
-
-          // Prioridade 1: imagens que o usuário subiu. Consome em ordem FIFO.
-          if (uploadedQueue.length > 0) {
-            const nextUrl = uploadedQueue.shift()!;
-            setImagesProgress((prev) =>
-              prev ? { ...prev, done: prev.done + 1 } : null
-            );
-            return { ...slide, imageUrl: nextUrl };
           }
 
           const query = (slide.imageQuery || slide.heading || "").slice(0, 300);
@@ -1313,117 +1302,10 @@ export default function NewCarouselPage() {
                       />
                     </label>
 
-                    {/* Uploaded images */}
-                    <div className="flex flex-col gap-2">
-                      <span
-                        style={{
-                          fontFamily: "var(--sv-mono)",
-                          fontSize: 10,
-                          letterSpacing: "0.16em",
-                          textTransform: "uppercase",
-                          color: "var(--sv-muted)",
-                        }}
-                      >
-                        Suas imagens (max 8)
-                      </span>
-                      {advUploadedUrls.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {advUploadedUrls.map((url, i) => (
-                            <div
-                              key={url}
-                              style={{
-                                position: "relative",
-                                width: 56,
-                                height: 56,
-                                border: "1.5px solid var(--sv-ink)",
-                                background: "var(--sv-white)",
-                              }}
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={url}
-                                alt={`Upload ${i + 1}`}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setAdvUploadedUrls((prev) =>
-                                    prev.filter((u) => u !== url)
-                                  )
-                                }
-                                aria-label="Remover"
-                                style={{
-                                  position: "absolute",
-                                  top: -8,
-                                  right: -8,
-                                  width: 18,
-                                  height: 18,
-                                  borderRadius: "50%",
-                                  background: "var(--sv-ink)",
-                                  color: "var(--sv-paper)",
-                                  border: 0,
-                                  fontSize: 10,
-                                  lineHeight: 1,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <input
-                        ref={advFileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleAdvancedUpload(e.target.files)}
-                        style={{ display: "none" }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => advFileInputRef.current?.click()}
-                        disabled={advUploading || advUploadedUrls.length >= 8}
-                        className="self-start"
-                        style={{
-                          padding: "9px 14px",
-                          border: "1.5px dashed var(--sv-ink)",
-                          background: "var(--sv-white)",
-                          fontFamily: "var(--sv-mono)",
-                          fontSize: 10,
-                          letterSpacing: "0.16em",
-                          textTransform: "uppercase",
-                          cursor:
-                            advUploading || advUploadedUrls.length >= 8
-                              ? "not-allowed"
-                              : "pointer",
-                          opacity:
-                            advUploading || advUploadedUrls.length >= 8
-                              ? 0.5
-                              : 1,
-                        }}
-                      >
-                        {advUploading ? "Subindo..." : "+ Adicionar foto"}
-                      </button>
-                      <p
-                        style={{
-                          fontFamily: "var(--sv-mono)",
-                          fontSize: 9,
-                          color: "var(--sv-muted)",
-                          letterSpacing: "0.1em",
-                          marginTop: 2,
-                        }}
-                      >
-                        As fotos entram na ordem (1ª foto → slide 1, 2ª → slide 2…).
-                        Max 5MB cada.
-                      </p>
-                    </div>
+                    {/* Upload duplicado foi removido — já existe como card
+                        primary acima do modo avançado. Ref compartilhada
+                        causava bug de React anexando o ref ao input mais
+                        recente mounted. */}
                   </div>
                 </motion.div>
               )}

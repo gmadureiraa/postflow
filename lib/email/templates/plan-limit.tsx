@@ -35,9 +35,9 @@ export function PlanLimitEmail({
           : `${firstName}, só ${remaining} ${remaining === 1 ? "carrossel" : "carrosséis"} até o fim do ciclo.`}
       </EmailHeadline>
       <EmailText>
-        O plano <strong>Pro</strong> (US$ 9,99/mês) libera 30 carrosséis e
-        remove a marca d&apos;água. O <strong>Business</strong> (US$ 29,99) é
-        ilimitado — pensado pra quem publica todo dia.
+        O plano <strong>Pro</strong> (US$ 9,90/mês) libera 30 carrosséis e
+        remove a marca d&apos;água. O <strong>Agência</strong> (US$ 29,90)
+        libera 150/mês — pensado pra quem publica todo dia.
       </EmailText>
       <EmailButton href={`${appUrl}/app/checkout?plan=pro`}>
         Assinar Pro e continuar publicando

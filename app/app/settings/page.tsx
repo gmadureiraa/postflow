@@ -8,7 +8,6 @@ import {
   PLANS,
   type PlanId,
   FREE_PLAN_USAGE_LIMIT,
-  BUSINESS_USAGE_LIMIT_SENTINEL,
 } from "@/lib/pricing";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -686,15 +685,8 @@ function SettingsPageContent() {
   const plan = profile?.plan ?? "free";
   const used = profile?.usage_count ?? 0;
   const limit = profile?.usage_limit ?? FREE_PLAN_USAGE_LIMIT;
-  const isUnlimited =
-    plan === "business" ||
-    (typeof limit === "number" && limit >= BUSINESS_USAGE_LIMIT_SENTINEL);
-  const usageRatio = isUnlimited
-    ? 0
-    : Math.max(0, Math.min(1, limit > 0 ? used / limit : 0));
-  const usageLabel = isUnlimited
-    ? `${used} carrosséis neste ciclo · ilimitado`
-    : `${used} / ${limit} carrosséis neste ciclo`;
+  const usageRatio = Math.max(0, Math.min(1, limit > 0 ? used / limit : 0));
+  const usageLabel = `${used} / ${limit} carrosséis neste ciclo`;
 
   const planName =
     plan === "free"
@@ -2494,7 +2486,7 @@ function SettingsPageContent() {
                     <div
                       className="absolute inset-y-0 left-0"
                       style={{
-                        width: isUnlimited ? "100%" : `${usageRatio * 100}%`,
+                        width: `${usageRatio * 100}%`,
                         background: "var(--sv-green)",
                       }}
                     />

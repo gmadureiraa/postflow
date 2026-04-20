@@ -35,11 +35,11 @@ export function OnboardingWhyUpgradeEmail({
         <strong>Grátis</strong>: 5 carrosséis/mês, marca d&apos;água discreta,
         estilo branco.
         <br />
-        <strong>Pro · $9,99/mês</strong>: 30 carrosséis, zero marca
+        <strong>Pro · $9,90/mês</strong>: 30 carrosséis, zero marca
         d&apos;água, claro+escuro, imagens com IA/busca, 1 perfil.
         <br />
-        <strong>Business · $29,99/mês</strong>: ilimitado, 3 seats, API,
-        analytics, custom branding.
+        <strong>Agência · $29,90/mês</strong>: 150 carrosséis, 3 seats,
+        API, analytics, custom branding.
       </EmailText>
       <EmailText>
         Matemática simples: 1 carrossel postado = 1 oportunidade de

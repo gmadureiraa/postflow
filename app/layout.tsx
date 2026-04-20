@@ -152,7 +152,7 @@ const jsonLd = {
       price: "29.99",
       priceCurrency: "USD",
       billingIncrement: "P1M",
-      description: "Carrosséis ilimitados, API, 3 seats, analytics",
+      description: "150 carrosséis/mês, API, 3 seats, analytics",
     },
   ],
   featureList: [

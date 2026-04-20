@@ -111,7 +111,7 @@ export function FAQSection(props: FAQSectionProps = {}) {
   return (
     <section id="faq" style={{ padding: "0 0 96px" }}>
       <div className="mx-auto max-w-[1240px] px-6">
-        <SectionHead num="10" sub={sub} tag={tag}>
+        <SectionHead num="07" sub={sub} tag={tag}>
           {heading ?? (
             <>
               Perguntas <em>antes</em> de pagar.
