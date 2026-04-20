@@ -215,11 +215,12 @@ export default function TemplatesPage(props: {
           color: "var(--sv-muted)",
           fontSize: 15,
           lineHeight: 1.55,
-          maxWidth: 560,
+          maxWidth: 620,
         }}
       >
-        Mesmo texto, 4 estéticas. Você pode trocar a qualquer momento — o
-        conteúdo não se perde.
+        Clique em um template pra selecionar. O preview abaixo mostra os
+        slides reais do seu carrossel em cada estética — pode trocar a
+        qualquer momento sem perder o conteúdo.
       </p>
 
       {/* Grid 2x2 com previews REAIS */}
@@ -391,24 +392,45 @@ export default function TemplatesPage(props: {
         <button
           type="button"
           className="sv-btn sv-btn-outline"
-          onClick={() => router.push("/app/create/new")}
+          onClick={() => router.push(`/app/create/${draft.id}/edit`)}
         >
-          ← Voltar
+          ← Voltar pro editor
         </button>
-        <button
-          type="button"
-          onClick={handleContinue}
-          disabled={!selected || saving}
-          className="sv-btn sv-btn-primary"
-          style={{
-            padding: "14px 22px",
-            fontSize: 11.5,
-            opacity: !selected || saving ? 0.55 : 1,
-            cursor: !selected || saving ? "not-allowed" : "pointer",
-          }}
-        >
-          {saving ? "Salvando..." : "Customizar template →"}
-        </button>
+        <div className="flex items-center gap-3">
+          {selected && draft.visualTemplate && selected !== draft.visualTemplate && (
+            <span
+              className="uppercase"
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                fontWeight: 700,
+                color: "var(--sv-pink)",
+              }}
+            >
+              ✱ Trocando de {TEMPLATE_NAME_OVERRIDE[draft.visualTemplate] ?? draft.visualTemplate} →{" "}
+              {TEMPLATE_NAME_OVERRIDE[selected] ?? selected}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!selected || saving}
+            className="sv-btn sv-btn-primary"
+            style={{
+              padding: "14px 22px",
+              fontSize: 11.5,
+              opacity: !selected || saving ? 0.55 : 1,
+              cursor: !selected || saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving
+              ? "Salvando..."
+              : selected && draft.visualTemplate && selected !== draft.visualTemplate
+                ? "Aplicar template e continuar →"
+                : "Continuar pro editor →"}
+          </button>
+        </div>
       </div>
     </motion.div>
   );

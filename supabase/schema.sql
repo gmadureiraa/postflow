@@ -220,6 +220,47 @@ begin
 end;
 $$;
 
+-- Atomic check-and-increment: elimina TOCTOU entre node check + rpc increment.
+create or replace function public.try_increment_usage_count(uid uuid)
+returns table(allowed boolean, new_count int, usage_limit int, plan text)
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  row_limit int;
+  row_plan text;
+  row_count int;
+begin
+  update public.profiles
+     set usage_count = usage_count + 1,
+         updated_at = now()
+   where id = uid
+     and usage_count < usage_limit
+  returning usage_count, usage_limit, plan
+    into row_count, row_limit, row_plan;
+
+  if found then
+    allowed := true;
+    new_count := row_count;
+    usage_limit := row_limit;
+    plan := row_plan;
+    return next;
+  else
+    select p.usage_count, p.usage_limit, p.plan
+      into row_count, row_limit, row_plan
+      from public.profiles p
+     where p.id = uid;
+    allowed := false;
+    new_count := coalesce(row_count, 0);
+    usage_limit := coalesce(row_limit, 5);
+    plan := coalesce(row_plan, 'free');
+    return next;
+  end if;
+end;
+$$;
+
+grant execute on function public.try_increment_usage_count(uuid) to authenticated, service_role;
+
 -- ============================================================
 -- MONTHLY USAGE RESET (run via pg_cron or Supabase cron)
 -- Schedule: SELECT cron.schedule('reset-monthly-usage', '0 0 1 * *', $$SELECT public.reset_monthly_usage()$$);

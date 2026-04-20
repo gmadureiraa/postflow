@@ -133,11 +133,45 @@ export async function POST(request: Request) {
       );
     }
 
-    // Single query: plan check + brand context
+    // Atomic check-and-increment — elimina race condition onde duas
+    // requests simultâneas com count = limit - 1 passariam pelo check
+    // e ambas incrementariam. A RPC faz UPDATE condicional e retorna se
+    // foi permitido. Se não tiver RPC disponível (ambiente antigo), faz
+    // fallback pro check + increment sequencial (mantém compatibilidade
+    // enquanto migration não roda).
     const sb = createServiceRoleSupabaseClient();
     let brandContext = "";
     let feedbackContext = "";
+    let usageAlreadyIncremented = false;
     if (sb) {
+      const { data: gate, error: gateErr } = await sb.rpc(
+        "try_increment_usage_count",
+        { uid: user.id }
+      );
+      if (!gateErr && Array.isArray(gate) && gate[0]) {
+        const row = gate[0] as {
+          allowed: boolean;
+          new_count: number;
+          usage_limit: number;
+          plan: string;
+        };
+        if (!row.allowed) {
+          return Response.json(
+            {
+              error: `Você atingiu o limite de ${row.usage_limit} carrosséis do plano ${row.plan || "free"}. Faça upgrade para continuar gerando.`,
+              code: "PLAN_LIMIT_REACHED",
+            },
+            { status: 403 }
+          );
+        }
+        usageAlreadyIncremented = true;
+      } else if (gateErr) {
+        console.warn(
+          "[generate] try_increment_usage_count RPC indisponível, usando fallback:",
+          gateErr.message
+        );
+      }
+
       const { data: prof } = await sb
         .from("profiles")
         .select("usage_count, usage_limit, plan, brand_analysis")
@@ -146,7 +180,7 @@ export async function POST(request: Request) {
       if (prof) {
         const limit = prof.usage_limit ?? 5;
         const count = prof.usage_count ?? 0;
-        if (count >= limit) {
+        if (!usageAlreadyIncremented && count >= limit) {
           return Response.json(
             {
               error: `Você atingiu o limite de ${limit} carrosséis do plano ${prof.plan || "free"}. Faça upgrade para continuar gerando.`,
@@ -757,8 +791,9 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
           : `Create 3 carousel variations (data, story, provocative) about: ${topic}`;
 
     // 3. Increment usage BEFORE calling AI — ensures quota is always counted
-    //    even if the response fails or user closes the tab.
-    if (sb) {
+    //    even if the response fails or user closes the tab. Se a RPC
+    //    atômica já fez o increment, pula essa etapa.
+    if (sb && !usageAlreadyIncremented) {
       const { error: incErr } = await sb.rpc("increment_usage_count", { uid: user.id });
       if (incErr) {
         console.warn("[generate] RPC increment failed, falling back:", incErr.message);
