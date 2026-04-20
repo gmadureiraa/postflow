@@ -155,6 +155,10 @@ export default function NewCarouselPage() {
   const [lang, setLang] = useState<Lang>("pt-br");
   const [submitting, setSubmitting] = useState(false);
 
+  // Modo de geração — decisão MAIS importante: IA escreve vs IA só formata.
+  // Default writer (comportamento antigo). Layout-only = preserva wording.
+  const [mode, setMode] = useState<"writer" | "layout-only">("writer");
+
   // Modo avançado — dá mais controle ao usuário sobre a geração.
   // Fica escondido atrás de um toggle pra não assustar usuário novo.
   const [advOpen, setAdvOpen] = useState(false);
@@ -285,6 +289,16 @@ export default function NewCarouselPage() {
       });
       const urls = await Promise.all(uploads);
       setAdvUploadedUrls((prev) => [...prev, ...urls]);
+      // Registra cada upload na galeria pra reuso futuro.
+      void Promise.all(
+        urls.map((url) =>
+          fetch("/api/gallery", {
+            method: "POST",
+            headers: jsonWithAuth(session),
+            body: JSON.stringify({ url, source: "uploaded" }),
+          }).catch(() => null)
+        )
+      );
       toast.success(`${urls.length} imagem(ns) adicionada(s).`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao subir imagem.");
@@ -362,6 +376,7 @@ export default function NewCarouselPage() {
         sourceType,
         sourceUrl,
         advanced,
+        mode,
       });
       const chosen = variations[0];
       if (!chosen) throw new Error("IA não devolveu slides.");
@@ -496,10 +511,106 @@ export default function NewCarouselPage() {
       {/* Single column centralizada — sem painel lateral */}
       <div className="mt-5" style={{ minWidth: 0 }}>
         <div className="flex flex-col gap-4" style={{ minWidth: 0 }}>
+          {/* ── TOGGLE WRITER / LAYOUT-ONLY (decisão principal) ── */}
+          <div>
+            <div
+              className="mb-2"
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10.5,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--sv-muted)",
+              }}
+            >
+              O que a IA deve fazer com o seu texto?
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+              {(
+                [
+                  {
+                    id: "writer" as const,
+                    title: "Escrever pra mim",
+                    sub: "Uso seu briefing como inspiração, aplico hooks, escada, CTA.",
+                  },
+                  {
+                    id: "layout-only" as const,
+                    title: "Só aplicar meu texto",
+                    sub: "Já escrevi. Você só quebra em slides — preserva wording, ordem, CTA.",
+                  },
+                ] as const
+              ).map((opt) => {
+                const selected = mode === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setMode(opt.id)}
+                    className="text-left transition-all"
+                    style={{
+                      padding: "12px 14px",
+                      border: "1.5px solid var(--sv-ink)",
+                      background: selected
+                        ? "var(--sv-ink)"
+                        : "var(--sv-white)",
+                      color: selected ? "var(--sv-paper)" : "var(--sv-ink)",
+                      boxShadow: selected
+                        ? "3px 3px 0 0 var(--sv-green)"
+                        : "3px 3px 0 0 var(--sv-ink)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          border: `1.5px solid ${selected ? "var(--sv-green)" : "var(--sv-ink)"}`,
+                          background: selected
+                            ? "var(--sv-green)"
+                            : "transparent",
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontFamily: "var(--sv-sans)",
+                          fontSize: 13.5,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {opt.title}
+                      </div>
+                    </div>
+                    <div
+                      className="mt-1"
+                      style={{
+                        fontFamily: "var(--sv-sans)",
+                        fontSize: 11.5,
+                        lineHeight: 1.4,
+                        opacity: selected ? 0.85 : 0.7,
+                      }}
+                    >
+                      {opt.sub}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <textarea
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
-            placeholder="Ex: A estratégia dos três zeros da Coca-Cola e por que ela redefine o mercado de bebidas..."
+            placeholder={
+              mode === "layout-only"
+                ? "Cole aqui seu texto pronto. A IA vai preservar todo wording, só quebra em slides..."
+                : "Ex: A estratégia dos três zeros da Coca-Cola e por que ela redefine o mercado de bebidas..."
+            }
             style={{
               minHeight: 150,
               fontFamily: "var(--sv-sans)",

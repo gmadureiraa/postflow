@@ -24,6 +24,8 @@ interface AdvancedGenerationOptions {
   uploadedImageUrls?: string[];
 }
 
+type GenerationMode = "writer" | "layout-only";
+
 interface GenerateRequest {
   topic: string;
   sourceType: "idea" | "link" | "video" | "instagram" | "ai";
@@ -35,6 +37,11 @@ interface GenerateRequest {
   designTemplate?: DesignTemplateId;
   /** Modo avançado — campos opcionais pra dar mais controle ao usuário. */
   advanced?: AdvancedGenerationOptions;
+  /**
+   * Writer (default): IA usa briefing como inspiração, escreve com archetypes + escada.
+   * Layout-only: IA APENAS distribui o texto em slides, preserva wording, zero reescrita.
+   */
+  mode?: GenerationMode;
 }
 
 type SlideVariant = "cover" | "headline" | "photo" | "quote" | "split" | "cta";
@@ -237,6 +244,8 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
 
     const body: GenerateRequest = await request.json();
     const { topic, sourceType, sourceUrl, niche, tone, language, advanced } = body;
+    const mode: GenerationMode =
+      body.mode === "layout-only" ? "layout-only" : "writer";
     // designTemplate no body é ignorado: mesmo prompt v1 para qualquer visual escolhido no cliente.
 
     // Sanitiza campos do modo avançado — proteção contra prompt injection e tamanhos absurdos.
@@ -359,36 +368,66 @@ Se algum desses itens contradizer outra instrução genérica, o direcionamento 
 `
       : "";
 
-    const systemPrompt = `You are a narrative architect for Instagram carousels and LinkedIn document posts. You think like a screenwriter — every slide is a scene that earns the next swipe.
+    // ── LAYOUT-ONLY MODE — prompt minimalista, NÃO escreve ──
+    const layoutOnlyPrompt = `Você é um FORMATADOR de texto em slides de carrossel. O usuário já escreveu o conteúdo. Sua ÚNICA função é distribuir esse texto em slides de Instagram/LinkedIn.
+
+${languageInstruction}
+
+# REGRAS INEGOCIÁVEIS
+
+1. **PRESERVE O WORDING**: use as frases do usuário literalmente. NÃO reescreva. NÃO "melhore". NÃO adicione adjetivos. NÃO troque palavras por sinônimos.
+2. **PRESERVE A ORDEM**: a ordem narrativa do texto do usuário é a ordem dos slides.
+3. **PRESERVE DADOS E NOMES**: todo número, percentual, valor, empresa, pessoa, ferramenta citado pelo usuário vai LITERAL nos slides.
+4. **PRESERVE O CTA**: se o usuário terminou com um CTA, esse é o último slide (variant "cta"). Não invente CTA novo.
+5. **ZERO REESCRITA**: se a frase do usuário pode virar heading OU body sem mudar palavras, use assim. Quebra de heading/body é OPÇÃO DE EDIÇÃO, não de reescrita.
+
+# O QUE VOCÊ FAZ
+
+- DIVIDE o texto em 6-10 slides. Cada slide tem UMA ideia central.
+- EXTRAI heading (frase curta, cortante, até 10 palavras) do trecho — pode ser a primeira frase OU uma síntese LITERAL do trecho.
+- COLOCA o resto como body (preserva parágrafos do usuário).
+- APLICA variant visual pra ritmo: primeiro slide pode ser "cover", últimos CTA é "cta", meio alterna entre "headline", "photo", "split", "quote" (só variar ritmo visual, não muda conteúdo).
+- GERA imageQuery por slide: 4-6 palavras em inglês, cena concreta, modifier estético ("editorial documentary natural light"). Slide que fala de dados → close-up da consequência; slide de história → cena com pessoa.
+
+# O QUE VOCÊ NÃO FAZ
+
+- NÃO adiciona slides novos que o usuário não escreveu.
+- NÃO reescreve frases "ruins" — o gosto é do usuário, não seu.
+- NÃO adiciona cliffhangers, hooks, archetypes se não estavam lá.
+- NÃO muda o CTA.
+- NÃO inventa dado, empresa, nome, número.
+
+${advancedBlock}
+
+# OUTPUT
+Retorne APENAS 1 variação (array \`variations\` com 1 item), style: "story" como default.
+
+\`\`\`json
+{
+  "variations": [
+    {
+      "title": "título curto baseado no texto do usuário",
+      "style": "story",
+      "ctaType": "save",
+      "slides": [
+        { "heading": "string literal do user", "body": "resto do trecho preservado", "imageQuery": "english keywords", "variant": "cover|headline|photo|quote|split|cta" }
+      ]
+    }
+  ]
+}
+\`\`\`
+
+TESTE ANTES DE RETORNAR: leia os slides gerados. O usuário reconhece as frases dele? Se você reescreveu qualquer frase, VOLTA e usa o wording original.`;
+
+    // ── WRITER MODE — prompt completo com archetypes + escada ──
+    const writerPrompt = `You are a narrative architect for Instagram carousels and LinkedIn document posts. You think like a screenwriter — every slide is a scene that earns the next swipe.
 
 ${languageInstruction}
 TONE: ${tone || "professional"}
 NICHE: ${niche || "general"}
 ${advancedBlock}
 
-# REGRA #0 — FIDELIDADE AO BRIEFING DO USUÁRIO (acima de TUDO abaixo)
-
-Leia o briefing do usuário com atenção ANTES de aplicar qualquer regra deste prompt. Se o briefing contém:
-- Slides prontos ou estruturados (listas, numeração, divisões claras)
-- Hooks específicos com wording próprio ("X% dos Y...", "Pare de...", aspas)
-- Frases/claims com palavras escolhidas
-- Dados/números concretos (percentuais, valores, datas, nomes)
-- CTA específico ("manda mensagem", "comenta X", "vai no link")
-- Ordem narrativa explícita ("primeiro X, depois Y, por fim Z")
-- Exemplos/cases nomeados (empresas, pessoas, produtos)
-
-... então SUA FUNÇÃO É EDITOR, NÃO ESCRITOR. Você:
-1. MANTÉM o wording do usuário (frases literais quando já boas).
-2. RESPEITA a ordem narrativa que ele indicou.
-3. PRESERVA todos os dados/números/nomes que ele trouxe (zero invenção).
-4. DISTRIBUI o conteúdo em slides (heading + body), aplicando variants visuais e micro-cliffhangers entre slides — SEM reescrever o argumento.
-5. USA o CTA específico que ele deu, se deu.
-
-Regras abaixo (12 archetypes, staircase, quality gates) se aplicam SOMENTE quando o briefing é vago/conceitual (ex: "carrossel sobre marketing B2B"). NUNCA sobrescrevem o briefing cheio.
-
-TESTE: antes de gerar, pergunte mentalmente — "o usuário reconheceria esse carrossel como dele?". Se a resposta é não, você traiu a regra #0.
-
-Se o briefing tem mais de 200 palavras e traz frases específicas/estrutura implícita, assuma que é CONTEÚDO PRONTO e respeite.
+O briefing do usuário é sua INSPIRAÇÃO — use pra entender tema, ângulo e voz. Você VAI escrever o carrossel (não apenas formatar). Preserve dados e nomes específicos que o usuário trouxe (zero invenção), mas aplique hooks, tensão narrativa, cliffhangers e CTA como um copywriter profissional.
 ${brandContext ? `
 # BRAND VOICE INTEGRATION
 ${brandContext}
@@ -586,28 +625,16 @@ Shape:
 }
 Each slides array must have 6-10 items. Every slide MUST include a valid "variant".`;
 
-    // Detecta se o briefing já parece "pronto" (> 200 palavras ou tem
-    // estrutura explícita) — nesse caso marca no userMessage pra reforçar
-    // REGRA #0 e gerar APENAS 1 variação (não 3 paráfrases do mesmo texto).
-    const briefingWordCount = (topic || "").trim().split(/\s+/).length;
-    const looksStructured =
-      /\n\s*[-*•\d]/.test(topic || "") || // bullets / numeração
-      /slide\s*\d/i.test(topic || "") || // menções explícitas a slides
-      /hook[:\s]|cta[:\s]/i.test(topic || ""); // labels de estrutura
-    const isFullBriefing = briefingWordCount >= 200 || looksStructured;
+    // Escolhe o prompt baseado no modo explícito do usuário (UI toggle).
+    const systemPrompt =
+      mode === "layout-only" ? layoutOnlyPrompt : writerPrompt;
 
-    const userMessage = sourceContent
-      ? `Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
-      : isFullBriefing
-        ? `O USUÁRIO JÁ ESCREVEU O CONTEÚDO DO CARROSSEL ABAIXO. Aplique REGRA #0 (fidelidade): seu trabalho é ESTRUTURAR em slides + polir, NÃO reescrever.
-Retorne APENAS 1 variação (array variations com 1 item só, style do briefing ou "story" como default) — não é pra gerar 3 paráfrases do mesmo texto.
-Preserve: wording do user, dados, nomes, ordem. Quebre em slides (6-10). Aplique variants visuais.
-
-BRIEFING DO USUÁRIO:
-"""
-${topic}
-"""`
-        : `Create 3 carousel variations (data, story, provocative) about: ${topic}`;
+    const userMessage =
+      mode === "layout-only"
+        ? `TEXTO DO USUÁRIO PRA FORMATAR EM SLIDES (preserve wording, ordem, dados, CTA):\n\n"""\n${topic}\n"""${sourceContent ? `\n\nFonte adicional (se relevante pra citar):\n${sourceContent.slice(0, 3000)}` : ""}`
+        : sourceContent
+          ? `Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}\n\nSource:\n${sourceContent.slice(0, 3000)}`
+          : `Create 3 carousel variations (data, story, provocative) about: ${topic}`;
 
     // 3. Increment usage BEFORE calling AI — ensures quota is always counted
     //    even if the response fails or user closes the tab.

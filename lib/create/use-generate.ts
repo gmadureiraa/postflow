@@ -39,6 +39,8 @@ export interface AdvancedGenerationOptions {
   uploadedImageUrls?: string[];
 }
 
+export type GenerationMode = "writer" | "layout-only";
+
 export interface GenerateCarouselInput {
   concept: CreateConcept;
   niche: string;
@@ -48,6 +50,8 @@ export interface GenerateCarouselInput {
   sourceType?: "idea" | "link" | "video" | "instagram" | "ai";
   sourceUrl?: string;
   advanced?: AdvancedGenerationOptions;
+  /** writer (default) = IA escreve. layout-only = IA só formata em slides. */
+  mode?: GenerationMode;
 }
 
 export function useGenerate(session: Session | null) {
@@ -116,6 +120,7 @@ export function useGenerate(session: Session | null) {
             language: input.language,
             designTemplate: input.designTemplate ?? "manifesto",
             advanced: advanced ?? undefined,
+            mode: input.mode ?? "writer",
           }),
         });
         const ct = res.headers.get("content-type") || "";
