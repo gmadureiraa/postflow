@@ -657,13 +657,25 @@ function CarouselCard({
   const date = new Date(carousel.savedAt);
   const rel = formatRelative(date);
 
-  const title = carousel.title || carousel.slides[0]?.heading || "Sem título";
-  const slideCount = carousel.slides.length;
+  const title = carousel.title || "Sem título";
   const status = carousel.status || "draft";
-  const first = carousel.slides[0];
-  const slideStyle = carousel.style === "dark" ? "dark" : "white";
-
   const isPublished = status === "published";
+
+  // Paleta por id — card sólido colorido em vez de render do slide (que puxa
+  // 10MB base64). Fetch de lista hoje exclui slides pra performance.
+  const tilePalette = (() => {
+    const palette = [
+      { bg: "var(--sv-ink)", fg: "var(--sv-paper)", accent: "var(--sv-green)" },
+      { bg: "var(--sv-green)", fg: "var(--sv-ink)", accent: "var(--sv-ink)" },
+      { bg: "var(--sv-pink)", fg: "var(--sv-ink)", accent: "var(--sv-ink)" },
+      { bg: "var(--sv-paper)", fg: "var(--sv-ink)", accent: "var(--sv-ink)", dotted: true as const },
+    ];
+    let h = 0;
+    for (let i = 0; i < carousel.id.length; i++)
+      h = (h * 31 + carousel.id.charCodeAt(i)) >>> 0;
+    return palette[h % palette.length];
+  })();
+  const tmpl = (carousel.designTemplate ?? "sv").toUpperCase();
 
   return (
     <motion.article
@@ -677,12 +689,21 @@ function CarouselCard({
         outlineOffset: selected ? -3 : undefined,
       }}
     >
-      {/* Preview 4:5 */}
+      {/* Card sólido colorido — render instantâneo, sem pull de slide data */}
       <div
         className="relative aspect-[4/5] w-full overflow-hidden"
         style={{
           borderBottom: "1.5px solid var(--sv-ink)",
-          background: carousel.style === "dark" ? "var(--sv-ink)" : "var(--sv-soft)",
+          background: tilePalette.bg,
+          color: tilePalette.fg,
+          padding: "20px 22px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          backgroundImage: tilePalette.dotted
+            ? "radial-gradient(circle at 2px 2px, var(--sv-ink) 1px, transparent 1.5px)"
+            : undefined,
+          backgroundSize: tilePalette.dotted ? "10px 10px" : undefined,
         }}
       >
         {/* Select checkbox */}
@@ -704,35 +725,56 @@ function CarouselCard({
         >
           {selected ? <CheckSquare size={13} /> : <Square size={13} />}
         </button>
-        {first ? (
-          <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center">
-            <EditorialSlide
-              heading={first.heading || " "}
-              body={first.body || " "}
-              imageUrl={first.imageUrl}
-              slideNumber={1}
-              totalSlides={Math.max(slideCount, 1)}
-              profile={previewProfile}
-              style={slideStyle}
-              isLastSlide={slideCount <= 1}
-              showFooter
-              scale={LIBRARY_SLIDE_PREVIEW_SCALE}
-            />
-          </div>
-        ) : (
-          <div
-            className="flex h-full items-center justify-center"
-            style={{
-              fontFamily: "var(--sv-mono)",
-              fontSize: 11,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "var(--sv-muted)",
-            }}
-          >
-            ● Sem slides
-          </div>
-        )}
+
+        {/* Top eyebrow */}
+        <div
+          className="uppercase"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9.5,
+            letterSpacing: "0.2em",
+            fontWeight: 700,
+            color: tilePalette.fg,
+            alignSelf: "flex-end",
+          }}
+        >
+          ● {tmpl}
+        </div>
+
+        {/* Título grande */}
+        <h3
+          style={{
+            fontFamily: "var(--sv-display)",
+            fontStyle: "italic",
+            fontSize: "clamp(18px, 2.4vw, 24px)",
+            lineHeight: 1.15,
+            letterSpacing: "-0.01em",
+            margin: 0,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            color: tilePalette.fg,
+          }}
+        >
+          {title}
+        </h3>
+
+        {/* Bottom: ed + arrow */}
+        <div
+          className="uppercase flex items-center justify-between"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9.5,
+            letterSpacing: "0.2em",
+            fontWeight: 700,
+            color: tilePalette.fg,
+            opacity: 0.85,
+          }}
+        >
+          <span>{String(index + 1).padStart(2, "0")}/{tmpl}</span>
+          <span>→</span>
+        </div>
 
         {/* Hover toolbar */}
         <div
@@ -800,7 +842,7 @@ function CarouselCard({
             className="sv-kicker-sm"
             style={{ color: "var(--sv-muted)" }}
           >
-            {slideCount} slides
+            {tmpl.toLowerCase()}
           </span>
         </div>
 

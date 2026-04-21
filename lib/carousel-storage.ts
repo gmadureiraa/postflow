@@ -300,16 +300,15 @@ const CAROUSEL_DETAIL_FIELDS =
 const CAROUSEL_DETAIL_FIELDS_FALLBACK =
   "id,title,slides,style,status,created_at,updated_at,thumbnail_url";
 
-// Pra FETCH em LISTA (dashboard, /carousels) — EXCLUI slides completos porque
-// muitos carrosséis têm imagens base64 inline (até 10MB por row). Puxar 30+
-// carrosséis com slides completos = centenas de MB, derruba o browser.
-// Em vez disso, pegamos só os campos do PRIMEIRO slide (heading/body) via
-// PostgREST JSON path + slide_count computado do lado cliente como 0.
-// Edit page ainda usa CAROUSEL_DETAIL_FIELDS pra ter dados completos.
+// Pra FETCH em LISTA (dashboard, /carousels) — mínimo absoluto.
+// NÃO inclui slides, NÃO inclui JSON path (postgrest faz parse extra custoso).
+// Só metadata pra renderizar card colorido com título + template badge + data.
+// O preview do primeiro slide foi descontinuado — cards mostram bloco sólido
+// com cor do template (igual Linear/Notion) em vez de render de slide real.
 const CAROUSEL_LIST_FIELDS =
-  "id,title,style,status,created_at,updated_at,export_assets,thumbnail_url,slides->0->>heading,slides->0->>body,slides->0->>imageUrl";
+  "id,title,style,status,created_at,updated_at,export_assets,thumbnail_url";
 const CAROUSEL_LIST_FIELDS_FALLBACK =
-  "id,title,style,status,created_at,updated_at,thumbnail_url,slides->0->>heading,slides->0->>body,slides->0->>imageUrl";
+  "id,title,style,status,created_at,updated_at,thumbnail_url";
 
 function isMissingColumnError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;

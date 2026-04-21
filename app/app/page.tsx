@@ -706,6 +706,32 @@ function SectionHead({
   );
 }
 
+// Paleta por template — hash simples do id pra estabilidade visual
+// (mesmo carrossel sempre pega mesma cor).
+const TILE_PALETTE = [
+  { bg: "var(--sv-ink)", fg: "var(--sv-paper)", accent: "var(--sv-green)" },
+  { bg: "var(--sv-green)", fg: "var(--sv-ink)", accent: "var(--sv-ink)" },
+  { bg: "var(--sv-pink)", fg: "var(--sv-ink)", accent: "var(--sv-ink)" },
+  { bg: "var(--sv-paper)", fg: "var(--sv-ink)", accent: "var(--sv-ink)", dotted: true },
+];
+
+function tilePaletteFor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return TILE_PALETTE[h % TILE_PALETTE.length];
+}
+
+function templateAbbrev(tpl: string | undefined): string {
+  if (!tpl) return "SV";
+  const map: Record<string, string> = {
+    manifesto: "MANIFESTO",
+    futurista: "FUTURISTA",
+    autoral: "AUTORAL",
+    twitter: "TWITTER",
+  };
+  return map[tpl] ?? tpl.toUpperCase();
+}
+
 function CarouselTile({
   carousel,
   index,
@@ -717,18 +743,19 @@ function CarouselTile({
   badgeColor: string;
   badgeLabel: string;
 }) {
-  const firstSlide = carousel.slides[0];
-  const title =
-    carousel.title || firstSlide?.heading?.trim() || "Sem título";
+  const title = (carousel.title || "Sem título").trim();
   const rel = formatRelative(carousel.savedAt);
-  const isDark = carousel.style === "dark";
+  const palette = tilePaletteFor(carousel.id);
+  const tmpl = templateAbbrev(carousel.designTemplate);
+  // Número sequencial "ED. 04" usa dia do mês + index pra dar variedade.
+  const edN = String(index + 1).padStart(2, "0");
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.45, delay: index * 0.05 }}
+      transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3) }}
     >
       <Link
         href={`/app/create/${carousel.id}/edit`}
@@ -740,91 +767,37 @@ function CarouselTile({
           overflow: "hidden",
         }}
       >
-        {/* Preview 4:5 do primeiro slide — slide escalado pra ocupar
-             ~94% do container e deixar o card apertado em volta. */}
+        {/* Card sólido colorido — sem render de slide. Carrega instantâneo. */}
         <div
           style={{
             position: "relative",
             width: "100%",
             aspectRatio: "4 / 5",
-            background: isDark ? "var(--sv-ink)" : "var(--sv-soft)",
+            background: palette.bg,
             borderBottom: "1.5px solid var(--sv-ink)",
-            overflow: "hidden",
+            color: palette.fg,
+            padding: "18px 20px",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 8,
+            flexDirection: "column",
+            justifyContent: "space-between",
+            backgroundImage: palette.dotted
+              ? "radial-gradient(circle at 2px 2px, var(--sv-ink) 1px, transparent 1.5px)"
+              : undefined,
+            backgroundSize: palette.dotted ? "10px 10px" : undefined,
           }}
         >
-          {firstSlide ? (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <div
-                style={{
-                  width: 1080 * 0.22,
-                  height: 1350 * 0.22,
-                }}
-              >
-                <EditorialSlide
-                  heading={firstSlide.heading}
-                  body={firstSlide.body}
-                  imageUrl={firstSlide.imageUrl}
-                  slideNumber={1}
-                  totalSlides={carousel.slides.length}
-                  profile={{
-                    name: "Sequência Viral",
-                    handle: "@sequenciaviral",
-                    photoUrl: "",
-                  }}
-                  style={isDark ? "dark" : "white"}
-                  scale={0.22}
-                />
-              </div>
-            </div>
-          ) : (
-            <span
-              className="sv-kicker"
-              style={{ color: "var(--sv-muted)" }}
-            >
-              SEM PREVIEW
-            </span>
-          )}
-        </div>
-
-        {/* Meta */}
-        <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <h3
-            style={{
-              fontFamily: "var(--sv-display)",
-              fontSize: 17,
-              lineHeight: 1.2,
-              color: "var(--sv-ink)",
-              margin: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
-            {title}
-          </h3>
+          {/* Top eyebrow: ● BD · ED. NN */}
           <div
-            className="sv-kicker"
+            className="uppercase"
             style={{
-              color: "var(--sv-ink)",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              fontWeight: 700,
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              fontSize: 9.5,
+              color: palette.fg,
             }}
           >
             <span
@@ -832,13 +805,89 @@ function CarouselTile({
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                background: badgeColor,
-                border: "1px solid var(--sv-ink)",
+                background: palette.accent,
+                border: `1px solid ${palette.fg}`,
                 display: "inline-block",
               }}
             />
-            {badgeLabel} · {rel}
+            SV · ED. {edN}
           </div>
+
+          {/* Título grande editorial */}
+          <h3
+            style={{
+              fontFamily: "var(--sv-display)",
+              fontStyle: "italic",
+              fontSize: "clamp(18px, 2.4vw, 24px)",
+              lineHeight: 1.15,
+              letterSpacing: "-0.01em",
+              margin: 0,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              color: palette.fg,
+            }}
+          >
+            {title}
+          </h3>
+
+          {/* Bottom: template + arrow */}
+          <div
+            className="uppercase flex items-center justify-between"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              fontWeight: 700,
+              color: palette.fg,
+              opacity: 0.85,
+            }}
+          >
+            <span>{edN}/{String(Math.max(1, index + 1)).padStart(2, "0")} · {tmpl}</span>
+            <span>→</span>
+          </div>
+        </div>
+
+        {/* Meta footer: título curto + badge status */}
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: "10px 14px",
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--sv-ink)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {title}
+          </span>
+          <span
+            className="uppercase"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9,
+              letterSpacing: "0.15em",
+              fontWeight: 700,
+              padding: "3px 8px",
+              border: "1px solid var(--sv-ink)",
+              background: "var(--sv-paper)",
+              color: "var(--sv-ink)",
+              flexShrink: 0,
+            }}
+          >
+            {badgeLabel.replace("♥ ", "")} · {rel}
+          </span>
         </div>
       </Link>
     </motion.div>
