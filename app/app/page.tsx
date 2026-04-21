@@ -531,7 +531,7 @@ export default function DashboardPage() {
                   </p>
                   <hr className="sv-divider" style={{ margin: "4px 0" }} />
                   <Link
-                    href={`/app/create?idea=${encodeURIComponent(idea.title)}`}
+                    href={`/app/create/new?idea=${encodeURIComponent(idea.title)}`}
                     className="sv-kicker"
                     style={{
                       color: "var(--sv-ink)",

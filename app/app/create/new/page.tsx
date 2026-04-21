@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -128,10 +128,17 @@ function OptCycler<T extends string | number>({
 
 export default function NewCarouselPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile, session } = useAuth();
   const { generateCarousel, loadingCarousel } = useGenerate(session);
 
-  const [idea, setIdea] = useState("");
+  const [idea, setIdea] = useState(() => searchParams?.get("idea") ?? "");
+
+  useEffect(() => {
+    const q = searchParams?.get("idea");
+    if (q && !idea) setIdea(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [tone, setTone] = useState<Tone>("editorial");
   const [lang, setLang] = useState<Lang>("pt-br");
   const [submitting, setSubmitting] = useState(false);
