@@ -530,9 +530,9 @@ export default function NewCarouselPage() {
         })
       );
 
-      // 4) Persiste slides com imagens. Template default salvo, mas o
-      //    usuário ainda passa pelo step 02 (/templates) pra confirmar ou
-      //    trocar o tratamento visual vendo o conteúdo real em preview.
+      // 4) Persiste slides com imagens. Template já foi escolhido no briefing
+      //    via designTemplate, então pula /templates e vai direto pro editor.
+      //    Botão "Trocar template" no editor ainda permite reentrar em /templates.
       setPhase("finalizing");
       await upsertUserCarousel(supabase, user.id, {
         id: row.id,
@@ -547,8 +547,8 @@ export default function NewCarouselPage() {
         },
       });
 
-      // Step 02 = /templates. User vê preview real e pode trocar antes do editor.
-      router.push(`/app/create/${row.id}/templates`);
+      // Template já escolhido no briefing → pula /templates, vai direto pro editor.
+      router.push(`/app/create/${row.id}/edit?template=${designTemplate}`);
     } catch (err) {
       toast.error(explainGenError(err));
     } finally {
