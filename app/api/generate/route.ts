@@ -63,6 +63,19 @@ import { GoogleGenAI } from "@google/genai";
 
 export const maxDuration = 60;
 
+/**
+ * Frameworks narrativos opcionais (Content Machine 5.4 — BrandsDecoded).
+ * Cada um força uma arquitetura narrativa específica no writer. Quando
+ * não setado, o writer segue a "escada padrão" (hook → evidence → claim
+ * → mechanism → ...). Útil pra usuário avançado que sabe o formato que
+ * performa melhor pro tema dele.
+ */
+type ContentFramework =
+  | "story-arc"         // Problema → Ponto de virada → Nova realidade (3 atos analíticos)
+  | "problem-solution"  // Friction explícito → mecanismo → aplicação (mais tático)
+  | "mechanism-first"   // Abre com o "POR QUE" contra-intuitivo, depois prova
+  | "transformation";   // Antes/Depois narrativo (cena inicial → costura → consequência)
+
 interface AdvancedGenerationOptions {
   /** CTA exato que o usuário quer fechar o carrossel. Sobrescreve CTA auto-gerado. */
   customCta?: string;
@@ -76,6 +89,8 @@ interface AdvancedGenerationOptions {
   extraContext?: string;
   /** URLs de imagens upadas pelo usuário pra usar em slides específicos (ordem = slide). */
   uploadedImageUrls?: string[];
+  /** Framework narrativo do Content Machine 5.4. Default: escada automática. */
+  contentFramework?: ContentFramework;
 }
 
 type GenerationMode = "writer" | "layout-only";
@@ -401,8 +416,15 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
           .filter((u): u is string => typeof u === "string" && u.length < 2000)
           .slice(0, 12)
       : [];
+    const advContentFramework: ContentFramework | null =
+      advanced?.contentFramework === "story-arc" ||
+      advanced?.contentFramework === "problem-solution" ||
+      advanced?.contentFramework === "mechanism-first" ||
+      advanced?.contentFramework === "transformation"
+        ? advanced.contentFramework
+        : null;
     const advancedActive =
-      !!(advCustomCta || advHookDirection || advExtraContext || advNumSlides || advPreferredStyle);
+      !!(advCustomCta || advHookDirection || advExtraContext || advNumSlides || advPreferredStyle || advContentFramework);
 
     if (sourceType === "idea" && !topic) {
       return Response.json({ error: "Topic is required" }, { status: 400 });
@@ -481,12 +503,26 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
           ? "LANGUAGE: ESPAÑOL. Escribe todo el heading, body y CTA en español."
           : `LANGUAGE: ${language}`;
 
+    // Arquiteturas narrativas do Content Machine 5.4. Cada uma é um "contrato"
+    // de estrutura — a escada de slides tem papéis fixos por posição. Prompt
+    // aplica só quando o user ativa via advanced.contentFramework.
+    const frameworkSpec: Record<ContentFramework, string> = {
+      "story-arc":
+        "ARQUITETURA STORY-ARC (3 atos analíticos): Slide 1 = CAPA contraintuitiva. Slide 2 = CENÁRIO ANTIGO (o que todos conhecem). Slide 3 = RUPTURA (o ponto de virada, o que mudou). Slides 4 a N-1 = NOVA REALIDADE (consequências, evidências, mecanismo). Último slide = CTA que referencia o hook. Cada slide responde a pergunta deixada pelo anterior.",
+      "problem-solution":
+        "ARQUITETURA PROBLEM-SOLUTION: Slide 1 = sintoma/dor em cena concreta. Slide 2 = nomear o problema real (≠ sintoma). Slide 3 = FRICÇÃO CENTRAL (a tensão escondida que ninguém enxerga). Slides 4-5 = MECANISMO (por que o problema acontece). Slides 6-N-1 = APLICAÇÃO tática (passo a passo, checklist, exemplo). Último slide = CTA específico de experimentação.",
+      "mechanism-first":
+        "ARQUITETURA MECHANISM-FIRST: Slide 1 = afirmação contra-intuitiva que inverte a crença popular. Slide 2 = explicar POR QUE o fenômeno acontece (mecanismo explícito). Slide 3 = evidência/caso real. Slides 4-5 = implicação sistêmica (o que isso muda pra o leitor). Slide 6 = exceção/refinamento ('menos em X situação'). Slides 7+ = aplicação prática. Último = CTA.",
+      "transformation":
+        "ARQUITETURA TRANSFORMATION (antes/depois narrativo): Slide 1 = cena inicial forte (estado anterior — número, cena, confissão). Slides 2-3 = TRANSFORMAÇÃO (o que mudou com costura e consequência — não é só 'de X pra Y', é o PORQUÊ da virada). Slides 4-5 = o que EXATAMENTE virou a chave (mecanismo, decisão, descoberta). Slides 6+ = nova realidade e como replicar. Último = CTA que convida o leitor a começar a própria transformação.",
+    };
+
     // Bloco de direcionamento do MODO AVANÇADO (sobrescreve defaults quando presente).
     const advancedBlock = advancedActive
       ? `
 # MODO AVANÇADO — DIRECIONAMENTOS EXPLÍCITOS DO USUÁRIO (prioridade alta)
 Esses direcionamentos VENCEM as defaults do prompt. Respeite literalmente.
-${advHookDirection ? `- Gancho (slide 1) deve: ${advHookDirection}\n` : ""}${advCustomCta ? `- CTA final EXATO a usar (não reescreva, mantenha a intenção): "${advCustomCta}"\n` : ""}${advNumSlides ? `- Número de slides desejado: EXATAMENTE ${advNumSlides} (incluindo hook e CTA).\n` : ""}${advPreferredStyle ? `- Estilo forçado: ENTREGUE APENAS A VARIAÇÃO "${advPreferredStyle}" (ignore as outras 2 — array variations terá 1 item só).\n` : ""}${advExtraContext ? `- Contexto adicional a considerar (dados, provas, quotes, exemplos do usuário):\n"""\n${advExtraContext}\n"""\n` : ""}
+${advHookDirection ? `- Gancho (slide 1) deve: ${advHookDirection}\n` : ""}${advCustomCta ? `- CTA final EXATO a usar (não reescreva, mantenha a intenção): "${advCustomCta}"\n` : ""}${advNumSlides ? `- Número de slides desejado: EXATAMENTE ${advNumSlides} (incluindo hook e CTA).\n` : ""}${advPreferredStyle ? `- Estilo forçado: ENTREGUE APENAS A VARIAÇÃO "${advPreferredStyle}" (ignore as outras 2 — array variations terá 1 item só).\n` : ""}${advContentFramework ? `- Framework narrativo ATIVO: ${frameworkSpec[advContentFramework]}\n` : ""}${advExtraContext ? `- Contexto adicional a considerar (dados, provas, quotes, exemplos do usuário):\n"""\n${advExtraContext}\n"""\n` : ""}
 Se algum desses itens contradizer outra instrução genérica, o direcionamento do usuário vence.
 `
       : "";
@@ -617,6 +653,48 @@ Carrosséis de análise (marketing, negócios, tecnologia, cultura) seguem um pa
 **TOM ANALÍTICO** — voz de analista que decodifica o mercado, não gurú. Termos como "ecossistema", "narrativa", "ruptura", "cenário atual", "pattern reconhecido". Faça afirmações ousadas e definitivas com segurança — não hedge.
 
 **CTA estilo DM-lead** (quando fizer sentido): "Comenta [PALAVRA-CHAVE] que eu te mando [RECOMPENSA] na DM." Ex: "Comenta CLAUDE que eu te mando o prompt completo na DM." Essa estrutura captura leads diretamente, é o CTA dominante em carrosséis virais de 2026.
+
+# CONTENT MACHINE 5.4 FRAMEWORK — arquitetura narrativa de alto nível
+Esta é uma camada CONCEITUAL que guia o raciocínio ANTES de escrever os slides. Rode internamente como triagem — NÃO escreva essa seção no output JSON. Cada variação deve obedecer internamente a esses 4 pilares:
+
+**PILAR 1 — TRIAGEM NARRATIVA (preenche internamente antes de escrever)**
+Antes de gerar slides, resolva:
+- Transformação: o que mudou no fenômeno? Descreva a virada com costura + consequência (não só "antes era X, agora é Y"; diga POR QUE mudou e o QUE isso implica).
+- Fricção central: qual a TENSÃO REAL do fenômeno? Não é o resumo do tema, é o conflito escondido que o leitor não enxerga ainda. Ex: tema = "Claude Code", fricção = "a maior skill de dev em 2026 não é saber programar, é saber o que NÃO pedir pra IA fazer".
+- Ângulo narrativo dominante: das várias leituras possíveis, qual é a mais forte pra este carrossel? Escolha UMA. As 3 variações exploram 3 ângulos diferentes.
+- Âncoras observáveis: 3-6 fatos/nomes/dados verificáveis (de grounding ou do briefing) que vão aparecer no desenvolvimento. Se não tem, use grounding (Google Search) antes de escrever.
+
+**PILAR 2 — HEADLINE COMO MECANISMO DE CAPTURA (não mini-resumo)**
+Headline é a ferramenta de parar o scroll. Regra-mãe:
+- LINHA 1 = captura (termina em "?" ou ":"). Gera tensão, curiosidade, interrupção.
+- LINHA 2 = ancoragem (termina em "." ou "!"). Dá contexto, stake, ou payoff.
+- Toda headline precisa conter, internamente, as 4 qualidades: INTERRUPÇÃO (para o feed) + RELEVÂNCIA (pro público do nicho) + CLAREZA (zero ambiguidade) + TENSÃO (algo em jogo).
+
+**PILAR 3 — 10 NATUREZAS DE ABORDAGEM (ortogonais aos 12 arquétipos)**
+Os 12 arquétipos são FORMATOS. Essas 10 naturezas são LEITURAS — a perspectiva que o carrossel adota. Uma variação pode misturar arquétipo + natureza. Ao escolher ângulo da variação, marque qual natureza está puxando:
+1. REENQUADRAMENTO — inverte o significado de um fato conhecido
+2. CONFLITO OCULTO — revela tensão escondida entre 2 forças do sistema
+3. IMPLICAÇÃO SISTÊMICA — mostra segunda/terceira ordem de consequências
+4. CONTRADIÇÃO — aponta incoerência entre discurso e prática do mercado
+5. AMEAÇA OU OPORTUNIDADE — articula stake temporal ("janela de 12 meses")
+6. NOMEAÇÃO — dá nome novo a um fenômeno sem nome ("funil invisível", "death scroll")
+7. DIAGNÓSTICO CULTURAL — conecta comportamento micro a tendência macro
+8. INVERSÃO — "na verdade é o contrário do que parece"
+9. AMBIÇÃO DE MERCADO — articula o tamanho/topo do prêmio ("mercado de M&A em agência")
+10. MECANISMO SOCIAL — explica como o jogo de status funciona por baixo
+
+REGRA: as 3 variações (data / story / provocative) devem usar 3 NATUREZAS DIFERENTES também — não só 3 arquétipos diferentes. Data não precisa ser "implicação sistêmica", provocative não precisa ser "contradição" — misture de forma deliberada.
+
+**PILAR 4 — ESPINHA DORSAL EM 6 PARTES (arquitetura do render)**
+Depois de triagem + headline, cada variação percorre internamente estes 6 papéis (podem mapear pra slides separados ou agrupados, mas TODOS devem aparecer):
+- (1) HOOK — contextualiza a tensão da headline em cena/dado/declaração forte
+- (2) MECANISMO — explica POR QUE o fenômeno acontece (causa estrutural, não sintoma)
+- (3) PROVA — evidência observável: A), B), C) (dados, casos, prints mentais)
+- (4) APLICAÇÃO — traduz a leitura para consequência prática do leitor
+- (5) IMPLICAÇÃO MAIOR — zoom out: o que isso significa pro mercado/nicho/cultura
+- (6) DIREÇÃO — próximo passo lógico (não "compre isso" — é "o que observar / testar / questionar")
+
+Se você escreveu 8 slides e um dos 6 papéis está ausente, o carrossel está incompleto. Mesmo em carrosséis "story", esses 6 papéis estão lá, só que embutidos na cena.
 
 # GROUND TRUTH (regra inegociável — leia antes de tudo)
 NUNCA INVENTE: números, percentuais, nomes de empresas, valores em R$/US$, datas, fontes, citações atribuídas. Se o source content do usuário não traz um dado, você tem 3 opções:
@@ -790,6 +868,12 @@ Cada item abaixo deve passar. Se qualquer um falhar, REESCREVA — não retorne 
 [ ] 8. TESTE DA VARIANT: nenhum variant visual se repete 2x seguidas; slide 1 e 2 são diferentes.
 [ ] 9. TESTE DA VOZ: se o usuário forneceu voice_samples, pelo menos 2 tiques de linguagem das amostras aparecem no output.
 [ ] 10. TESTE DO JARGÃO: nenhuma banida aparece; nenhum "você precisa / você deve" guru; cliffhanger não-clichê.
+[ ] 11. TESTE DA FRICÇÃO (CM5.4): cada variação tem uma FRICÇÃO CENTRAL identificável — não é só resumo do tema. Se lendo o carrossel o leitor não consegue dizer "ah, a tensão é X", falhou.
+[ ] 12. TESTE DA ESPINHA DORSAL (CM5.4): os 6 papéis (hook / mecanismo / prova / aplicação / implicação maior / direção) estão presentes? Nenhum ausente, mesmo em story mode.
+[ ] 13. TESTE DA NATUREZA (CM5.4): cada variação puxa uma NATUREZA DE ABORDAGEM diferente das outras 2 (reenquadramento / conflito oculto / implicação sistêmica / contradição / ameaça / nomeação / diagnóstico cultural / inversão / ambição / mecanismo social). Nunca as 3 na mesma leitura.
+[ ] 14. TESTE DA GENÉRICA (CM5.4): trocando o tema por outro tema do mesmo nicho, o hook/headline AINDA serviria? Se sim, headline tá genérica — reescreva pra só funcionar pra ESTE tema específico.
+[ ] 15. TESTE DA ABSTRAÇÃO FRIA (CM5.4): nenhuma headline abstrata sem imagem mental ou conflito. Cada headline do slide 1 provoca uma CENA ou um STAKE na cabeça do leitor na 1ª leitura.
+[ ] 16. TESTE DA LINGUAGEM DE RELATÓRIO (CM5.4): nenhum título com cara de "análise acadêmica", "estudo de caso", "overview" — proibidas palavras burocráticas no slide 1 (ex: "um olhar sobre", "análise de", "aspectos importantes").
 
 Só depois, retorne o JSON.
 
