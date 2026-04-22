@@ -28,6 +28,7 @@ interface DebugResponse {
   };
   ner: {
     summary?: string[];
+    keyPoints?: string[];
     entities: string[];
     dataPoints: string[];
     quotes: string[];
@@ -288,6 +289,38 @@ export default function SourceTestPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </Card>
+
+          {/* Card: KEY POINTS — fatos completos com contexto */}
+          <Card
+            title="Key Points (fatos com contexto)"
+            subtitle={
+              data.ner.keyPoints && data.ner.keyPoints.length > 0
+                ? `${data.ner.keyPoints.length} fatos — cada um pode virar slide direto`
+                : "Nenhum key point extraído"
+            }
+          >
+            {!data.ner.keyPoints || data.ner.keyPoints.length === 0 ? (
+              <p style={{ color: "var(--sv-muted)", fontSize: 12 }}>
+                Nenhum. Isso é o que a IA usa pra escrever o carrossel — se tá vazio, conteúdo vai ficar genérico.
+              </p>
+            ) : (
+              <ol
+                style={{
+                  paddingLeft: 20,
+                  margin: 0,
+                  fontSize: 13,
+                  color: "var(--sv-ink)",
+                  lineHeight: 1.55,
+                }}
+              >
+                {data.ner.keyPoints.map((k, i) => (
+                  <li key={i} style={{ marginBottom: 8 }}>
+                    {k}
+                  </li>
+                ))}
+              </ol>
             )}
           </Card>
 

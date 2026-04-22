@@ -101,6 +101,8 @@ export async function POST(request: Request) {
       },
       ner: facts
         ? {
+            summary: facts.summary,
+            keyPoints: facts.keyPoints,
             entities: facts.entities,
             dataPoints: facts.dataPoints,
             quotes: facts.quotes,
@@ -110,7 +112,15 @@ export async function POST(request: Request) {
             outputTokens: facts.outputTokens,
             skipped: facts.skipped,
           }
-        : { entities: [], dataPoints: [], quotes: [], arguments: [], skipped: true },
+        : {
+            summary: [],
+            keyPoints: [],
+            entities: [],
+            dataPoints: [],
+            quotes: [],
+            arguments: [],
+            skipped: true,
+          },
       finalPromptPreview,
     });
   } catch (err) {
