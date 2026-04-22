@@ -2,18 +2,20 @@
  * Planos e limites — seguro para import em Client Components.
  * (stripe.ts inicializa o SDK e valida STRIPE_SECRET_KEY só no servidor.)
  *
- * Moeda: USD (Stripe opera com centavos de USD quando currency: "usd").
- * Público-alvo brasileiro, mas cobrança internacional — cartões BR fazem
- * conversão automática. Essa é a estratégia de lançamento.
+ * Moeda: BRL (migracao 2026-04-22). Publico 100% brasileiro — sem spread
+ * cambial, Stripe BR aceita BRL nativo, PIX recorrente possivel.
  *
- * Preços de LANÇAMENTO (promo pra primeiros 500 assinantes):
- *   Pro:     $9.90/mês   (preço normal planejado: $19.90)
- *   Agência: $29.90/mês  (preço normal planejado: $39.90)
+ * IMPORTANTE: precisa criar novos Price IDs em BRL no Stripe Dashboard
+ * (Products → Cada plano → Add price). Substituir STRIPE_PRICE_ID_*
+ * env vars com os novos IDs antes de abrir checkout em prod.
  *
- * Anual: sempre −20% sobre mensal equivalente.
+ * Precos BRL:
+ *   Creator:  R$ 49/mes  (preco normal: R$ 79)
+ *   Pro:      R$ 97/mes  (preco normal: R$ 149)
+ * Anual: sempre -20% sobre mensal × 12.
  */
 
-export const PLAN_CURRENCY = "usd" as const;
+export const PLAN_CURRENCY = "brl" as const;
 
 /**
  * Estrutura 3 planos: Free / Creator / Pro.
@@ -31,9 +33,9 @@ export const PLAN_CURRENCY = "usd" as const;
 export const PLANS = {
   pro: {
     name: "Creator",
-    priceMonthly: 990, // $9.90 em cents
-    priceAnnual: 9504, // $95.04/ano (20% off)
-    priceAnchor: 1990, // $19.90 pos-promo
+    priceMonthly: 4900, // R$ 49,00 em centavos BRL
+    priceAnnual: 47040, // R$ 470,40/ano (20% off sobre 49×12=588)
+    priceAnchor: 7900, // R$ 79 preco normal
     carouselsPerMonth: 15,
     features: [
       "15 carrosséis/mês",
@@ -48,9 +50,9 @@ export const PLANS = {
   },
   business: {
     name: "Pro",
-    priceMonthly: 2990, // $29.90
-    priceAnnual: 28704, // $287.04/ano (20% off)
-    priceAnchor: 3990, // $39.90 pos-promo
+    priceMonthly: 9700, // R$ 97,00
+    priceAnnual: 93120, // R$ 931,20/ano (20% off sobre 97×12=1164)
+    priceAnchor: 14900, // R$ 149 preco normal
     carouselsPerMonth: 60,
     features: [
       "60 carrosséis/mês",
@@ -76,7 +78,7 @@ export type BillingInterval = "month" | "year";
 export const AUTOPUBLISH_BUMP = {
   id: "autopublish",
   name: "Publicação automática",
-  priceMonthly: 499, // $4.99 em cents
+  priceMonthly: 2490, // R$ 24,90 em centavos BRL
   description:
     "Publica direto em Instagram, X e LinkedIn. Agendamento + fila + re-post inteligente.",
 } as const;
@@ -94,9 +96,9 @@ export function usageLimitForPaidPlan(planId: PlanId): number {
 }
 
 /**
- * Valor cobrado em USD (decimal, não centavos) para registro em
- * `payments.amount_usd`. Com currency="usd" no Stripe, isso bate direto
- * com o valor em dólar pago pelo usuário.
+ * Valor cobrado em BRL (decimal, nao centavos) pra registro em `payments`.
+ * A coluna `amount_usd` mantem o nome por legado, mas agora guarda BRL.
+ * Quando relatorio precisar de USD real, converte via USD_BRL_RATE do env.
  */
 export function stripePaymentAmount(
   planId: PlanId,
@@ -107,17 +109,29 @@ export function stripePaymentAmount(
   return cents / 100;
 }
 
-/** Alias histórico mantido pra não quebrar imports existentes. */
+/** Alias historico — mantido pra nao quebrar imports antigos. */
 export const stripePaymentAmountUsd = stripePaymentAmount;
 
-/** Formata centavos USD pra string "$9.90". */
-export function formatUsd(cents: number): string {
+/**
+ * Formata centavos BRL pra string "R$ 49,00".
+ * Usa Intl pra vírgula decimal e separador de milhar (R$ 1.234,56).
+ */
+export function formatBrl(cents: number): string {
   const v = cents / 100;
-  return `$${v.toFixed(2)}`;
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(v);
 }
 
-/** Alias retrocompat — usado em alguns lugares que chamavam formatBrl. */
-export const formatBrl = formatUsd;
+/**
+ * Alias legacy — codigo antigo chamava formatUsd. Agora redireciona pra
+ * formatBrl (moeda do projeto mudou pra BRL). Quando nada mais importar
+ * formatUsd, deletar esse alias.
+ */
+export const formatUsd = formatBrl;
 
 /** Calcula desconto anual em % pra badges. */
 export function annualDiscountPct(planId: PlanId): number {
