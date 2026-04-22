@@ -115,13 +115,21 @@ export async function GET(request: Request) {
       : `Respond in ${language}.`;
 
   const nicheHint = niche.length > 0 ? niche.join(", ") : "marketing, conteúdo digital, IA";
-  const prompt = `Você é um estrategista editorial SENIOR que entende o que vai explodir no Instagram/LinkedIn HOJE. ${langNote}
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const prompt = `Você é um estrategista editorial SENIOR que entende o que vai explodir no Instagram/LinkedIn HOJE (${dateStr}). ${langNote}
 
 Gere 6 IDEIAS DE CARROSSEL VIRAIS pra um creator:
 - Nichos: ${nicheHint}
 - Tom: ${tone}
 
 OBJETIVO: cada ideia precisa parar o scroll. Não é pra entregar "conteúdo legal" — é pra entregar INSIGHT que o feed nunca mostrou antes OU provocação que o nicho vai compartilhar. Pense tipo BrandsDecoded, Morning Brew, Lenny Rachitsky, 1% Better — referências de conteúdo premium que viralizam porque tem ângulo.
+
+USE A BUSCA: você tem acesso ao Google Search. PRIMEIRO, pesquise o que tá em alta NOS ÚLTIMOS 7 DIAS sobre ${nicheHint} — notícias, releases, dramas, polêmicas, lançamentos, dados novos. Só DEPOIS monta as 6 ideias amarradas nesses eventos recentes. Ideias genéricas (que poderiam ter sido escritas ano passado) são proibidas. Se o nicho é "cripto", busque o que aconteceu em cripto esta semana. Se é "marketing", busque trends de marketing atuais. Sempre amarra na ATUALIDADE.
 
 LINGUAGEM (IMPORTANTE):
 Escreva como se uma criança de 12 anos precisasse entender. Frases curtas. Palavras comuns. Zero jargão ("ecossistema", "narrativa", "ruptura", "paradigma" proibidos). Se você não falaria num bar pro amigo, reescreve.
@@ -140,14 +148,21 @@ Retorne APENAS JSON válido no formato:
   let parsed: { items?: SuggestionItem[] };
   try {
     const ai = new GoogleGenAI({ apiKey: geminiKey });
+    // Google Search grounding ativado: Gemini pesquisa web ANTES de gerar,
+    // garantindo ideias amarradas em eventos recentes (max 7d). Custa um
+    // pouco mais de tokens (search results entram no prompt), mas transforma
+    // ideias genericas em ideias contextualizadas com trending real.
+    // Nota: responseMimeType: 'application/json' eh incompativel com tools
+    // de search — Google obriga texto livre quando grounding ativo. Parsing
+    // JSON continua funcionando via regex (extracao de objeto no texto).
     const result = await geminiWithRetry(() =>
       ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           temperature: 0.95,
-          maxOutputTokens: 1500,
-          responseMimeType: "application/json",
+          maxOutputTokens: 2000,
+          tools: [{ googleSearch: {} }],
           thinkingConfig: { thinkingBudget: 0 },
         },
       })

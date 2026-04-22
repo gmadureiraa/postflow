@@ -66,14 +66,14 @@ export function Footer() {
           style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr" }}
         >
           <div>
-            <div className="mb-[14px]">
-              {/* Logo completo ransom-note — centraliza o brand no footer */}
+            <div className="mb-[18px]">
+              {/* Logo completo maior no footer — brand presence forte. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/brand/logo-sv-full.png"
                 alt="Sequência Viral"
                 style={{
-                  height: 72,
+                  height: 120,
                   width: "auto",
                   objectFit: "contain",
                   display: "block",
@@ -125,28 +125,33 @@ export function Footer() {
         </div>
 
         <div
-          className="mt-11 flex flex-wrap justify-between gap-3 pt-5"
+          className="mt-11 flex flex-wrap items-center justify-between gap-3 pt-5"
           style={{
             borderTop: "1px solid var(--sv-ink)",
             color: "var(--sv-muted)",
-            fontFamily: "var(--sv-mono)",
-            fontSize: 9.5,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
           }}
         >
-          <span>© MMXXVI · Sequência Viral · Todos os direitos reservados</span>
-          <span className="flex items-center gap-[10px]">
+          <span
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 11,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+            }}
+          >
+            Sequência Viral — Todos os direitos reservados
+          </span>
+          <span className="flex items-center gap-[12px]">
             <span
               style={{
                 fontFamily: "var(--sv-mono)",
-                fontSize: 9.5,
-                letterSpacing: "0.2em",
+                fontSize: 11,
+                letterSpacing: "0.18em",
                 textTransform: "uppercase",
                 color: "var(--sv-muted)",
               }}
             >
-              Feito por
+              By
             </span>
             <a
               href="https://kaleidos.com.br"
@@ -156,7 +161,7 @@ export function Footer() {
                 fontFamily: "var(--sv-display)",
                 textTransform: "none",
                 letterSpacing: "-0.01em",
-                fontSize: 13,
+                fontSize: 18,
                 fontStyle: "italic",
                 color: "var(--sv-ink)",
               }}

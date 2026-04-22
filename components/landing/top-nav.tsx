@@ -30,39 +30,21 @@ export function TopNav() {
       }}
     >
       <div className="mx-auto flex max-w-[1240px] items-center justify-between px-6 py-3">
-        <Link href="/" className="flex items-center gap-[10px]">
-          {/* Logo ransom-note SV — so as letras, combina com nav clean */}
+        <Link href="/" className="flex items-center">
+          {/* Logo completa ransom-note — substitui icone+texto, carrega
+              a identidade inteira numa imagem so. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/logo-sv-mark.png"
-            alt="SV"
+            src="/brand/logo-sv-full.png"
+            alt="Sequência Viral"
             className="sv-anim-float-slow"
             style={{
-              width: 38,
-              height: 38,
+              height: 44,
+              width: "auto",
               objectFit: "contain",
+              display: "block",
             }}
           />
-          <span className="flex flex-col leading-none">
-            <span
-              className="sv-display"
-              style={{ fontSize: 16, letterSpacing: "-0.01em" }}
-            >
-              Sequência <em>Viral</em>
-            </span>
-            <span
-              className="mt-[2px] hidden md:inline-block"
-              style={{
-                fontFamily: "var(--sv-mono)",
-                fontSize: 8.5,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "var(--sv-muted)",
-              }}
-            >
-              by Kaleidos
-            </span>
-          </span>
         </Link>
 
         <ul className="hidden items-center md:flex">

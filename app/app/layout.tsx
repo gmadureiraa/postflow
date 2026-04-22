@@ -42,9 +42,8 @@ const NAV_ITEMS: NavItem[] = [
   // Pra reativar, descomentar a linha abaixo.
   // { href: "/app/gallery", label: "Galeria", icon: ImageIcon },
   { href: "/app/help", label: "Guia", icon: BookOpen },
-  { href: "/app/roadmap", label: "Roadmap", icon: Map },
   { href: "/app/settings", label: "Ajustes", icon: Settings },
-  // Em breve — itens disabled no rodape da nav.
+  // Em breve — itens disabled.
   {
     href: "#",
     label: "Planejamento",
@@ -67,6 +66,9 @@ const NAV_ITEMS: NavItem[] = [
       body: "A IA cuida de tudo sozinha: cria conteúdo no seu DNA e publica no seu Instagram sem você levantar um dedo.",
     },
   },
+  // Roadmap no rodape da nav, abaixo dos 'Em breve' — eh referencia
+  // estatica (lista de features futuras), nao precisa de destaque.
+  { href: "/app/roadmap", label: "Roadmap", icon: Map },
 ];
 
 /** Emails com acesso ao painel admin. Mesma lista do backend. */
