@@ -101,7 +101,13 @@ export async function POST(request: Request) {
     }
   }
 
-  const prompt = `Você é um diretor de arte editorial cinematográfico. Receba o tema do slide de capa de um carrossel e devolva uma DESCRIÇÃO VISUAL RICA pra alimentar um gerador de imagem (Imagen 4).
+  // Prompt schema inspired by Google's image-gen docs:
+  //   "A photorealistic [shot type] of [subject], [action]. Illuminated by
+   //   [lighting], creating a [mood]. Captured with a [lens], emphasizing
+  //   [textures]. [Aspect ratio]."
+  // We output field-by-field so the image route can assemble a tight,
+  // well-structured prompt for Imagen.
+  const prompt = `Você é um diretor de arte editorial cinematográfico. Receba o tema do slide de capa de um carrossel e devolva uma DESCRIÇÃO VISUAL estruturada pra alimentar um gerador de imagem (Imagen 4 / Gemini Image).
 
 O resultado precisa parecer CAPA DE REVISTA ou POSTER DE NETFLIX, não stock photo. Reference: BrandsDecoded Instagram (editorial premium, composição narrativa forte, iluminação dramática, metáforas visuais).
 

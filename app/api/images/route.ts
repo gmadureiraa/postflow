@@ -241,37 +241,73 @@ export async function POST(request: Request) {
                 : " COVER SHOT: this is the OPENING SLIDE — the viewer must stop scrolling in 0.3 seconds. Maximum drama. Subject dead-centered or composed with rule of thirds. The single strongest composition from the slide theme.") +
               " CRITICAL COMPOSITION: leave the BOTTOM THIRD of the frame visually simpler and darker — text overlay will sit there. Subject in center-upper or middle third."
             : "";
-          const imagePrompt = [
-            // 1. Estética dominante (brand + template style guide)
-            aestheticPrefix,
-            `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
-            // 2. Cinematic base pra todo slide (exceto twitter) + cover boost
-            cinematicBase,
-            coverBoost,
-            // 3. Frame + people
-            "Instagram carousel square frame (1:1).",
-            peopleInstr,
-            // 4. Contexto de nicho/tom
-            nicheHint,
-            toneHint,
-            // 5. Tema do slide (REFORÇADO)
-            slideThemeHint
-              ? `CRITICAL — this image must DIRECTLY depict: ${slideThemeHint}. The mood, setting, and subject must be unmistakably connected to this theme.`
-              : "",
-            `Primary subject / visual focus: ${query}.`,
-            // 6. Paleta
-            preferHex,
-            avoidHex,
-            // 7. Técnica
-            isTwitterTpl
-              ? "Technical: sharp focus on subject, natural color, believable shadows, 8K detail, documentary realism."
-              : "Technical: ultra-sharp focus, cinematic color grading, dramatic shadows, subtle film grain, 8K detail, shallow depth of field, editorial magazine photography.",
-            // 8. NO-TEXT constraint (REGRA OBRIGATÓRIA — qualquer texto é falha).
-            //    Imagen às vezes coloca letras borradas no fundo. Reforçamos 4x.
-            "ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO ALPHABET, NO CHARACTERS, NO TYPOGRAPHY anywhere in the image. No signs, no labels, no titles, no captions, no billboards with readable content, no newspaper headlines, no book covers, no magazine covers, no street signs, no shop signs, no neon signs, no screen text, no phone UI, no laptop UI, no app UI, no website mockups. No logos, no watermarks, no brand names, no monograms, no insignias. If the scene would normally contain text (e.g. a screen, a book, a poster, a t-shirt print, a road sign), render those surfaces COMPLETELY BLANK or BLURRED BEYOND RECOGNITION — never with legible characters. This is a HARD OUTPUT CONSTRAINT: any readable character anywhere in the frame = failed generation.",
-          ]
-            .filter(Boolean)
-            .join(" ");
+          /**
+           * Prompt strategy (2026-04-22): cover-heavy, lean on inner.
+           *
+           * COVER: full photorealistic structured prompt (format from
+           * ai.google.dev/gemini-api/docs/image-generation):
+           *   "A photorealistic [shot] of [subject], [action]. Lit by
+           *   [lighting]. [Lens]. Emphasizing [textures]. [Aspect ratio]."
+           * Plus cover-scene output as primary directive, plus brand aesthetic.
+           *
+           * INNER SLIDES: short, direct prompt — subject + style + no-text.
+           * Removes cinematic/magazine/film-grain boilerplate that slows
+           * output without improving visibly non-cover frames. Target
+           * smaller generation latency.
+           *
+           * NO-TEXT stays hard constraint on both.
+           */
+          const NO_TEXT_RULE =
+            "ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO ALPHABET, NO CHARACTERS, NO TYPOGRAPHY anywhere in the image. No signs, no labels, no titles, no captions, no billboards with readable content, no newspaper headlines, no book covers, no magazine covers, no street signs, no shop signs, no neon signs, no screen text, no phone UI, no laptop UI, no app UI, no website mockups. No logos, no watermarks, no brand names, no monograms, no insignias. If the scene would normally contain text (e.g. a screen, a book, a poster, a t-shirt print, a road sign), render those surfaces COMPLETELY BLANK or BLURRED BEYOND RECOGNITION — never with legible characters. This is a HARD OUTPUT CONSTRAINT: any readable character anywhere in the frame = failed generation.";
+
+          let imagePrompt: string;
+          if (isCover && !isTwitterTpl) {
+            // Cover — rich structured cinematic prompt.
+            imagePrompt = [
+              aestheticPrefix,
+              `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
+              cinematicBase,
+              coverBoost,
+              "FORMAT: A photorealistic cinematic medium shot.",
+              slideThemeHint
+                ? `SUBJECT: ${slideThemeHint}. Primary visual focus: ${query}.`
+                : `SUBJECT: ${query}.`,
+              "LIGHTING: intentional and dramatic (rim light + key light + practicals — amber sunset, blue hour, hard neon, or harsh window light as appropriate to the scene).",
+              "CAMERA: 35mm or 50mm prime lens, shallow depth of field, rule-of-thirds composition with subject in upper third, bottom third simpler/darker for text overlay.",
+              "TEXTURES: emphasize skin, fabric, material grain, authentic light fall-off. Subtle film grain. Editorial magazine finish.",
+              "ASPECT RATIO: 1:1 Instagram carousel square.",
+              peopleInstr,
+              nicheHint,
+              toneHint,
+              preferHex,
+              avoidHex,
+              "Mood: powerful, cool, modern, scroll-stopping. Netflix poster / Vogue editorial / BrandsDecoded carousel.",
+              NO_TEXT_RULE,
+            ]
+              .filter(Boolean)
+              .join(" ");
+          } else {
+            // Inner slide OR twitter template — lean prompt for speed.
+            const coreSubject = slideThemeHint
+              ? `${slideThemeHint}. Visual focus: ${query}.`
+              : query;
+            imagePrompt = [
+              aestheticPrefix,
+              `TEMPLATE STYLE: ${tmplMeta.name}.`,
+              `Subject: ${coreSubject}`,
+              isTwitterTpl
+                ? "Clean documentary photography, natural light, sharp focus on subject, neutral background, 1:1 Instagram square."
+                : "Editorial photography, natural or directional light, subject centered, 1:1 Instagram square, shallow depth of field.",
+              peopleInstr,
+              nicheHint,
+              toneHint,
+              preferHex,
+              avoidHex,
+              NO_TEXT_RULE,
+            ]
+              .filter(Boolean)
+              .join(" ");
+          }
 
           const res = await ai.models.generateImages({
             model: "imagen-4.0-generate-001",
