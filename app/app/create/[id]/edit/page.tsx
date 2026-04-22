@@ -67,33 +67,38 @@ const VARIANT_OPTS: { id: SlideVariant; label: string; ic: React.ReactNode }[] =
     ic: <span style={{ width: 22, height: 22, background: "var(--sv-ink)", border: "1.5px solid var(--sv-ink)" }} />,
   },
   {
-    id: "headline",
-    label: "Headline",
+    id: "solid-brand",
+    label: "Cor da marca",
     ic: <span style={{ width: 22, height: 22, background: "var(--sv-green)", border: "1.5px solid var(--sv-ink)" }} />,
   },
   {
-    id: "photo",
-    label: "Foto",
+    id: "full-photo-bottom",
+    label: "Foto cheia",
     ic: (
       <span
         style={{
           width: 22,
           height: 22,
-          background: "linear-gradient(var(--sv-ink) 50%, var(--sv-paper) 50%)",
+          background: "linear-gradient(var(--sv-paper) 55%, var(--sv-ink) 55%)",
           border: "1.5px solid var(--sv-ink)",
         }}
       />
     ),
   },
   {
-    id: "quote",
-    label: "Citação",
-    ic: <span style={{ width: 22, height: 22, background: "var(--sv-pink)", border: "1.5px solid var(--sv-ink)" }} />,
-  },
-  {
-    id: "split",
-    label: "Split",
-    ic: <span style={{ width: 22, height: 22, background: "var(--sv-white)", border: "1.5px solid var(--sv-ink)" }} />,
+    id: "text-only",
+    label: "Só texto",
+    ic: (
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          background: "var(--sv-ink)",
+          borderTop: "3px solid var(--sv-paper)",
+          borderBottom: "3px solid var(--sv-paper)",
+        }}
+      />
+    ),
   },
   {
     id: "cta",

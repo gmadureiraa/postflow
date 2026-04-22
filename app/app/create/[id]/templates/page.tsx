@@ -24,15 +24,16 @@ import type { SlideVariant } from "@/lib/create/types";
 function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
   const total = slides.length;
   if (total === 0) return slides;
+  // BrandsDecoded overhaul (2026-04-22): ritmo fixo solid-brand ↔
+  // full-photo-bottom alternando, com text-only em slide denso.
   const rotation: SlideVariant[] = [
-    "headline",
-    "split",
-    "headline",
-    "photo",
-    "headline",
-    "quote",
-    "headline",
-    "photo",
+    "solid-brand",
+    "full-photo-bottom",
+    "solid-brand",
+    "full-photo-bottom",
+    "text-only",
+    "solid-brand",
+    "full-photo-bottom",
   ];
   return slides.map((s, i) => {
     if (s.variant) return s;
@@ -40,6 +41,8 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
     if (total === 1) return { ...s, variant: "cover" as const };
     if (i === 0) return { ...s, variant: "cover" as const };
     if (i === total - 1) return { ...s, variant: "cta" as const };
+    // Penúltimo: foto cheia.
+    if (i === total - 2) return { ...s, variant: "full-photo-bottom" as const };
     return { ...s, variant: rotation[(i - 1) % rotation.length] };
   });
 }

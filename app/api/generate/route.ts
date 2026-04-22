@@ -587,7 +587,7 @@ ${languageInstruction}
 - DIVIDE o texto em 6-10 slides. Cada slide tem UMA ideia central.
 - EXTRAI heading (frase curta, cortante, até 10 palavras) do trecho — pode ser a primeira frase OU uma síntese LITERAL do trecho.
 - COLOCA o resto como body (preserva parágrafos do usuário).
-- APLICA variant visual pra ritmo: primeiro slide pode ser "cover", últimos CTA é "cta", meio alterna entre "headline", "photo", "split", "quote" (só variar ritmo visual, não muda conteúdo).
+- APLICA variant visual pra ritmo (BrandsDecoded overhaul): slide 1 = "cover", último = "cta", meio alterna entre "solid-brand" (fundo cor da marca) e "full-photo-bottom" (foto full-bleed + texto no bottom), com "text-only" como quebra quando tem parágrafo denso. Nunca 2 iguais seguidos.
 - GERA imageQuery por slide: 4-6 palavras em inglês, cena concreta, modifier estético ("editorial documentary natural light"). Slide que fala de dados → close-up da consequência; slide de história → cena com pessoa.
 
 # O QUE VOCÊ NÃO FAZ
@@ -611,7 +611,7 @@ Retorne APENAS 1 variação (array \`variations\` com 1 item), style: "story" co
       "style": "story",
       "ctaType": "save",
       "slides": [
-        { "heading": "string literal do user", "body": "resto do trecho preservado", "imageQuery": "english keywords", "variant": "cover|headline|photo|quote|split|cta" }
+        { "heading": "string literal do user", "body": "resto do trecho preservado", "imageQuery": "english keywords", "variant": "cover|solid-brand|full-photo-bottom|text-only|cta" }
       ]
     }
   ]
@@ -849,34 +849,39 @@ Escolha: data / story / provocative. Cada variação NÃO é só o mesmo carross
 
 Se as 3 variações têm estruturas parecidas trocando só adjetivos, VOCÊ FALHOU. Reescreva.
 
-# VISUAL RHYTHM — per-slide VARIANT (MANDATORY)
+# VISUAL RHYTHM — per-slide VARIANT (MANDATORY — BrandsDecoded overhaul)
 Cada slide DECLARA seu layout. O carrossel só "funciona visualmente" se você variar. Dois slides seguidos iguais = carrossel morto.
 
-Variants disponíveis:
-- "cover" — abre o carrossel. Headline ENORME em background bold. Body é subtítulo curto.
-- "headline" — workhorse. Statement grande + body de apoio.
-- "photo" — imagem domina, body é caption curto. Use quando a cena visual é a mensagem.
-- "quote" — pull-quote screenshottable. 1 frase forte isolada.
-- "split" — 2 colunas / antes-depois / contraste. Use pra comparações ou reveals.
-- "cta" — último slide. Chamada de ação fechando o loop do hook.
+Variants disponíveis (pós-overhaul 2026-04-22):
+- "cover" — ABRE e FECHA o carrossel. Imagem full-bleed + handle pill + título CAPS no terço inferior sobre gradient. Use no slide 1 E no último.
+- "solid-brand" — fundo em cor sólida da marca. Título CAPS no topo + imagem QUADRADA centralizada + body curto no bottom. Visualmente é o formato mais branded/colorido.
+- "full-photo-bottom" — imagem full-bleed + gradient forte no bottom 40% + título + body no terço inferior. Sem header row no topo. É o formato mais cinemático.
+- "text-only" — fundo escuro + kicker mono ("O PRINCÍPIO", "O CONTEXTO") no topo + 2-3 parágrafos sans no corpo central com divisória horizontal entre eles. Use quando o conteúdo é DENSO e não tem imagem boa.
+- "cta" — último slide. Accent button grande + seguir handle. Fecha o loop do hook.
 
-REGRAS DE ABERTURA (slide 1) — ESCOLHA DELIBERADA, NÃO AUTOMÁTICA:
-- Na variação "data": slide 1 pode ser "cover" (com dado gigante) OU "headline" (declaração forte que já soca um número).
-- Na variação "story": slide 1 pode ser "quote" (1 frase pessoal) OU "cover" (título evocativo).
-- Na variação "provocative": slide 1 pode ser "headline" direto (afirmação chocante, sem cover) OU "cover" tipo headline de manifesto.
-- Cada uma das 3 variações DEVE começar com um variant DIFERENTE das outras 2. NUNCA entregue 3 variações todas começando em "cover".
+Legacy (aceitos mas preferir os novos): "headline", "photo", "quote", "split". O sistema mapeia automaticamente pra novas variantes, então não perde slide — mas PREFIRA escolher das novas diretamente.
 
-REGRAS DO SLIDE 2:
-- Slide 2 NUNCA repete o variant do slide 1. Se slide 1 é "cover", slide 2 é "split" ou "headline" ou "photo" (nunca cover de novo).
-- Slide 2 tem que SOCAR — é o "segundo golpe" depois do hook. Entregue um dado, um contraste (split), uma cena (photo) ou uma provocação (headline). Jamais "headline" genérico repetindo o hook.
+# RITMO FORÇADO (aplicar slide a slide)
+Siga esta sequência como REGRA DURA. Nunca 2 slides iguais consecutivos. Exemplo pra 8 slides:
 
-DEMAIS REGRAS:
-1. Último slide MUST ser "cta".
-2. Meio: NUNCA o mesmo variant 3 slides em sequência.
-3. "quote" no máximo 2 vezes, em picos de tensão.
-4. "photo" quando imageQuery é cena concreta (pessoa, objeto, cenário).
-5. "split" quando o slide contém contraste explícito ("antes X, agora Y" / "todo mundo acha A, realidade é B").
-6. Arrange narrativa exemplo (8 slides): "cover → split → headline → photo → quote → headline → split → cta" OU "headline → photo → headline → split → quote → photo → headline → cta" (variar é chave).
+- Slide 1 → **"cover"** (sempre)
+- Slide 2 → **"solid-brand"**
+- Slide 3 → **"full-photo-bottom"**
+- Slide 4 → **"solid-brand"**
+- Slide 5 → **"full-photo-bottom"**
+- Slide 6 → **"text-only"** se o conteúdo é denso (2-3 parágrafos conectados); senão **"solid-brand"**
+- Slide 7 (penúltimo) → **"full-photo-bottom"**
+- Slide 8 (último) → **"cta"** (aceita "cover" também se o writer preferir fechar com imagem full-bleed)
+
+Adaptar pra 6, 7, 9, 10 slides mantendo a mesma lógica: alternância solid-brand ↔ full-photo-bottom, com text-only como quebra quando há densidade, cover na abertura e cta no fim. NUNCA 2 slides iguais seguidos.
+
+REGRAS DURAS:
+1. Slide 1 SEMPRE "cover". Não negociável.
+2. Último slide SEMPRE "cta". Não negociável.
+3. NUNCA 2 slides iguais consecutivos.
+4. "text-only" aparece no máximo 1 vez por carrossel, em ponto de densidade analítica.
+5. "solid-brand" domina o meio (2-4 ocorrências).
+6. "full-photo-bottom" quebra o ritmo (1-3 ocorrências) — use quando a cena visual do slide é forte.
 
 # IMAGE QUERY — cinematográfica, específica, ligada a ESTE slide
 O campo "imageQuery" alimenta geração/busca de imagem. Regras:
@@ -942,7 +947,7 @@ Shape:
           "heading": "string",
           "body": "string",
           "imageQuery": "3-6 English keywords of a concrete visual scene for THIS slide",
-          "variant": "cover" | "headline" | "photo" | "quote" | "split" | "cta"
+          "variant": "cover" | "solid-brand" | "full-photo-bottom" | "text-only" | "cta"
         }
       ]
     }
@@ -1175,11 +1180,14 @@ Each slides array must have 6-10 items. Every slide MUST include a valid "varian
           typeof raw.imageUrl === "string" && raw.imageUrl.trim()
             ? raw.imageUrl
             : undefined;
-        // Só força CTA no último (closing sempre precisa fechar o loop).
-        // Slide 1 fica como o Gemini decidiu (cover, headline, quote, etc.).
-        // Se veio lixo, cai na distribuição de fallback (cover pra o primeiro).
+        // Overhaul 2026-04-22: slide 1 = cover (capa BrandsDecoded com handle
+        // pill), último = cta (CTA com handle pill + accent button). Ambos
+        // fixos. Meio segue o ritmo solid-brand / full-photo-bottom /
+        // text-only alternado pela distribuição (normalizeVariant + fallback).
         let variant: SlideVariant;
         if (total <= 1) {
+          variant = "cover";
+        } else if (i === 0) {
           variant = "cover";
         } else if (i === total - 1) {
           variant = "cta";
