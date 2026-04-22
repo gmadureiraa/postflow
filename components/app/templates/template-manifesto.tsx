@@ -69,12 +69,13 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
     const handleLabel = (profile.handle || "").replace(/^@/, "").trim();
     const handleDisplay = handleLabel ? `@${handleLabel}` : "@seuhandle";
 
-    // Variantes — HEADLINE agora usa sempre layout de COVER (dark bg + handle
-    // pill + titulo bottom-third). Com ou sem imagem: se tem imagem, vira
-    // full-bleed tipo capa; se nao tem, fundo solido escuro com mesmo layout.
-    // Consistencia visual: slides sem foto "herdam" a linguagem da capa.
+    // BUG FIX 2026-04-22: versao anterior fazia headline === cover. Isso
+    // causava bug de export onde TODOS slides com variant=headline eram
+    // renderizados como capa cheia no preview Instagram/zip. Reverti pra
+    // logica original: cover = so slide 1 OU variant explicito 'cover'.
+    // Headline eh uma variante INDEPENDENTE, com layout proprio.
     const isCoverLike =
-      variant === "cover" || variant === "headline" || slideNumber === 1;
+      variant === "cover" || (slideNumber === 1 && !variant);
     const isSplit = variant === "split";
     const isPhoto = variant === "photo" && hasImage;
     const isQuote = variant === "quote";

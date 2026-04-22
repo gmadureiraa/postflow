@@ -10,6 +10,10 @@ import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { costForImages, recordGeneration } from "@/lib/server/generation-log";
 import { saveToUserGallery } from "@/lib/server/user-images";
+import {
+  getCachedThemeImage,
+  recordThemeImage,
+} from "@/lib/server/image-strategy";
 
 export const maxDuration = 60;
 
@@ -154,6 +158,40 @@ export async function POST(request: Request) {
         }
       } catch {
         /* silently fall back to no aesthetic */
+      }
+    }
+
+    // ── CACHE TEMATICO: antes de chamar Imagen/Serper, checa se ja temos
+    //    imagem recente (ultimos 7d) pro mesmo tema. Economia de ~40-60%
+    //    em carrosseis repetitivos do mesmo nicho. Desabilitado pra manual
+    //    picker (count=1 mode=search e count>1) pra nao mostrar sempre a
+    //    mesma foto quando user pede opcoes alternativas.
+    const supabaseForCache = createServiceRoleSupabaseClient();
+    const cacheQueryKey = (query ?? "").trim();
+    const shouldUseCache =
+      supabaseForCache &&
+      cacheQueryKey &&
+      (mode === "generate" || (mode === "search" && (count ?? 1) <= 1));
+    if (shouldUseCache && supabaseForCache) {
+      try {
+        const cachedUrl = await getCachedThemeImage(
+          supabaseForCache,
+          cacheQueryKey,
+          mode as "generate" | "search"
+        );
+        if (cachedUrl) {
+          console.log(
+            `[images] cache hit (${mode}) for theme:`,
+            cacheQueryKey.slice(0, 60)
+          );
+          return Response.json({
+            images: [
+              { url: cachedUrl, generated: mode === "generate", cached: true },
+            ],
+          });
+        }
+      } catch {
+        /* best-effort */
       }
     }
 

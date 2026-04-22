@@ -15,40 +15,53 @@
 
 export const PLAN_CURRENCY = "usd" as const;
 
+/**
+ * Estrutura 3 planos: Free / Creator / Pro.
+ *
+ * Migracao 2026-04-22: removido plano "Agência" (business). IDs no banco
+ * permanecem 'pro' e 'business' pra nao quebrar users legados — mas o
+ * DISPLAY NAME mudou:
+ *   - DB key 'pro'      → mostrado como "Creator" (entry pago)
+ *   - DB key 'business' → mostrado como "Pro" (top tier)
+ *   - DB key 'free'     → inalterado
+ *
+ * Novo preço-alvo pos-promo alinhado com a economia real (imagens Imagen
+ * sao o driver de custo, ~$0.04/imagem, 50% dos slides tem imagem).
+ */
 export const PLANS = {
   pro: {
-    name: "Pro",
+    name: "Creator",
     priceMonthly: 990, // $9.90 em cents
-    priceAnnual: 9504, // $95.04/ano (20% off sobre $9.90 × 12 = $118.80)
-    priceAnchor: 1990, // $19.90 — preço "normal" depois da promo de lançamento
-    carouselsPerMonth: 30,
+    priceAnnual: 9504, // $95.04/ano (20% off)
+    priceAnchor: 1990, // $19.90 pos-promo
+    carouselsPerMonth: 15,
     features: [
-      "30 carrosséis/mês",
+      "15 carrosséis/mês",
       "Todas as origens (YouTube, blog, Instagram, ideia)",
       "Sem marca d'água",
-      "Estilos claro e escuro",
       "Templates Futurista + Twitter",
       "Export PNG pronto pra postar",
       "1 perfil de voz/marca",
-      "Referências visuais (IA aprende sua estética)",
+      "Imagens geradas com IA (Imagen 4) + busca (stock)",
       "Suporte por email",
     ],
   },
   business: {
-    name: "Agência",
+    name: "Pro",
     priceMonthly: 2990, // $29.90
-    priceAnnual: 28704, // $287.04/ano (20% off sobre $29.90 × 12 = $358.80)
-    priceAnchor: 3990, // $39.90 preço normal planejado
-    carouselsPerMonth: 150, // Limite real pra sustentar margem (custo IA ~$0.10/carrossel)
+    priceAnnual: 28704, // $287.04/ano (20% off)
+    priceAnchor: 3990, // $39.90 pos-promo
+    carouselsPerMonth: 60,
     features: [
-      "150 carrosséis/mês",
-      "Todas as origens (YouTube, blog, Instagram, ideia)",
+      "60 carrosséis/mês",
+      "Todas as origens",
       "Sem marca d'água",
       "Templates Futurista + Twitter",
-      "Export PNG pronto pra postar",
-      "1 perfil de voz/marca",
-      "Referências visuais (IA aprende sua estética)",
-      "Suporte prioritário (WhatsApp direto)",
+      "Export PNG + PDF",
+      "Perfis de voz/marca (múltiplos, em breve)",
+      "Imagens IA + stock + cache inteligente por tema",
+      "Agendamento + publicação automática (em breve)",
+      "Suporte prioritário",
     ],
   },
 } as const;
