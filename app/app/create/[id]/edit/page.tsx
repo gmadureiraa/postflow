@@ -12,7 +12,7 @@ import {
   type TemplateId,
 } from "@/components/app/templates";
 import { useAuth } from "@/lib/auth-context";
-import { useDraft, useAutoSaveDraft } from "@/lib/create/use-draft";
+import { useDraft, useAutoSaveDraft, useSaveDraft } from "@/lib/create/use-draft";
 import { useImages } from "@/lib/create/use-images";
 // CarouselFeedbackPanel removido — agora so aparece em /app/create/[id]/preview.
 import { DiscountPopup } from "@/components/app/discount-popup";
@@ -450,6 +450,33 @@ export default function EditPage(props: {
     textScale: scaleTouched ? textScale : undefined,
     enabled: slides.length > 0,
   });
+
+  // saveNow: flush imediato usado antes de navegar pra /preview. Evita
+  // race condition em que auto-save (1200ms debounce) nao disparou e user
+  // chega no preview com draft stale — preview/export renderiza versao
+  // antiga (bug reportado 2026-04-22).
+  const { saveNow: flushDraft } = useSaveDraft(user?.id ?? null, null);
+  const [flushingToPreview, setFlushingToPreview] = useState(false);
+  async function goToPreview() {
+    if (!id) return;
+    setFlushingToPreview(true);
+    try {
+      await flushDraft(id, {
+        title,
+        slides,
+        slideStyle,
+        status: "draft",
+        visualTemplate: templateId,
+        accentOverride: accentTouched ? accent : undefined,
+        displayFont: fontTouched ? familyFromFontId(fontId) : undefined,
+        textScale: scaleTouched ? textScale : undefined,
+      });
+    } catch (err) {
+      console.warn("[edit] flush before preview falhou:", err);
+      // nao bloqueia a navegacao — preview pelo menos tenta carregar draft atual
+    }
+    router.push(`/app/create/${id}/preview`);
+  }
 
   function updateSlide(index: number, patch: Partial<CreateSlide>) {
     setSlides((prev) => {
@@ -1630,10 +1657,16 @@ export default function EditPage(props: {
           <button
             type="button"
             className="sv-btn sv-btn-primary"
-            style={{ padding: "7px 12px", fontSize: 9 }}
-            onClick={() => router.push(`/app/create/${id}/preview`)}
+            style={{
+              padding: "7px 12px",
+              fontSize: 9,
+              opacity: flushingToPreview ? 0.6 : 1,
+              cursor: flushingToPreview ? "wait" : "pointer",
+            }}
+            disabled={flushingToPreview}
+            onClick={() => void goToPreview()}
           >
-            Preview & Export →
+            {flushingToPreview ? "Salvando…" : "Preview & Export →"}
           </button>
         </div>
       </div>
