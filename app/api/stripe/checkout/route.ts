@@ -51,7 +51,10 @@ export async function POST(request: Request) {
     }
 
     const plan = PLANS[planId as PlanId];
-    const includeBump = bump === true;
+    // Autopublish bump desativado (feature nao ofertada). Mantem var como
+    // false pra nao quebrar referencias legadas abaixo sem refactor maior.
+    void bump;
+    const includeBump = false;
     const billingInterval: "month" | "year" =
       interval === "year" ? "year" : "month";
     const planPrice =
@@ -122,31 +125,31 @@ export async function POST(request: Request) {
       }
     }
 
+    // Usa Product ID existente no Stripe (definido em lib/pricing.ts). Se
+    // o plano nao tiver product cadastrado ainda, fallback pra product_data
+    // inline (Stripe cria produto novo). Currency BRL em todos os casos.
+    const stripeProductId = (plan as { stripeProductId?: string })
+      .stripeProductId;
     const planItem = {
       price_data: {
-        currency: "usd",
-        product_data: {
-          name: `Sequência Viral ${plan.name}${billingInterval === "year" ? " (anual)" : ""}`,
-          description: plan.features.join(" · "),
-        },
+        currency: "brl",
+        ...(stripeProductId
+          ? { product: stripeProductId }
+          : {
+              product_data: {
+                name: `Sequência Viral ${plan.name}${billingInterval === "year" ? " (anual)" : ""}`,
+                description: plan.features.join(" · "),
+              },
+            }),
         unit_amount: planPrice as number,
         recurring: { interval: billingInterval },
       },
       quantity: 1,
     };
-    const bumpItem = {
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: `Add-on · ${AUTOPUBLISH_BUMP.name}`,
-          description: AUTOPUBLISH_BUMP.description,
-        },
-        unit_amount: AUTOPUBLISH_BUMP.priceMonthly as number,
-        recurring: { interval: "month" as const },
-      },
-      quantity: 1,
-    };
-    const lineItems = includeBump ? [planItem, bumpItem] : [planItem];
+    // Autopublish bump desativado — feature nao ofertada ainda. Sem
+    // line items extras no checkout. Reativar quando Planejamento +
+    // Piloto auto saírem do 'em breve'.
+    const lineItems = [planItem];
 
     // Create Stripe Checkout Session
     // Se aplicamos um cupom local, passa via `discounts` (incompatível com

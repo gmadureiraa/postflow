@@ -36,6 +36,9 @@ export const PLANS = {
     priceMonthly: 4900, // R$ 49,00 em centavos BRL
     priceAnnual: 47040, // R$ 470,40/ano (20% off sobre 49×12=588)
     priceAnchor: 7900, // R$ 79 preco normal
+    // Product ID do Stripe — criado manualmente no dashboard. DB key 'pro'
+    // mapeia pro produto cujo display name e "Creator" (confuso mas legado).
+    stripeProductId: "prod_UNrg0hsyOm447P",
     carouselsPerMonth: 15,
     features: [
       "15 carrosséis/mês",
@@ -53,6 +56,8 @@ export const PLANS = {
     priceMonthly: 9700, // R$ 97,00
     priceAnnual: 93120, // R$ 931,20/ano (20% off sobre 97×12=1164)
     priceAnchor: 14900, // R$ 149 preco normal
+    // Product ID do Stripe. DB key 'business' mapeia pro produto "Pro".
+    stripeProductId: "prod_UNrgO9pSZYSveR",
     carouselsPerMonth: 60,
     features: [
       "60 carrosséis/mês",
