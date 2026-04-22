@@ -1,20 +1,10 @@
 import type { MetadataRoute } from "next";
+import { POSTS_META } from "@/lib/blog-posts-meta";
 
 const BASE_URL = "https://viral.kaleidos.com.br";
 
-const blogSlugs = [
-  "sequencia-viral-novidades-abril-2026-image-picker-pdf-export",
-  "algoritmo-instagram-2026-como-funciona-o-que-mudou",
-  "12-hooks-primeiro-slide-carrossel-parar-scroll",
-  "como-criar-carrosseis-virais-instagram-2026",
-  "storytelling-em-carrosseis-como-contar-historias-que-engajam",
-  "5-formatos-carrossel-mais-engajamento",
-  "copywriting-para-redes-sociais-guia-definitivo-2026",
-  "thread-vs-carrossel-qual-funciona-melhor",
-  "como-transformar-artigos-em-carrosseis-repurposing",
-  "como-usar-ia-criar-conteudo-redes-sociais",
-  "guia-completo-tamanhos-instagram-twitter-linkedin",
-];
+// Lista canonica de posts vem de lib/blog-posts-meta.ts
+const blogSlugs = POSTS_META.map((p) => p.slug);
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const blogEntries: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({

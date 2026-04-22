@@ -1,269 +1,681 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  POSTS_META,
+  CATEGORIES,
+  formatDatePt,
+  type PostMeta,
+} from "@/lib/blog-posts-meta";
+import { Footer } from "@/components/landing/footer";
+
+/* ─────────────────── METADATA ─────────────────── */
 
 export const metadata: Metadata = {
-  title: "Blog Sequência Viral — Carrosseis com IA, Estrategias de Conteudo e Instagram",
+  title:
+    "Blog Sequência Viral — Decodificando conteúdo, algoritmos e viralização",
   description:
-    "Aprenda a criar carrosseis virais, dominar o algoritmo do Instagram em 2026, usar IA para conteudo e tecnicas de copywriting para redes sociais. Guias praticos do Sequência Viral.",
+    "Leitura editorial pra quem leva criação de conteúdo a sério. Carrosséis, algoritmo do Instagram, copywriting, IA e os bastidores de quem publica em volume. Por trás do Sequência Viral.",
   alternates: {
     canonical: "https://viral.kaleidos.com.br/blog",
+    languages: {
+      "pt-BR": "https://viral.kaleidos.com.br/blog",
+    },
   },
   openGraph: {
-    title: "Blog Sequência Viral — Carrosseis com IA, Estrategias de Conteudo e Instagram",
+    title: "Blog Sequência Viral — Decodificando conteúdo e algoritmos",
     description:
-      "Guias praticos sobre carrosseis, IA, copywriting e algoritmo do Instagram. Tudo que voce precisa pra criar conteudo de alto engajamento.",
+      "Leitura editorial pra creators sérios. Carrosséis, copywriting, IA, algoritmo do Instagram. Sem papo furado.",
     type: "website",
     url: "https://viral.kaleidos.com.br/blog",
+    siteName: "Sequência Viral",
+    locale: "pt_BR",
+    images: [
+      {
+        url: "/brand/logo-sv-full.png",
+        width: 1200,
+        height: 630,
+        alt: "Sequência Viral — Blog editorial",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Blog Sequência Viral — Carrosseis, IA e Redes Sociais",
-    description: "Guias praticos sobre carrosseis, IA, copywriting e algoritmo do Instagram.",
+    title: "Blog Sequência Viral — Conteúdo, marcas e algoritmos",
+    description:
+      "Leitura editorial pra creators sérios. Carrosséis, IA, algoritmo e copywriting.",
+    images: ["/brand/logo-sv-full.png"],
   },
 };
 
-const posts = [
-  {
-    slug: "sequencia-viral-novidades-abril-2026-image-picker-pdf-export",
-    title: "Sequência Viral: Novidades de Abril 2026 — Image Picker, PDF Export e Mais",
-    excerpt:
-      "Confira as ultimas atualizacoes do Sequência Viral. Novo seletor de imagens, export PDF corrigido, limites do plano free e melhorias de UX.",
-    date: "2026-04-15",
-    readTime: "4 min",
-    category: "Sequência Viral",
-  },
-  {
-    slug: "algoritmo-instagram-2026-como-funciona-o-que-mudou",
-    title: "Algoritmo do Instagram em 2026: Como Funciona e O Que Mudou",
-    excerpt:
-      "Entenda como o algoritmo do Instagram prioriza conteudo em 2026. Feed, Explore, Reels e carrosseis — o que importa de verdade para alcance organico.",
-    date: "2026-04-14",
-    readTime: "11 min",
-    category: "Instagram",
-  },
-  {
-    slug: "12-hooks-primeiro-slide-carrossel-parar-scroll",
-    title: "12 Hooks de Primeiro Slide que Param o Scroll Instantaneamente",
-    excerpt:
-      "O primeiro slide decide se alguem vai consumir seu carrossel ou continuar rolando. 12 padroes de hook comprovados com dados reais.",
-    date: "2026-04-12",
-    readTime: "10 min",
-    category: "Estrategia",
-  },
-  {
-    slug: "como-criar-carrosseis-virais-instagram-2026",
-    title: "Como Criar Carrosseis Virais no Instagram em 2026",
-    excerpt:
-      "Descubra as estrategias que os maiores criadores de conteudo usam para criar carrosseis que viralizam no Instagram.",
-    date: "2026-04-10",
-    readTime: "7 min",
-    category: "Instagram",
-  },
-  {
-    slug: "storytelling-em-carrosseis-como-contar-historias-que-engajam",
-    title: "Storytelling em Carrosseis: Como Contar Historias que Engajam",
-    excerpt:
-      "Tecnicas de storytelling profissional aplicadas a carrosseis. Arcos narrativos, micro-stories e exemplos praticos que geram 4x mais compartilhamentos.",
-    date: "2026-04-09",
-    readTime: "9 min",
-    category: "Estrategia",
-  },
-  {
-    slug: "5-formatos-carrossel-mais-engajamento",
-    title: "5 Formatos de Carrossel que Geram Mais Engajamento",
-    excerpt:
-      "Nem todo carrossel e igual. Conheca os 5 formatos que consistentemente geram mais curtidas, comentarios e compartilhamentos.",
-    date: "2026-04-08",
-    readTime: "6 min",
-    category: "Estrategia",
-  },
-  {
-    slug: "copywriting-para-redes-sociais-guia-definitivo-2026",
-    title: "Copywriting para Redes Sociais: O Guia Definitivo para 2026",
-    excerpt:
-      "Tecnicas avancadas de copywriting para Instagram, Twitter/X e LinkedIn. 7 formulas testadas com exemplos reais que voce pode aplicar hoje.",
-    date: "2026-04-07",
-    readTime: "12 min",
-    category: "Copywriting",
-  },
-  {
-    slug: "thread-vs-carrossel-qual-funciona-melhor",
-    title: "Thread vs Carrossel: Qual Funciona Melhor?",
-    excerpt:
-      "Threads no Twitter/X ou carrosseis no Instagram? Analisamos dados reais de 500 criadores para responder essa pergunta.",
-    date: "2026-04-05",
-    readTime: "8 min",
-    category: "Analise",
-  },
-  {
-    slug: "como-transformar-artigos-em-carrosseis-repurposing",
-    title: "Como Transformar Artigos e Links em Carrosseis: O Guia de Repurposing",
-    excerpt:
-      "Aprenda a pegar qualquer artigo, thread ou video e transformar em carrossel de alto engajamento. Tecnicas com e sem IA.",
-    date: "2026-04-03",
-    readTime: "8 min",
-    category: "Produtividade",
-  },
-  {
-    slug: "como-usar-ia-criar-conteudo-redes-sociais",
-    title: "Como Usar IA para Criar Conteudo de Redes Sociais",
-    excerpt:
-      "Um guia pratico de como integrar inteligencia artificial no seu fluxo de producao de conteudo sem perder autenticidade.",
-    date: "2026-04-02",
-    readTime: "9 min",
-    category: "IA",
-  },
-  {
-    slug: "guia-completo-tamanhos-instagram-twitter-linkedin",
-    title:
-      "O Guia Completo de Tamanhos para Instagram, Twitter e LinkedIn",
-    excerpt:
-      "Todos os tamanhos de imagem e video atualizados para 2026. Salve este guia e nunca mais erre uma dimensao.",
-    date: "2026-03-28",
-    readTime: "5 min",
-    category: "Referencia",
-  },
-];
+/* ─────────────────── JSON-LD ─────────────────── */
 
-const categories = Array.from(new Set(posts.map((p) => p.category)));
+const blogJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  name: "Blog Sequência Viral",
+  description:
+    "Guias editoriais sobre carrosséis, IA, algoritmo do Instagram, copywriting e produção de conteúdo em volume.",
+  url: "https://viral.kaleidos.com.br/blog",
+  inLanguage: "pt-BR",
+  publisher: {
+    "@type": "Organization",
+    name: "Sequência Viral",
+    url: "https://viral.kaleidos.com.br",
+    logo: {
+      "@type": "ImageObject",
+      url: "https://viral.kaleidos.com.br/brand/logo-sv-full.png",
+    },
+  },
+  blogPost: POSTS_META.map((p) => ({
+    "@type": "BlogPosting",
+    headline: p.title,
+    description: p.excerpt,
+    datePublished: p.date,
+    url: `https://viral.kaleidos.com.br/blog/${p.slug}`,
+    author: { "@type": "Organization", name: "Sequência Viral" },
+  })),
+};
 
-export default function BlogIndex() {
-  const featured = posts[0];
-  const rest = posts.slice(1);
+/* ─────────────────── VISUAL BLOCKS (placeholder covers) ─────────────────── */
+
+function CoverBlock({ post }: { post: PostMeta }) {
+  // Bloco visual tipográfico — substitui capa quando não há imagem real.
+  // Usa as cores da paleta SV. Cada "tint" pinta o bloco diferente.
+  const palette = {
+    green: { bg: "var(--sv-green)", fg: "var(--sv-ink)" },
+    pink: { bg: "var(--sv-pink)", fg: "var(--sv-ink)" },
+    ink: { bg: "var(--sv-ink)", fg: "var(--sv-paper)" },
+    paper: { bg: "var(--sv-soft)", fg: "var(--sv-ink)" },
+  } as const;
+  const p = palette[post.tint ?? "paper"];
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      {/* Nav */}
-      <nav className="border-b border-[#0A0A0A]/10 bg-[#FAFAF8]">
-        <div className="mx-auto max-w-5xl px-6 flex items-center justify-between h-16">
-          <Link
-            href="/"
-            className="font-[family-name:var(--font-serif)] text-xl tracking-tight text-[#0A0A0A]"
-          >
-            Sequência Viral<span className="text-[var(--accent)]">.</span>
+    <div
+      className="relative overflow-hidden"
+      style={{
+        background: p.bg,
+        color: p.fg,
+        aspectRatio: "16 / 10",
+        borderBottom: "1.5px solid var(--sv-ink)",
+      }}
+    >
+      {/* Número editorial em marca d'água */}
+      <span
+        className="absolute"
+        style={{
+          top: -14,
+          right: -10,
+          fontFamily: "var(--sv-display)",
+          fontSize: "clamp(110px, 22vw, 220px)",
+          lineHeight: 0.8,
+          fontStyle: "italic",
+          opacity: 0.14,
+          letterSpacing: "-0.04em",
+          pointerEvents: "none",
+        }}
+      >
+        {post.number ? `Nº${String(post.number).padStart(2, "0")}` : ""}
+      </span>
+
+      {/* Kicker + categoria */}
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 pt-4">
+        <span
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9.5,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+          }}
+        >
+          Editorial
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 9.5,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+          }}
+        >
+          {post.category}
+        </span>
+      </div>
+
+      {/* Título curto + ornamentos */}
+      <div className="absolute inset-x-0 bottom-0 px-5 pb-5">
+        <div
+          style={{
+            fontFamily: "var(--sv-display)",
+            fontStyle: "italic",
+            fontSize: "clamp(24px, 3.2vw, 40px)",
+            lineHeight: 1.02,
+            letterSpacing: "-0.02em",
+            // limita a 2 linhas no bloco
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {post.title.split(":")[0]}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────── PAGE ─────────────────── */
+
+export default function BlogIndex() {
+  const [featured, ...rest] = POSTS_META;
+  // Primeira linha: 2 cards destaque (após o hero); resto: grid 3 colunas
+  const secondary = rest.slice(0, 2);
+  const regular = rest.slice(2);
+
+  return (
+    <div className="min-h-screen" style={{ background: "var(--sv-paper)" }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogJsonLd) }}
+      />
+
+      {/* ── NAV ─────────────────────────────────────────────────────── */}
+      <nav
+        className="sticky top-0 z-50"
+        style={{
+          background: "color-mix(in srgb, var(--sv-paper) 90%, transparent)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid var(--sv-ink)",
+        }}
+      >
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between px-6 py-3">
+          <Link href="/" className="flex items-center gap-[10px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-sv-mark.png"
+              alt="Sequência Viral"
+              style={{ width: 38, height: 38, objectFit: "contain" }}
+            />
+            <span className="flex flex-col leading-none">
+              <span
+                className="sv-display"
+                style={{ fontSize: 16, letterSpacing: "-0.01em" }}
+              >
+                Sequência <em>Viral</em>
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 8.5,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color: "var(--sv-muted)",
+                  marginTop: 2,
+                }}
+              >
+                Editorial · Blog
+              </span>
+            </span>
           </Link>
-          <div className="flex items-center gap-6">
-            <span className="text-sm font-semibold text-[#0A0A0A]/70">Blog</span>
+          <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="text-sm text-[#0A0A0A]/50 hover:text-[#0A0A0A] transition-colors"
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                color: "var(--sv-ink)",
+              }}
+              className="hidden px-3 py-[7px] transition-colors hover:bg-[var(--sv-green)] md:inline-block"
             >
-              Voltar ao site
+              Home
+            </Link>
+            <Link
+              href="/app/signup"
+              className="sv-btn sv-btn-primary"
+              style={{ padding: "8px 14px", fontSize: 9.5 }}
+            >
+              Criar grátis →
             </Link>
           </div>
         </div>
       </nav>
 
-      <main className="mx-auto max-w-5xl px-6 py-12 md:py-20">
-        {/* Header */}
-        <div className="mb-12">
-          <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl tracking-tight text-[#0A0A0A] mb-3">
-            Blog
-          </h1>
-          <p className="text-lg text-[#0A0A0A]/50 max-w-xl">
-            Estrategias de carrossel, IA para conteudo, copywriting e tudo sobre crescer nas redes sociais.
-          </p>
-        </div>
-
-        {/* Category pills */}
-        <div className="flex flex-wrap gap-2 mb-10">
-          {categories.map((cat) => (
-            <span
-              key={cat}
-              className="text-[11px] font-semibold uppercase tracking-wider text-[#0A0A0A]/50 bg-white border border-[#0A0A0A]/8 px-3 py-1.5 rounded-full"
-            >
-              {cat}
+      {/* ── HERO EDITORIAL ──────────────────────────────────────────── */}
+      <header
+        className="relative border-b"
+        style={{ borderColor: "var(--sv-ink)" }}
+      >
+        <div className="mx-auto max-w-[1240px] px-6 py-14 md:py-24">
+          {/* breadcrumb */}
+          <div
+            className="mb-7 flex flex-wrap items-center gap-2"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 10,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+            }}
+          >
+            <span>Sequência Viral</span>
+            <span style={{ color: "var(--sv-ink)" }}>·</span>
+            <span style={{ color: "var(--sv-ink)" }}>Blog</span>
+            <span className="mx-2" style={{ color: "var(--sv-ink)" }}>
+              ——
             </span>
-          ))}
-        </div>
-
-        {/* Featured post */}
-        <Link
-          href={`/blog/${featured.slug}`}
-          className="group block mb-12 rounded-2xl border border-[#0A0A0A]/8 bg-white p-6 sm:p-8 hover:border-[var(--accent)]/30 transition-all"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-[var(--accent)] px-2.5 py-1 rounded-full">
-              Mais recente
-            </span>
-            <span className="text-[11px] font-medium text-[var(--accent)] bg-orange-50 px-2 py-1 rounded-full">
-              {featured.category}
-            </span>
-            <span className="text-xs text-[#0A0A0A]/40">{featured.date}</span>
-            <span className="text-xs text-[#0A0A0A]/40">{featured.readTime}</span>
+            <span>Ed. Nº {POSTS_META[0]?.number ?? 11}</span>
           </div>
-          <h2 className="font-[family-name:var(--font-serif)] text-2xl sm:text-3xl tracking-tight text-[#0A0A0A] mb-3 group-hover:text-[var(--accent)] transition-colors">
-            {featured.title}
-          </h2>
-          <p className="text-[#0A0A0A]/55 leading-relaxed max-w-2xl">
-            {featured.excerpt}
-          </p>
-          <span className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-[var(--accent)]">
-            Ler artigo →
-          </span>
-        </Link>
 
-        {/* Grid */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {rest.map((post) => (
-            <article key={post.slug} className="group">
-              <Link
-                href={`/blog/${post.slug}`}
-                className="block rounded-xl border border-[#0A0A0A]/6 bg-white p-5 h-full hover:border-[var(--accent)]/25 transition-all"
+          <h1
+            className="sv-display"
+            style={{
+              fontSize: "clamp(44px, 8vw, 108px)",
+              lineHeight: 0.92,
+              letterSpacing: "-0.035em",
+              maxWidth: "14ch",
+            }}
+          >
+            Decodificando{" "}
+            <span className="sv-splash">conteúdo</span>,<br />
+            marcas e{" "}
+            <em
+              style={{ color: "var(--sv-ink)" }}
+              className="sv-under"
+            >
+              algoritmos
+            </em>
+            .
+          </h1>
+
+          <p
+            className="mt-8 max-w-[640px]"
+            style={{
+              fontFamily: "var(--sv-display-alt)",
+              fontSize: 21,
+              lineHeight: 1.45,
+              color: "var(--sv-ink)",
+              letterSpacing: "-0.005em",
+            }}
+          >
+            Leitura editorial pra quem leva criação de conteúdo a sério.
+            Bastidores, frameworks e análises de quem publica em volume e
+            não romantiza o processo.
+          </p>
+
+          {/* Meta do número / ticker */}
+          <div
+            className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+            }}
+          >
+            <span>{POSTS_META.length} edições</span>
+            <span>·</span>
+            <span>Atualizado {formatDatePt(POSTS_META[0]?.date ?? "2026-04-15")}</span>
+            <span>·</span>
+            <span>Português brasileiro</span>
+          </div>
+        </div>
+
+        {/* Linha de categorias — chips */}
+        <div
+          className="border-t"
+          style={{
+            borderColor: "var(--sv-ink)",
+            background: "var(--sv-soft)",
+          }}
+        >
+          <div className="mx-auto flex max-w-[1240px] flex-wrap gap-2 px-6 py-4">
+            {CATEGORIES.map((cat) => (
+              <span key={cat} className="sv-chip">
+                {cat}
+              </span>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* ── FEATURED ─────────────────────────────────────────────── */}
+      <section
+        className="border-b"
+        style={{ borderColor: "var(--sv-ink)" }}
+      >
+        <div className="mx-auto max-w-[1240px] px-6 py-14">
+          {/* kicker */}
+          <div className="mb-6 flex items-center gap-3">
+            <span
+              style={{
+                width: 34,
+                height: 1.5,
+                background: "var(--sv-ink)",
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "var(--sv-mono)",
+                fontSize: 10,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+              }}
+            >
+              Edição em destaque
+            </span>
+          </div>
+
+          {featured && (
+            <Link
+              href={`/blog/${featured.slug}`}
+              className="group grid gap-8 md:grid-cols-[1.1fr_1fr]"
+            >
+              {/* Capa */}
+              <div
+                className="sv-card p-0"
+                style={{ overflow: "hidden" }}
               >
-                <div className="flex items-center gap-2.5 mb-3">
-                  <span className="text-[11px] font-medium text-[var(--accent)] bg-orange-50 px-2 py-0.5 rounded-full">
-                    {post.category}
+                <CoverBlock post={featured} />
+              </div>
+
+              {/* Texto */}
+              <div className="flex flex-col justify-center">
+                <div
+                  className="mb-4 flex items-center gap-3"
+                  style={{
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-muted)",
+                  }}
+                >
+                  <span style={{ color: "var(--sv-ink)" }}>
+                    Nº{String(featured.number ?? 0).padStart(2, "0")}
                   </span>
-                  <span className="text-[11px] text-[#0A0A0A]/35">
-                    {post.readTime}
+                  <span>·</span>
+                  <span>{featured.category}</span>
+                  <span>·</span>
+                  <span>{featured.readTime}</span>
+                </div>
+                <h2
+                  className="sv-display transition-colors group-hover:text-[var(--sv-pink)]"
+                  style={{
+                    fontSize: "clamp(32px, 4.5vw, 56px)",
+                    lineHeight: 1.02,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  {featured.title}
+                </h2>
+                <p
+                  className="mt-5"
+                  style={{
+                    fontFamily: "var(--sv-display-alt)",
+                    fontSize: 19,
+                    lineHeight: 1.5,
+                    color: "var(--sv-muted)",
+                    maxWidth: "56ch",
+                  }}
+                >
+                  {featured.excerpt}
+                </p>
+                <div className="mt-8 flex items-center gap-4">
+                  <span className="sv-btn sv-btn-primary">
+                    Ler edição completa →
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--sv-mono)",
+                      fontSize: 10,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color: "var(--sv-muted)",
+                    }}
+                  >
+                    {formatDatePt(featured.date)}
                   </span>
                 </div>
-                <h3 className="font-[family-name:var(--font-serif)] text-lg tracking-tight text-[#0A0A0A] leading-snug mb-2 group-hover:text-[var(--accent)] transition-colors">
-                  {post.title}
-                </h3>
-                <p className="text-sm text-[#0A0A0A]/50 leading-relaxed line-clamp-2">
-                  {post.excerpt}
-                </p>
-                <span className="inline-block mt-3 text-xs font-semibold text-[#0A0A0A]/40">{post.date}</span>
-              </Link>
-            </article>
-          ))}
+              </div>
+            </Link>
+          )}
         </div>
+      </section>
 
-        {/* CTA */}
-        <div className="mt-16 text-center rounded-2xl border border-[#0A0A0A]/8 bg-white p-8 sm:p-10">
-          <h3 className="font-[family-name:var(--font-serif)] text-2xl tracking-tight text-[#0A0A0A] mb-2">
-            Crie seu primeiro carrossel com IA
-          </h3>
-          <p className="text-[#0A0A0A]/50 mb-5">
-            Gratis. Sem cartao. Pronto em 30 segundos.
-          </p>
-          <Link
-            href="/app/login"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-semibold text-sm hover:bg-[var(--accent-dark)] transition-colors"
-          >
-            Criar carrossel gratis →
-          </Link>
-        </div>
-      </main>
+      {/* ── SECONDARY 2-UP ────────────────────────────────────────── */}
+      {secondary.length > 0 && (
+        <section
+          className="border-b"
+          style={{ borderColor: "var(--sv-ink)" }}
+        >
+          <div className="mx-auto max-w-[1240px] px-6 py-14">
+            <div className="mb-6 flex items-center gap-3">
+              <span
+                style={{
+                  width: 34,
+                  height: 1.5,
+                  background: "var(--sv-ink)",
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Mais recentes
+              </span>
+            </div>
 
-      {/* Footer */}
-      <footer className="border-t border-[#0A0A0A]/8 py-8 bg-[#FAFAF8]">
-        <div className="mx-auto max-w-5xl px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[12px] text-[#0A0A0A]/40">
-            &copy; {new Date().getFullYear()} Sequência Viral. Todos os direitos reservados.
-          </p>
-          <a
-            href="https://kaleidos.com.br"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[12px] text-[#0A0A0A]/40 hover:text-[#0A0A0A]/60 transition-colors"
+            <div className="grid gap-8 md:grid-cols-2">
+              {secondary.map((post) => (
+                <PostCard key={post.slug} post={post} size="large" />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── ARCHIVE GRID 3-UP ─────────────────────────────────────── */}
+      {regular.length > 0 && (
+        <section
+          className="border-b"
+          style={{ borderColor: "var(--sv-ink)" }}
+        >
+          <div className="mx-auto max-w-[1240px] px-6 py-14">
+            <div className="mb-6 flex items-center gap-3">
+              <span
+                style={{
+                  width: 34,
+                  height: 1.5,
+                  background: "var(--sv-ink)",
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: "var(--sv-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Arquivo editorial
+              </span>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {regular.map((post) => (
+                <PostCard key={post.slug} post={post} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── CTA ───────────────────────────────────────────────────── */}
+      <section
+        className="border-b"
+        style={{
+          borderColor: "var(--sv-ink)",
+          background: "var(--sv-ink)",
+          color: "var(--sv-paper)",
+        }}
+      >
+        <div className="mx-auto max-w-[1240px] px-6 py-20 text-center">
+          <div
+            className="mx-auto mb-5 inline-flex items-center gap-2 px-3 py-1"
+            style={{
+              border: "1.5px solid var(--sv-paper)",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+            }}
           >
-            Powered by <span className="font-semibold">Kaleidos</span>
-          </a>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 99,
+                background: "var(--sv-green)",
+                display: "inline-block",
+              }}
+            />
+            Sequência Viral
+          </div>
+
+          <h2
+            className="sv-display mx-auto"
+            style={{
+              fontSize: "clamp(36px, 6vw, 76px)",
+              lineHeight: 0.98,
+              letterSpacing: "-0.03em",
+              color: "var(--sv-paper)",
+              maxWidth: "18ch",
+            }}
+          >
+            Da leitura pro <em className="sv-text-green">feed</em> em 60 segundos.
+          </h2>
+
+          <p
+            className="mx-auto mt-6 max-w-[560px]"
+            style={{
+              fontFamily: "var(--sv-display-alt)",
+              fontSize: 19,
+              lineHeight: 1.5,
+              color: "color-mix(in srgb, var(--sv-paper) 70%, transparent)",
+            }}
+          >
+            Cola um link, a IA escreve no seu tom, monta os slides e entrega
+            pronto pra postar. Grátis, sem cartão, sem enrolação.
+          </p>
+
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/app/signup" className="sv-btn sv-btn-primary">
+              Criar carrossel grátis →
+            </Link>
+            <Link
+              href="/"
+              className="sv-btn"
+              style={{
+                background: "transparent",
+                color: "var(--sv-paper)",
+                borderColor: "var(--sv-paper)",
+                boxShadow: "3px 3px 0 0 var(--sv-green)",
+              }}
+            >
+              Ver como funciona
+            </Link>
+          </div>
         </div>
-      </footer>
+      </section>
+
+      <Footer />
     </div>
+  );
+}
+
+/* ─────────────────── CARD COMPONENT ─────────────────── */
+
+function PostCard({
+  post,
+  size = "default",
+}: {
+  post: PostMeta;
+  size?: "default" | "large";
+}) {
+  const titleSize = size === "large" ? "clamp(26px, 2.5vw, 36px)" : "22px";
+  return (
+    <Link href={`/blog/${post.slug}`} className="group block">
+      <article className="sv-card" style={{ padding: 0 }}>
+        <CoverBlock post={post} />
+
+        <div className="p-6">
+          <div
+            className="mb-4 flex items-center gap-3"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+            }}
+          >
+            <span style={{ color: "var(--sv-ink)" }}>
+              Nº{String(post.number ?? 0).padStart(2, "0")}
+            </span>
+            <span>·</span>
+            <span>{post.category}</span>
+          </div>
+
+          <h3
+            className="sv-display transition-colors group-hover:text-[var(--sv-pink)]"
+            style={{
+              fontSize: titleSize,
+              lineHeight: 1.05,
+              letterSpacing: "-0.025em",
+            }}
+          >
+            {post.title}
+          </h3>
+
+          <p
+            className="mt-3"
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: 14.5,
+              lineHeight: 1.55,
+              color: "var(--sv-muted)",
+              display: "-webkit-box",
+              WebkitLineClamp: size === "large" ? 4 : 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {post.excerpt}
+          </p>
+
+          <div
+            className="mt-5 flex items-center justify-between pt-4"
+            style={{
+              borderTop: "1px solid color-mix(in srgb, var(--sv-ink) 18%, transparent)",
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+            }}
+          >
+            <span>{formatDatePt(post.date)}</span>
+            <span>{post.readTime}</span>
+          </div>
+        </div>
+      </article>
+    </Link>
   );
 }
