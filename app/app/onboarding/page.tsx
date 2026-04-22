@@ -35,6 +35,7 @@ import { scrubInstagramCdn } from "@/lib/instagram-cdn";
 import { upsertUserCarousel } from "@/lib/carousel-storage";
 import { supabase } from "@/lib/supabase";
 import type { DesignTemplateId } from "@/lib/carousel-templates";
+import { FacebookLoginButton } from "@/components/facebook-login-button";
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -257,9 +258,14 @@ export default function OnboardingPage() {
 
   // ─── Run analysis: scrape → vision → brand-analysis ───
   const runAnalysis = useCallback(
-    async (handleInput: string) => {
-      const clean = handleInput.replace(/^@/, "").trim();
-      if (!clean) {
+    async (handleInput: string, preScraped?: ScrapedProfile) => {
+      // Accept either:
+      //   - handle (passa pelo Apify scraper)
+      //   - preScraped (ja veio do FB Login — mesmo shape)
+      const clean = (preScraped?.handle ?? handleInput)
+        .replace(/^@/, "")
+        .trim();
+      if (!clean && !preScraped) {
         setAnalysisError("Digite seu @ do Instagram pra gente começar.");
         return;
       }
@@ -267,21 +273,26 @@ export default function OnboardingPage() {
       setAnalysisError(null);
       setAnalyzePhase(1);
       try {
-        const scraped = await fetch("/api/profile-scraper", {
-          method: "POST",
-          headers: jsonWithAuth(session),
-          body: JSON.stringify({ platform: "instagram", handle: clean }),
-        }).then(async (r) => {
-          if (!r.ok) {
-            const b = await r.json().catch(() => null);
-            throw new Error(
-              typeof b?.error === "string"
-                ? b.error
-                : "Não consegui ler esse perfil."
-            );
-          }
-          return (await r.json()) as ScrapedProfile;
-        });
+        let scraped: ScrapedProfile;
+        if (preScraped) {
+          scraped = preScraped;
+        } else {
+          scraped = await fetch("/api/profile-scraper", {
+            method: "POST",
+            headers: jsonWithAuth(session),
+            body: JSON.stringify({ platform: "instagram", handle: clean }),
+          }).then(async (r) => {
+            if (!r.ok) {
+              const b = await r.json().catch(() => null);
+              throw new Error(
+                typeof b?.error === "string"
+                  ? b.error
+                  : "Não consegui ler esse perfil."
+              );
+            }
+            return (await r.json()) as ScrapedProfile;
+          });
+        }
 
         setScrapedProfile(scraped);
         setAnalyzePhase(2);
@@ -624,12 +635,18 @@ export default function OnboardingPage() {
             {step === "connect" && (
               <StepConnect
                 key="connect"
+                session={session}
                 handle={igHandle}
                 setHandle={setIgHandle}
                 onBack={() => goto("about")}
                 onConnect={async () => {
                   goto("analyze");
                   await runAnalysis(igHandle);
+                }}
+                onMetaProfile={async (profile) => {
+                  setIgHandle(profile.handle ?? "");
+                  goto("analyze");
+                  await runAnalysis("", profile);
                 }}
                 onSkip={() => goto("photo")}
               />
@@ -1090,19 +1107,24 @@ function StepAbout({
 // Step: Connect
 // ──────────────────────────────────────────────────────────────────
 function StepConnect({
+  session,
   handle,
   setHandle,
   onConnect,
+  onMetaProfile,
   onBack,
   onSkip,
 }: {
+  session: import("@supabase/supabase-js").Session | null;
   handle: string;
   setHandle: (v: string) => void;
   onConnect: () => void;
+  onMetaProfile: (profile: ScrapedProfile) => void;
   onBack: () => void;
   onSkip: () => void;
 }) {
   const clean = handle.replace(/^@/, "").trim();
+  const hasFbAppId = !!process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
   return (
     <Card>
       <Eyebrow>● Passo 02 · Instagram</Eyebrow>
@@ -1185,6 +1207,46 @@ function StepConnect({
           Conectar →
         </button>
       </div>
+
+      {hasFbAppId && (
+        <div
+          className="mt-5"
+          style={{
+            padding: 16,
+            border: "1.5px dashed var(--sv-ink)",
+            background: "rgba(24,119,242,0.04)",
+          }}
+        >
+          <div
+            className="uppercase"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              color: "var(--sv-muted)",
+              marginBottom: 10,
+            }}
+          >
+            Alternativa · Instagram Business / Creator
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--sv-display)",
+              fontSize: 14,
+              color: "var(--sv-ink)",
+              marginBottom: 12,
+            }}
+          >
+            Tem conta Business vinculada a uma Página Facebook? Conecta direto
+            via Meta — mais rápido e não precisa scraper.
+          </div>
+          <FacebookLoginButton
+            session={session}
+            onSuccess={(profile) => onMetaProfile(profile)}
+          />
+        </div>
+      )}
+
       <Footer
         back={{ label: "Voltar", onClick: onBack }}
         secondary={{ label: "Pular por enquanto", onClick: onSkip }}
