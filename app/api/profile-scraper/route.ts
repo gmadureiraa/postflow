@@ -485,6 +485,23 @@ export async function POST(request: Request) {
         profile = fallbackProfile(handle, platform);
       } else {
         const item = items[0];
+        // Log actor output shape (truncated) so we can debug field naming in
+        // prod. Instagram CDN URLs, carousel children — shapes evolve.
+        if (platform === "instagram") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const it = item as any;
+          const sample = (it.latestPosts ?? it.posts ?? [])[0];
+          console.log("[profile-scraper] IG actor sample keys:", {
+            topLevel: Object.keys(it).slice(0, 30),
+            hasLatestPosts: Array.isArray(it.latestPosts),
+            latestPostsLen: it.latestPosts?.length,
+            postKeys: sample ? Object.keys(sample).slice(0, 30) : null,
+            sampleDisplayUrl: sample?.displayUrl?.slice(0, 80),
+            sampleType: sample?.type,
+            sampleChildCount:
+              (sample?.childPosts ?? sample?.children ?? []).length ?? 0,
+          });
+        }
         profile =
           platform === "twitter"
             ? normalizeTwitter(item, handle)
