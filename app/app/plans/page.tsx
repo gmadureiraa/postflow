@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { PLANS, FREE_PLAN_USAGE_LIMIT } from "@/lib/pricing";
+import { PLANS, FREE_PLAN_USAGE_LIMIT, formatBrl } from "@/lib/pricing";
 import posthog from "posthog-js";
 
 type Interval = "month" | "year";
@@ -30,23 +30,28 @@ const FREE_FEATURES = [
   "Templates Futurista + Twitter",
 ];
 
-const PRO_FEATURES = PLANS.pro.features.slice(0, 5);
-const BUSINESS_FEATURES = [
-  "150 carrosséis/mês",
-  "Voz da IA configurável",
-  "Referências visuais por marca",
-  "1 perfil de marca",
-  "Suporte prioritário (WhatsApp)",
-];
+const CREATOR_FEATURES = PLANS.pro.features.slice(0, 6);
+const PRO_FEATURES = PLANS.business.features.slice(0, 6);
 
 function buildCards(interval: Interval): PlanCard[] {
   const annual = interval === "year";
+
+  // Valores vem de lib/pricing.ts em centavos BRL. Mensal-equivalente do
+  // anual = priceAnnual / 12 (ex: 47040/12 = 3920 = R$ 39,20).
+  const creatorMonthly = PLANS.pro.priceMonthly; // 4900
+  const creatorAnnualTotal = PLANS.pro.priceAnnual; // 47040
+  const creatorAnnualMonthlyEquiv = Math.round(creatorAnnualTotal / 12);
+
+  const proMonthly = PLANS.business.priceMonthly; // 9700
+  const proAnnualTotal = PLANS.business.priceAnnual; // 93120
+  const proAnnualMonthlyEquiv = Math.round(proAnnualTotal / 12);
+
   return [
     {
       id: "free",
       number: "01",
       name: "Grátis",
-      price: "$0",
+      price: "R$ 0",
       priceNote: "pra sempre",
       tagline: "Pra testar o fluxo sem compromisso.",
       features: FREE_FEATURES,
@@ -56,28 +61,38 @@ function buildCards(interval: Interval): PlanCard[] {
     {
       id: "pro",
       number: "02",
-      name: "Pro",
-      price: annual ? "$7.92" : "$9.90",
-      priceNote: annual ? "por mês · anual $95.04" : "por mês · preço de lançamento",
+      name: PLANS.pro.name, // "Creator"
+      price: annual
+        ? formatBrl(creatorAnnualMonthlyEquiv)
+        : formatBrl(creatorMonthly),
+      priceNote: annual
+        ? `por mês · total anual ${formatBrl(creatorAnnualTotal)}`
+        : "por mês · preço de lançamento",
       tagline: annual
-        ? "Pra quem posta todo dia — 20% off no anual."
-        : "Pra quem posta todo dia.",
-      features: PRO_FEATURES,
-      ctaLabel: annual ? "Assinar Pro anual" : "Assinar Pro",
+        ? "Pra quem posta toda semana — 20% off no anual."
+        : "Pra quem posta toda semana.",
+      features: CREATOR_FEATURES,
+      ctaLabel: annual ? `Assinar ${PLANS.pro.name} anual` : `Assinar ${PLANS.pro.name}`,
       ctaHref: `/app/checkout?plan=pro${annual ? "&interval=year" : ""}`,
       highlight: true,
     },
     {
       id: "business",
       number: "03",
-      name: "Agência",
-      price: annual ? "$23.92" : "$29.90",
-      priceNote: annual ? "por mês · anual $287.04" : "por mês · preço de lançamento",
+      name: PLANS.business.name, // "Pro"
+      price: annual
+        ? formatBrl(proAnnualMonthlyEquiv)
+        : formatBrl(proMonthly),
+      priceNote: annual
+        ? `por mês · total anual ${formatBrl(proAnnualTotal)}`
+        : "por mês · preço de lançamento",
       tagline: annual
-        ? "Pra times e agências — 20% off no anual."
-        : "Pra times e agências.",
-      features: BUSINESS_FEATURES,
-      ctaLabel: annual ? "Assinar Agência anual" : "Assinar Agência",
+        ? "Pra quem posta todo dia — 20% off no anual."
+        : "Pra quem posta todo dia.",
+      features: PRO_FEATURES,
+      ctaLabel: annual
+        ? `Assinar ${PLANS.business.name} anual`
+        : `Assinar ${PLANS.business.name}`,
       ctaHref: `/app/checkout?plan=business${annual ? "&interval=year" : ""}`,
     },
   ];
@@ -94,15 +109,15 @@ const FAQ = [
   },
   {
     q: "Tem plano anual?",
-    a: "Sim. O anual dá 20% de desconto vs mensal (Pro sai ~$7.92/mês cobrado anual, Agência ~$23.92/mês). Mesma flexibilidade: cancele quando quiser, reembolso se cancelar no mês que assinou.",
+    a: "Sim. O anual dá 20% de desconto vs mensal (Creator sai R$ 39,20/mês cobrado anual, Pro R$ 77,60/mês). Cancele quando quiser, reembolso se cancelar no mês que assinou.",
   },
   {
-    q: "Por que o preço está em dólar?",
-    a: "Pra simplificar quando começarmos a aceitar usuários fora do Brasil. Cartões brasileiros convertem automaticamente na cobrança do Stripe. Valor final vira BRL na sua fatura conforme a taxa do dia.",
+    q: "O preço é em real?",
+    a: "Sim. Cobrado em BRL via Stripe, direto no cartão brasileiro. Sem spread cambial, sem IOF de fatura internacional.",
   },
   {
-    q: "Qual a diferença real entre Pro e Agência?",
-    a: "Pro é pra 1 creator. Agência inclui 3 seats, API de integração e suporte prioritário, sem teto prático de geração.",
+    q: "Qual a diferença entre Creator e Pro?",
+    a: "Creator é pra quem publica toda semana (15 carrosséis/mês). Pro é pra quem publica todo dia ou gerencia mais de uma marca (60 carrosséis/mês + suporte prioritário).",
   },
 ];
 

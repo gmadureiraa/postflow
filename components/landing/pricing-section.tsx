@@ -257,15 +257,17 @@ export function PricingSection() {
   const [interval, setInterval] = useState<Interval>("month");
   const isAnnual = interval === "year";
 
-  // Preços de LANÇAMENTO em USD — Pro $9.90, Agência $29.90.
-  // Anual −20%: $7.92/mês e $23.92/mês (equivalente mensal).
-  const proMonth = "$9.90";
-  const proAnnualMonthlyEq = "$7.92";
-  const proYearTotal = "$95.04/ano";
+  // Precos BRL vem de lib/pricing.ts. Creator R$ 49, Pro R$ 97.
+  // Anual 20% off → Creator R$ 39,20/mes (total R$ 470,40); Pro R$ 77,60/mes (total R$ 931,20).
+  const creatorMonth = "R$ 49";
+  const creatorAnnualMonthlyEq = "R$ 39,20";
+  const creatorYearTotal = "R$ 470,40/ano";
+  const creatorAnchor = "R$ 79";
 
-  const agencyMonth = "$29.90";
-  const agencyAnnualMonthlyEq = "$23.92";
-  const agencyYearTotal = "$287.04/ano";
+  const proMonth = "R$ 97";
+  const proAnnualMonthlyEq = "R$ 77,60";
+  const proYearTotal = "R$ 931,20/ano";
+  const proAnchor = "R$ 149";
 
   return (
     <section id="pricing" style={{ padding: "0 0 96px" }}>
@@ -277,7 +279,7 @@ export function PricingSection() {
       <div className="mx-auto max-w-[1240px] px-6">
         <SectionHead num="05" sub="Pricing" tag="Preço de lançamento">
           Preço <em>honesto</em>.{" "}
-          <span style={{ color: "var(--sv-muted)" }}>Cancele quando quiser.</span>
+          <span style={{ color: "var(--sv-muted)" }}>Em real, sem pegadinha.</span>
         </SectionHead>
 
         <IntervalToggle interval={interval} onChange={setInterval} />
@@ -287,7 +289,7 @@ export function PricingSection() {
             ribbon="Pra experimentar"
             ribbonVariant="free"
             title="Grátis"
-            price="$0"
+            price="R$ 0"
             unit=""
             features={[
               "5 carrosséis/mês",
@@ -305,43 +307,43 @@ export function PricingSection() {
             ribbon="Mais popular"
             ribbonVariant="pro"
             tag="Pra criador solo"
-            title="Pro"
-            price={isAnnual ? proAnnualMonthlyEq : proMonth}
+            title="Creator"
+            price={isAnnual ? creatorAnnualMonthlyEq : creatorMonth}
             unit="/mês"
-            anchor={isAnnual ? "$9.90/mês no mensal" : "$19.90"}
-            annualSaving={isAnnual ? `Cobrado ${proYearTotal}` : undefined}
+            anchor={isAnnual ? `${creatorMonth}/mês no mensal` : creatorAnchor}
+            annualSaving={isAnnual ? `Cobrado ${creatorYearTotal}` : undefined}
             features={[
-              "30 carrosséis/mês",
+              "15 carrosséis/mês",
               "Voz da IA configurável",
-              "3 referências visuais por marca",
               "Export PNG pronto pra postar",
+              "Templates Futurista + Twitter",
               "1 perfil de marca",
               "Transcrição de vídeos",
               "Histórico completo",
             ]}
-            cta={isAnnual ? "Assinar Pro anual →" : "Assinar Pro →"}
+            cta={isAnnual ? "Assinar Creator anual →" : "Assinar Creator →"}
             ctaHref={`/app/checkout?plan=pro${isAnnual ? "&interval=year" : ""}`}
             ctaVariant="primary"
           />
           <PlanCard
             ribbon="Pra criador avançado"
             ribbonVariant="biz"
-            title="Agência"
-            price={isAnnual ? agencyAnnualMonthlyEq : agencyMonth}
+            title="Pro"
+            price={isAnnual ? proAnnualMonthlyEq : proMonth}
             unit="/mês"
-            anchor={isAnnual ? "$29.90/mês no mensal" : "$39.90"}
-            annualSaving={isAnnual ? `Cobrado ${agencyYearTotal}` : undefined}
+            anchor={isAnnual ? `${proMonth}/mês no mensal` : proAnchor}
+            annualSaving={isAnnual ? `Cobrado ${proYearTotal}` : undefined}
             features={[
-              "150 carrosséis/mês",
+              "60 carrosséis/mês",
               "Voz da IA configurável",
-              "3 referências visuais por marca",
-              "Export PNG pronto pra postar",
-              "1 perfil de marca",
-              "Transcrição de vídeos",
-              "Suporte prioritário (WhatsApp)",
+              "Imagens IA + stock + cache inteligente",
+              "Export PNG + PDF",
+              "Perfis de voz/marca (múltiplos, em breve)",
+              "Agendamento + publicação (em breve)",
+              "Suporte prioritário",
             ]}
-            cta={isAnnual ? "Assinar Agência anual" : "Assinar Agência"}
-            ctaHref={`/app/checkout?plan=agency${isAnnual ? "&interval=year" : ""}`}
+            cta={isAnnual ? "Assinar Pro anual" : "Assinar Pro"}
+            ctaHref={`/app/checkout?plan=business${isAnnual ? "&interval=year" : ""}`}
             ctaVariant="outline"
           />
         </div>

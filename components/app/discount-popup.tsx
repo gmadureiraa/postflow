@@ -26,7 +26,9 @@ import { useAuth } from "@/lib/auth-context";
  * Montar no client component que representa o momento do gatilho. Fire-and-forget.
  */
 const COUPON = "BEMVINDO30";
-const COOLDOWN_DAYS = 7;
+// Cooldown reduzido de 7d pra 2d — user reclamou que o popup aparecia de
+// menos. 2d permite que o lembrete reaparece na metade da semana seguinte.
+const COOLDOWN_DAYS = 2;
 const COOLDOWN_KEY = "sv_discount_last_shown_v1";
 const DELAY_MS = 1200; // espera um pouco após o trigger pra não colar no toast
 
@@ -46,7 +48,7 @@ const HEADLINE: Record<Trigger, React.ReactNode> = {
   ),
   "post-first-carousel": (
     <>
-      Primeiro carrossel pronto. <em>30% off</em> no Pro.
+      Primeiro carrossel pronto. <em>30% off</em> no Creator.
     </>
   ),
   "limit-reached": (
@@ -58,11 +60,11 @@ const HEADLINE: Record<Trigger, React.ReactNode> = {
 
 const SUBLINE: Record<Trigger, string> = {
   "post-onboarding":
-    "Agora que você configurou voz e marca, o plano Pro libera 30 carrosséis por mês e destrava todas as features.",
+    "Agora que você configurou voz e marca, o Creator (R$ 49/mês · R$ 34 com 30% off) libera 15 carrosséis por mês e destrava tudo.",
   "post-first-carousel":
-    "Gostou? Pro te dá 30 carrosséis/mês + voz da IA configurável. Cupom só válido agora.",
+    "Gostou? Creator te dá 15 carrosséis/mês por R$ 49 (R$ 34 no primeiro mês com 30% off). Cupom só válido agora.",
   "limit-reached":
-    "Você usou seus 5 grátis do mês. Upgrade agora com desconto e libera 30 carrosséis/mês.",
+    "Você usou seus 5 grátis. Upgrade agora pro Creator (R$ 49/mês, R$ 34 no 1º mês) e libera 15 carrosséis/mês.",
 };
 
 export function DiscountPopup({ trigger }: { trigger: Trigger }) {
