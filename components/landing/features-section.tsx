@@ -400,80 +400,6 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
         >
           <BriefEngineCard />
 
-          {/* Referências visuais c-4 */}
-          <motion.div
-            {...REVEAL}
-            className="sv-card sv-feat relative"
-            style={{ gridColumn: "span 6" }}
-          >
-            <span
-              className="absolute"
-              style={{
-                top: 16,
-                right: 16,
-                padding: "3px 8px",
-                background: "var(--sv-pink)",
-                border: "1px solid var(--sv-ink)",
-                fontFamily: "var(--sv-mono)",
-                fontSize: 8.5,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                boxShadow: "2px 2px 0 0 var(--sv-ink)",
-              }}
-            >
-              {aestheticCard?.badge ?? "Novo"}
-            </span>
-            <FeatKicker>{aestheticCard?.kicker ?? "DNA visual da sua marca"}</FeatKicker>
-            <FeatTitle>
-              {aestheticCard?.title ?? (
-                <>
-                  Sua <em>estética</em> virou prompt.
-                </>
-              )}
-            </FeatTitle>
-            <FeatBody>
-              {aestheticCard?.body ?? (
-                <>
-                  Cola 3 imagens de referência. A IA destila paleta, iluminação, textura e mood — e replica em TODA imagem gerada. Seu feed para de parecer genérico.
-                </>
-              )}
-            </FeatBody>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {[
-                { bg: "var(--sv-green)" },
-                { bg: "var(--sv-ink)" },
-                { bg: "var(--sv-pink)" },
-              ].map((r, i) => (
-                <div
-                  key={i}
-                  style={{
-                    aspectRatio: "1/1",
-                    border: "1.5px solid var(--sv-ink)",
-                    background: r.bg,
-                    boxShadow: "2px 2px 0 0 var(--sv-ink)",
-                    backgroundImage:
-                      i === 1
-                        ? "radial-gradient(circle at 2px 2px, rgba(255,255,255,.15) 1px, transparent 1.5px)"
-                        : undefined,
-                    backgroundSize: i === 1 ? "8px 8px" : undefined,
-                  }}
-                />
-              ))}
-            </div>
-            <div
-              className="mt-3 text-center"
-              style={{
-                fontFamily: "var(--sv-mono)",
-                fontSize: 9,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color: "var(--sv-pink)",
-              }}
-            >
-              {aestheticCard?.footer ?? "↓ Aplicado em todo slide"}
-            </div>
-          </motion.div>
-
           {/* Brand voice c-4 */}
           <motion.div
             {...REVEAL}
@@ -517,50 +443,6 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
                 body={voiceCard?.outputBody ?? "Carrossel com o seu tom"}
                 highlight
               />
-            </div>
-          </motion.div>
-
-          {/* Editor variantes c-4 */}
-          <motion.div
-            {...REVEAL}
-            className="sv-card sv-feat"
-            style={{ gridColumn: "span 6" }}
-          >
-            <FeatKicker>{editorCard?.kicker ?? "Editor"}</FeatKicker>
-            <FeatTitle>
-              {editorCard?.title ?? (
-                <>
-                  <em>Variantes</em> por slide.
-                </>
-              )}
-            </FeatTitle>
-            <FeatBody>
-              {editorCard?.body ?? (
-                <>
-                  Cada slide vira 6 layouts: capa, headline, foto, quote, split, CTA. Troca em um clique.
-                </>
-              )}
-            </FeatBody>
-            <div className="mt-3 grid grid-cols-3 gap-[6px]">
-              {["Capa", "Headline", "Foto", "Quote", "Split", "CTA"].map((v, i) => (
-                <div
-                  key={v}
-                  style={{
-                    padding: "8px 6px",
-                    border: "1px solid var(--sv-ink)",
-                    background: i === 1 ? "var(--sv-green)" : "var(--sv-white)",
-                    fontFamily: "var(--sv-mono)",
-                    fontSize: 8.5,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    textAlign: "center",
-                    boxShadow:
-                      i === 1 ? "2px 2px 0 0 var(--sv-ink)" : "1px 1px 0 0 var(--sv-ink)",
-                  }}
-                >
-                  {v}
-                </div>
-              ))}
             </div>
           </motion.div>
 
