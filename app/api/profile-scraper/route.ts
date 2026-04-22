@@ -6,6 +6,7 @@
 export const maxDuration = 60;
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
+import { cacheImages } from "@/lib/server/scrape-cache";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -508,6 +509,37 @@ export async function POST(request: Request) {
             : platform === "instagram"
               ? normalizeInstagram(item, handle)
               : normalizeLinkedin(item, handle);
+
+        // Cache images server-side pro Supabase Storage. IG CDN URLs
+        // expiram + rejeitam hotlink; depois desse cache, o front consome
+        // URLs publicas e estaveis do supabase.
+        try {
+          const urls: string[] = [];
+          if (profile.avatarUrl) urls.push(profile.avatarUrl);
+          for (const p of profile.recentPosts) {
+            if (p.imageUrl) urls.push(p.imageUrl);
+            for (const s of p.slideUrls) urls.push(s);
+          }
+          if (urls.length > 0) {
+            const cache = await cacheImages(user.id, urls);
+            if (profile.avatarUrl) {
+              profile.avatarUrl =
+                cache.get(profile.avatarUrl) ?? profile.avatarUrl;
+            }
+            profile.recentPosts = profile.recentPosts.map((p) => ({
+              ...p,
+              imageUrl: p.imageUrl
+                ? (cache.get(p.imageUrl) ?? p.imageUrl)
+                : null,
+              slideUrls: p.slideUrls.map((s) => cache.get(s) ?? s),
+            }));
+          }
+        } catch (cacheErr) {
+          console.warn(
+            "[profile-scraper] image cache failed:",
+            cacheErr instanceof Error ? cacheErr.message : cacheErr
+          );
+        }
       }
     } catch (apifyError) {
       console.error("[profile-scraper] Apify error:", apifyError);

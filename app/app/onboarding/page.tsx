@@ -155,6 +155,9 @@ function stepIndex(s: Step): number {
 
 function proxyImage(url: string | null | undefined): string | null {
   if (!url) return null;
+  // URLs do Supabase ja sao publicas e estaveis — nao precisa proxy.
+  // (scrape-cache.ts sobe imagens do IG pro bucket carousel-images.)
+  if (url.includes("/storage/v1/object/public/")) return url;
   return `/api/img-proxy?url=${encodeURIComponent(url)}`;
 }
 
