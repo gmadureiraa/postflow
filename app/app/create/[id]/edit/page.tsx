@@ -679,51 +679,64 @@ export default function EditPage(props: {
   const active = slides[activeIndex];
   const selectedMeta = TEMPLATES_META.find((m) => m.id === templateId);
 
+  // Twitter template tem UM UNICO layout (sem variantes). Ocultar o picker
+  // evita user clicar e ver mudanca zero no canvas.
+  const supportsVariants = templateId !== "twitter";
+
   const VariantsCol = (
     <div className="flex flex-col gap-4">
-      <h4
-        style={{
-          fontFamily: "var(--sv-mono)",
-          fontSize: 9.5,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--sv-muted)",
-          fontWeight: 700,
-        }}
-      >
-        Variante do slide
-      </h4>
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-        {VARIANT_OPTS.map((v) => {
-          const on = active?.variant === v.id;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => active && updateSlide(activeIndex, { variant: v.id })}
-              style={{
-                padding: "10px 4px",
-                border: "1.5px solid var(--sv-ink)",
-                background: on ? "var(--sv-green)" : "var(--sv-white)",
-                cursor: "pointer",
-                fontFamily: "var(--sv-mono)",
-                fontSize: 8.5,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                fontWeight: 700,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 6,
-                color: "var(--sv-ink)",
-              }}
-            >
-              {v.ic}
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
+      {supportsVariants && (
+        <>
+          <h4
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9.5,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "var(--sv-muted)",
+              fontWeight: 700,
+            }}
+          >
+            Variante do slide
+          </h4>
+          <div
+            className="grid gap-1.5"
+            style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
+          >
+            {VARIANT_OPTS.map((v) => {
+              const on = active?.variant === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() =>
+                    active && updateSlide(activeIndex, { variant: v.id })
+                  }
+                  style={{
+                    padding: "10px 4px",
+                    border: "1.5px solid var(--sv-ink)",
+                    background: on ? "var(--sv-green)" : "var(--sv-white)",
+                    cursor: "pointer",
+                    fontFamily: "var(--sv-mono)",
+                    fontSize: 8.5,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    fontWeight: 700,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "var(--sv-ink)",
+                  }}
+                >
+                  {v.ic}
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <h4
         style={{

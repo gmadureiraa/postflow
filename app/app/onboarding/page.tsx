@@ -1094,8 +1094,8 @@ function StepAbout({
           />
         </Field>
         <Field
-          label="WhatsApp (opcional)"
-          hint="Pra gente mandar seu resumo semanal direto no zap."
+          label="Telefone (opcional)"
+          hint="Pra conseguirmos entrar em contato se precisar."
         >
           <div className="flex gap-2">
             <span

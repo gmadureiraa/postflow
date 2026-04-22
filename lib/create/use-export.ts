@@ -63,16 +63,31 @@ export function useExport(totalSlides: number) {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState("");
 
+  // Placeholder transparente 1x1 — se uma imagem CORS taintada quebrar,
+  // html-to-image substitui por este transparent pixel em vez de abortar
+  // o canvas todo. Slide renderiza com imagem branca mas o export FUNCIONA.
+  const PLACEHOLDER_1X1 =
+    "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+
   const captureSlideAsPng = useCallback(
     async (index: number): Promise<string> => {
       const el = exportRefs.current[index];
       if (!el) throw new Error(`Export slide ref ${index} not found`);
-      return toPng(el, {
-        width: 1080,
-        height: 1350,
-        pixelRatio: 1,
-        cacheBust: false,
-      });
+      try {
+        return await toPng(el, {
+          width: 1080,
+          height: 1350,
+          pixelRatio: 1,
+          cacheBust: true,
+          // Chave pra evitar 'nenhum slide capturado': quando imagem CORS
+          // falha, usa placeholder em vez de taintar canvas.
+          imagePlaceholder: PLACEHOLDER_1X1,
+          skipFonts: false,
+        });
+      } catch (err) {
+        console.error(`[export] toPng slide ${index + 1} failed:`, err);
+        throw err;
+      }
     },
     []
   );

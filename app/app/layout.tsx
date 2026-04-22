@@ -321,58 +321,12 @@ function SidebarContent({
           );
           if (disabled) {
             return (
-              <div
+              <DisabledNavItem
                 key={`${href}-${idx}`}
-                aria-disabled
-                className="nav-disabled group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] select-none"
-                style={commonStyle}
-              >
-                {content}
-                {tooltip && (
-                  <div
-                    role="tooltip"
-                    className="nav-tooltip pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 group-hover:block"
-                    style={{
-                      minWidth: 220,
-                      maxWidth: 280,
-                      padding: "12px 14px",
-                      background: "var(--sv-ink)",
-                      color: "var(--sv-paper)",
-                      border: "1.5px solid var(--sv-ink)",
-                      borderRadius: 8,
-                      boxShadow: "3px 3px 0 0 rgba(0,0,0,0.35)",
-                      zIndex: 50,
-                    }}
-                  >
-                    <div
-                      className="uppercase"
-                      style={{
-                        fontFamily: "var(--sv-mono)",
-                        fontSize: "9px",
-                        letterSpacing: "0.18em",
-                        color: "var(--sv-green)",
-                        fontWeight: 800,
-                        marginBottom: 6,
-                      }}
-                    >
-                      ● Em breve · {tooltip.title}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "var(--sv-sans)",
-                        fontSize: "12px",
-                        lineHeight: 1.5,
-                        letterSpacing: 0,
-                        textTransform: "none",
-                        color: "rgba(247,245,239,0.9)",
-                        fontWeight: 400,
-                      }}
-                    >
-                      {tooltip.body}
-                    </div>
-                  </div>
-                )}
-              </div>
+                commonStyle={commonStyle}
+                content={content}
+                tooltip={tooltip}
+              />
             );
           }
           return (
@@ -877,6 +831,81 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <Toaster />
+    </div>
+  );
+}
+
+/**
+ * Item de nav disabled com tooltip controlado por state (Tailwind
+ * group-hover:block estava falhando por algum motivo — render JIT?). Usa
+ * onMouseEnter/Leave pra controlar visibilidade do card explicativo.
+ */
+function DisabledNavItem({
+  commonStyle,
+  content,
+  tooltip,
+}: {
+  commonStyle: React.CSSProperties;
+  content: React.ReactNode;
+  tooltip?: { title: string; body: string };
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      aria-disabled
+      className="nav-disabled relative flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] select-none"
+      style={commonStyle}
+      onMouseEnter={() => tooltip && setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {content}
+      {tooltip && open && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute"
+          style={{
+            left: "calc(100% + 12px)",
+            top: "50%",
+            transform: "translateY(-50%)",
+            minWidth: 220,
+            maxWidth: 280,
+            padding: "12px 14px",
+            background: "var(--sv-ink)",
+            color: "var(--sv-paper)",
+            border: "1.5px solid var(--sv-ink)",
+            borderRadius: 8,
+            boxShadow: "3px 3px 0 0 rgba(0,0,0,0.35)",
+            zIndex: 50,
+          }}
+        >
+          <div
+            className="uppercase"
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: "9px",
+              letterSpacing: "0.18em",
+              color: "var(--sv-green)",
+              fontWeight: 800,
+              marginBottom: 6,
+            }}
+          >
+            ● Em breve · {tooltip.title}
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: "12px",
+              lineHeight: 1.5,
+              letterSpacing: 0,
+              textTransform: "none",
+              color: "rgba(247,245,239,0.9)",
+              fontWeight: 400,
+            }}
+          >
+            {tooltip.body}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
