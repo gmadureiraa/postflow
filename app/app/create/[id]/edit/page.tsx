@@ -1194,40 +1194,10 @@ export default function EditPage(props: {
   const BrandingCol = (
     <div className="flex flex-col gap-4">
       {/*
-        Branding (nome + handle + accent) removidos intencionalmente do editor
-        — sao propriedades do BRAND do user, nao do carrossel individual.
-        Editaveis só em /app/settings (aba Perfil). Aqui mostramos readonly
-        lock + link pra ajustar no lugar certo.
+        Branding (nome + handle + accent) nao editaveis aqui. Eles sao
+        propriedades do BRAND do user (settings). Nem mostramos card de
+        lock — ocupava espaco sem agregar. Editor so tem fonte + tamanho.
       */}
-      <div
-        style={{
-          padding: "10px 12px",
-          border: "1.5px dashed var(--sv-ink)",
-          background: "rgba(0,0,0,0.03)",
-          fontFamily: "var(--sv-mono)",
-          fontSize: 9,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          color: "var(--sv-muted)",
-          lineHeight: 1.5,
-        }}
-      >
-        <div style={{ fontWeight: 800, color: "var(--sv-ink)", marginBottom: 4 }}>
-          ● {kicker || "Seu nome"} · @{(handle || "seuhandle").replace(/^@/, "")}
-        </div>
-        Nome, @ e cor de destaque vem do seu{" "}
-        <Link
-          href="/app/settings"
-          style={{
-            color: "var(--sv-ink)",
-            textDecoration: "underline",
-            textUnderlineOffset: 3,
-          }}
-        >
-          perfil
-        </Link>
-        .
-      </div>
 
       <h4
         style={{
@@ -1237,7 +1207,6 @@ export default function EditPage(props: {
           textTransform: "uppercase",
           color: "var(--sv-muted)",
           fontWeight: 700,
-          marginTop: 6,
         }}
       >
         Fonte display
@@ -1492,24 +1461,9 @@ export default function EditPage(props: {
         </button>
       </div>
 
-      <div
-        className="mt-2"
-        style={{
-          fontFamily: "var(--sv-mono)",
-          fontSize: 8.5,
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--sv-muted)",
-        }}
-      >
-        Template: <strong>{selectedMeta?.name ?? templateId}</strong>
-      </div>
-
-      {/*
-        Feedback panel removido do editor — aparece agora so no preview/export
-        (tela pos-finalizacao onde o user avalia o resultado). Editor deve
-        focar em edicao, nao em avaliacao.
-      */}
+      {/* Label 'Template: X' removido — ja existe botao 'Trocar template' no
+          topo do editor, e o user sabe qual escolheu. */}
+      {/* Feedback panel removido — moveu pra /app/create/[id]/preview. */}
     </div>
   );
 

@@ -488,25 +488,9 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                 </div>
               )}
 
-              {/* Número da seção tenue ao fundo direita */}
-              <div
-                style={{
-                  position: "absolute",
-                  right: 40,
-                  bottom: 100,
-                  fontFamily: displayStack,
-                  fontWeight: 900,
-                  fontSize: 360,
-                  lineHeight: 0.8,
-                  color: PAPER,
-                  opacity: 0.04,
-                  pointerEvents: "none",
-                  textTransform: displayTransform,
-                }}
-                aria-hidden
-              >
-                {String(slideNumber).padStart(2, "0")}
-              </div>
+              {/* Numero gigante tenue ao fundo removido — ficava poluindo visual
+                  sem agregar hierarquia. Contador pequeno 'n/total' no bottom-right
+                  ja indica posicao no carrossel. */}
 
               {showTitle && (
                 <h1
