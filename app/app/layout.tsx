@@ -29,6 +29,7 @@ type NavItem = {
   icon: typeof LayoutDashboard;
   badge?: string;
   disabled?: boolean;
+  tooltip?: { title: string; body: string };
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -48,6 +49,10 @@ const NAV_ITEMS: NavItem[] = [
     icon: CalendarClock,
     badge: "Em breve",
     disabled: true,
+    tooltip: {
+      title: "Planejamento",
+      body: "Calendário de conteúdo pra organizar sua sequência e publicar direto no Instagram nos dias e horários certos.",
+    },
   },
   {
     href: "#",
@@ -55,6 +60,10 @@ const NAV_ITEMS: NavItem[] = [
     icon: Rocket,
     badge: "Em breve",
     disabled: true,
+    tooltip: {
+      title: "Piloto automático",
+      body: "A IA cuida de tudo sozinha: cria conteúdo no seu DNA e publica no seu Instagram sem você levantar um dedo.",
+    },
   },
 ];
 
@@ -253,7 +262,7 @@ function SidebarContent({
         const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
         return (
           <nav className="flex flex-col gap-[2px]">
-            {items.map(({ href, label, icon: Icon, badge, disabled }, idx) => {
+            {items.map(({ href, label, icon: Icon, badge, disabled, tooltip }, idx) => {
           const active =
             !disabled &&
             (href === "/app" ? pathname === "/app" : pathname.startsWith(href));
@@ -314,11 +323,54 @@ function SidebarContent({
               <div
                 key={`${href}-${idx}`}
                 aria-disabled
-                title={`${label} — em breve`}
-                className="flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] select-none"
+                className="nav-disabled group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] select-none"
                 style={commonStyle}
               >
                 {content}
+                {tooltip && (
+                  <div
+                    role="tooltip"
+                    className="nav-tooltip pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 group-hover:block"
+                    style={{
+                      minWidth: 220,
+                      maxWidth: 280,
+                      padding: "12px 14px",
+                      background: "var(--sv-ink)",
+                      color: "var(--sv-paper)",
+                      border: "1.5px solid var(--sv-ink)",
+                      borderRadius: 8,
+                      boxShadow: "3px 3px 0 0 rgba(0,0,0,0.35)",
+                      zIndex: 50,
+                    }}
+                  >
+                    <div
+                      className="uppercase"
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: "9px",
+                        letterSpacing: "0.18em",
+                        color: "var(--sv-green)",
+                        fontWeight: 800,
+                        marginBottom: 6,
+                      }}
+                    >
+                      ● Em breve · {tooltip.title}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--sv-sans)",
+                        fontSize: "12px",
+                        lineHeight: 1.5,
+                        letterSpacing: 0,
+                        textTransform: "none",
+                        color: "rgba(247,245,239,0.9)",
+                        fontWeight: 400,
+                      }}
+                    >
+                      {tooltip.body}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           }
