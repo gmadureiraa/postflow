@@ -50,17 +50,15 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
     const verifiedBlue = accentOverride || defaultVerifiedBlue;
     const borderColor = isDarkBg ? "#262626" : "#e5e7eb";
 
-    // Template Twitter: todos os slides são tweet screenshots IGUAIS.
-    // Gabriel reclamou que as variants criavam "exagero" no template
-    // — thread real no X não muda layout por slide, todos são o mesmo
-    // formato. Mantemos só `isCta` (último slide) que adiciona action
-    // bar com likes/retweets/replies — único tweak coerente com thread.
-    // Tudo o mais fica desativado.
+    // Template Twitter: UM UNICO layout pra todos os slides. Nao tem
+    // variante. Diferenca unica entre slides e: tem imagem ou nao tem.
+    // Nada de CTA especial, action bar ou tweet screenshot de capa —
+    // thread real no X tb nao muda layout por slide.
     const isCover = false;
     const isPhoto = false;
     const isSplit = false;
     const isQuote = false;
-    const isCta = variant === "cta";
+    const isCta = false;
 
     const defaultFontFamily =
       '"SVInter", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -431,57 +429,11 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                 </div>
               )}
 
-              {isCta && !isLastSlide && (
-                <div
-                  style={{
-                    alignSelf: "flex-start",
-                    marginTop: 20,
-                    padding: "18px 32px",
-                    background: verifiedBlue,
-                    color: "#FFFFFF",
-                    borderRadius: 9999,
-                    fontSize: FS_BODY * 0.85,
-                    fontWeight: 700,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  Seguir {profile.handle} →
-                </div>
-              )}
             </div>
           )}
-
-          {/* Action bar opcional no último slide */}
-          {isLastSlide && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginTop: 32,
-                paddingTop: 24,
-                borderTop: `1px solid ${borderColor}`,
-                color: muted,
-                fontSize: 26,
-                fontWeight: 500,
-              }}
-            >
-              {["↺ Reply", "⟳ Repost", "♡ Like", "🔖 Save", "↗ Share"].map(
-                (label) => (
-                  <span
-                    key={label}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {label}
-                  </span>
-                )
-              )}
-            </div>
-          )}
+          {/* Sem CTA hardcoded. Sem action bar no ultimo slide. Twitter
+              template = um unico layout em todos os slides (com ou sem imagem).
+              Se user quer CTA, escreve no body como texto normal. */}
         </div>
       </div>
     );

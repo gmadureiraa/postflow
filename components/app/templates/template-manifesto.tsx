@@ -69,10 +69,12 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
     const handleLabel = (profile.handle || "").replace(/^@/, "").trim();
     const handleDisplay = handleLabel ? `@${handleLabel}` : "@seuhandle";
 
-    // Variantes
+    // Variantes — HEADLINE agora usa sempre layout de COVER (dark bg + handle
+    // pill + titulo bottom-third). Com ou sem imagem: se tem imagem, vira
+    // full-bleed tipo capa; se nao tem, fundo solido escuro com mesmo layout.
+    // Consistencia visual: slides sem foto "herdam" a linguagem da capa.
     const isCoverLike =
-      variant === "cover" ||
-      (variant === "headline" && hasImage && slideNumber === 1);
+      variant === "cover" || variant === "headline" || slideNumber === 1;
     const isSplit = variant === "split";
     const isPhoto = variant === "photo" && hasImage;
     const isQuote = variant === "quote";
@@ -251,7 +253,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                   style={{
                     fontFamily: displayStack,
                     fontWeight: 900,
-                    fontSize: 82 * ts,
+                    fontSize: 70 * ts,
                     lineHeight: 1,
                     letterSpacing: "-0.02em",
                     margin: 0,
@@ -356,7 +358,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                   style={{
                     fontFamily: displayStack,
                     fontWeight: 900,
-                    fontSize: 100 * ts,
+                    fontSize: 80 * ts,
                     lineHeight: 0.98,
                     letterSpacing: "-0.02em",
                     margin: 0,
@@ -428,7 +430,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                 <h1
                   style={{
                     fontFamily: SERIF_STACK,
-                    fontSize: 86 * ts,
+                    fontSize: 72 * ts,
                     fontStyle: "italic",
                     fontWeight: 400,
                     lineHeight: 1.12,
@@ -510,7 +512,7 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                   style={{
                     fontFamily: displayStack,
                     fontWeight: 900,
-                    fontSize: (isLastSlide ? 110 : 130) * ts,
+                    fontSize: (isLastSlide ? 88 : 104) * ts,
                     lineHeight: 0.95,
                     letterSpacing: "-0.025em",
                     margin: 0,

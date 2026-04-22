@@ -257,13 +257,20 @@ export async function POST(request: Request) {
            *
            * NO-TEXT stays hard constraint on both.
            */
+          // Sandwich strategy: regra no inicio (prioridade) + no final (reforco).
+          // Imagen 4 pondera inicio mais forte. Negative prompt tb aplicado via config.
+          const NO_TEXT_HEADER =
+            "[HARD CONSTRAINT — TEXT FREE IMAGE] The output MUST NOT contain any readable text, letters, numbers, words, alphabet, characters, or typography anywhere in the frame. Every surface that would normally show text (screens, books, posters, signs, t-shirts, newspapers, billboards, logos, labels) must be BLANK, BLURRED, or replaced with abstract shapes.";
           const NO_TEXT_RULE =
             "ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS, NO ALPHABET, NO CHARACTERS, NO TYPOGRAPHY anywhere in the image. No signs, no labels, no titles, no captions, no billboards with readable content, no newspaper headlines, no book covers, no magazine covers, no street signs, no shop signs, no neon signs, no screen text, no phone UI, no laptop UI, no app UI, no website mockups. No logos, no watermarks, no brand names, no monograms, no insignias. If the scene would normally contain text (e.g. a screen, a book, a poster, a t-shirt print, a road sign), render those surfaces COMPLETELY BLANK or BLURRED BEYOND RECOGNITION — never with legible characters. This is a HARD OUTPUT CONSTRAINT: any readable character anywhere in the frame = failed generation.";
+          const NEGATIVE_PROMPT =
+            "text, letters, numbers, words, typography, captions, titles, subtitles, headlines, logos, watermarks, brand names, signs, billboards, book covers, magazine covers, newspaper, screen UI, phone UI, app UI, website screenshot, t-shirt print, road sign, license plate, poster text, neon sign, street sign, shop sign, written language, readable characters";
 
           let imagePrompt: string;
           if (isCover && !isTwitterTpl) {
             // Cover — rich structured cinematic prompt.
             imagePrompt = [
+              NO_TEXT_HEADER,
               aestheticPrefix,
               `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
               cinematicBase,
@@ -292,6 +299,7 @@ export async function POST(request: Request) {
               ? `${slideThemeHint}. Visual focus: ${query}.`
               : query;
             imagePrompt = [
+              NO_TEXT_HEADER,
               aestheticPrefix,
               `TEMPLATE STYLE: ${tmplMeta.name}.`,
               `Subject: ${coreSubject}`,
@@ -312,7 +320,13 @@ export async function POST(request: Request) {
           const res = await ai.models.generateImages({
             model: "imagen-4.0-generate-001",
             prompt: imagePrompt,
-            config: { numberOfImages: 1, aspectRatio: "1:1" },
+            config: {
+              numberOfImages: 1,
+              aspectRatio: "1:1",
+              // Imagen 4 respeita negativePrompt — reforco camada adicional
+              // pra bloquear qualquer texto/UI/logo na imagem.
+              negativePrompt: NEGATIVE_PROMPT,
+            },
           });
 
           const imageBytes = res.generatedImages?.[0]?.image?.imageBytes;
