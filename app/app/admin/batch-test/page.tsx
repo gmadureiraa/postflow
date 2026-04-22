@@ -25,7 +25,10 @@ interface TestConfig {
   language?: string;
 }
 
-// 15 testes de nichos variados com URLs reais.
+// 3 testes default pra rodar dentro do maxDuration 300s do Vercel (Pro).
+// Antes tinham 15 — estourou FUNCTION_INVOCATION_TIMEOUT. Cada teste
+// demora 30-60s (extraction + NER + write + image gen). 3 × 60s = 180s
+// safe. Pra rodar mais, edite o JSON abaixo em lotes de 3-5.
 const DEFAULT_TESTS: TestConfig[] = [
   {
     label: "Cripto · Investidor 4.20",
@@ -36,35 +39,11 @@ const DEFAULT_TESTS: TestConfig[] = [
     language: "pt-br",
   },
   {
-    label: "Marketing · Seth Godin Marketing Made Simple",
+    label: "Marketing · Seth Godin",
     niche: "marketing",
     tone: "didatico",
     sourceType: "video",
     sourceUrl: "https://www.youtube.com/watch?v=9EzCi_b3GrE",
-    language: "pt-br",
-  },
-  {
-    label: "IA · Dwarkesh Patel + Dario Amodei",
-    niche: "ai",
-    tone: "analytical",
-    sourceType: "video",
-    sourceUrl: "https://www.youtube.com/watch?v=Gi_t3v53XRU",
-    language: "pt-br",
-  },
-  {
-    label: "Fitness · HIIT workout science",
-    niche: "fitness",
-    tone: "direct",
-    sourceType: "video",
-    sourceUrl: "https://www.youtube.com/watch?v=ml6cT4AZdqI",
-    language: "pt-br",
-  },
-  {
-    label: "Finanças · Primo Rico lições",
-    niche: "finance",
-    tone: "didatico",
-    sourceType: "video",
-    sourceUrl: "https://www.youtube.com/watch?v=3b9sseMjvOQ",
     language: "pt-br",
   },
   {
@@ -73,79 +52,6 @@ const DEFAULT_TESTS: TestConfig[] = [
     tone: "analytical",
     sourceType: "link",
     sourceUrl: "http://paulgraham.com/makersschedule.html",
-    language: "pt-br",
-  },
-  {
-    label: "Design · Refactoring UI principles",
-    niche: "design",
-    tone: "didatico",
-    sourceType: "link",
-    sourceUrl: "https://www.refactoringui.com/previews/building-your-color-palette",
-    language: "pt-br",
-  },
-  {
-    label: "Psicologia · Huberman podcast",
-    niche: "psychology",
-    tone: "analytical",
-    sourceType: "video",
-    sourceUrl: "https://www.youtube.com/watch?v=H-XfCl-HpRM",
-    language: "pt-br",
-  },
-  {
-    label: "Empreendedorismo · Stripe Atlas Guides",
-    niche: "business",
-    tone: "direct",
-    sourceType: "link",
-    sourceUrl: "https://stripe.com/guides/atlas/startup-fundraising",
-    language: "pt-br",
-  },
-  {
-    label: "Carreira · Lenny Rachitsky",
-    niche: "career",
-    tone: "didatico",
-    sourceType: "link",
-    sourceUrl: "https://www.lennysnewsletter.com/p/how-to-make-the-jump-to-a-senior",
-    language: "pt-br",
-  },
-  {
-    label: "Educação · TEDx pt-BR",
-    niche: "education",
-    tone: "inspiring",
-    sourceType: "video",
-    sourceUrl: "https://www.youtube.com/watch?v=8MTEeOs_LPk",
-    language: "pt-br",
-  },
-  {
-    label: "Ciência · Quanta Magazine",
-    niche: "science",
-    tone: "analytical",
-    sourceType: "link",
-    sourceUrl:
-      "https://www.quantamagazine.org/the-computer-scientist-who-parries-with-paradoxes-20220629/",
-    language: "pt-br",
-  },
-  {
-    label: "Saúde mental · Andrew Huberman sleep",
-    niche: "health",
-    tone: "didatico",
-    sourceType: "video",
-    sourceUrl: "https://www.youtube.com/watch?v=aXvDEmo6uS4",
-    language: "pt-br",
-  },
-  {
-    label: "Filosofia · Aeon essay",
-    niche: "philosophy",
-    tone: "analytical",
-    sourceType: "link",
-    sourceUrl: "https://aeon.co/essays/the-good-life-is-a-process-not-a-state-of-being",
-    language: "pt-br",
-  },
-  {
-    label: "Culinária · NYT Cooking guide",
-    niche: "food",
-    tone: "didatico",
-    sourceType: "link",
-    sourceUrl: "https://cooking.nytimes.com/guides/13-how-to-cook-pasta",
     language: "pt-br",
   },
 ];
@@ -437,7 +343,7 @@ export default function BatchTestPage() {
                 style={{ color: "var(--sv-muted)", fontSize: 12.5 }}
               >
                 Clique em &ldquo;Rodar batch&rdquo; pra gerar os carrosseis.
-                Tempo esperado: ~30s por teste (15 testes = ~7-10min).
+                Tempo esperado: ~30-60s por teste. Default 3 testes (cabe no timeout 300s do Vercel). Pra rodar mais, edite o JSON em lotes de 3-5.
               </p>
             )}
             {fetching && (

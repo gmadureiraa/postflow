@@ -27,6 +27,7 @@ interface DebugResponse {
     error: string | null;
   };
   ner: {
+    summary?: string[];
     entities: string[];
     dataPoints: string[];
     quotes: string[];
@@ -263,6 +264,30 @@ export default function SourceTestPage() {
                   </>
                 )}
               </>
+            )}
+          </Card>
+
+          {/* Card: resumo editorial — como a IA entendeu a fonte */}
+          <Card
+            title="Resumo (como a IA entende)"
+            subtitle={
+              data.ner.summary && data.ner.summary.length > 0
+                ? `${data.ner.summary.length} bullets extraídos do transcript INTEIRO`
+                : "Nenhum resumo gerado — NER pode ter falhado"
+            }
+          >
+            {!data.ner.summary || data.ner.summary.length === 0 ? (
+              <p style={{ color: "var(--sv-muted)", fontSize: 12 }}>
+                A IA leu os 14k+ chars do transcript e não conseguiu resumir. Raro — geralmente indica transcript vazio ou quebrado.
+              </p>
+            ) : (
+              <ul style={listStyle}>
+                {data.ner.summary.map((s, i) => (
+                  <li key={i} style={{ marginBottom: 6 }}>
+                    {s}
+                  </li>
+                ))}
+              </ul>
             )}
           </Card>
 

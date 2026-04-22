@@ -16,6 +16,8 @@ const MAX_QUOTE_CHARS = 80;
 const TIMEOUT_MS = 20_000;
 
 export interface SourceFacts {
+  /** Resumo editorial 3-5 bullets do que e a fonte (o que Gabriel quer ver em /source-test). */
+  summary: string[];
   entities: string[];
   dataPoints: string[];
   quotes: string[];
@@ -31,6 +33,7 @@ export interface SourceFacts {
 
 export function emptyFacts(): SourceFacts {
   return {
+    summary: [],
     entities: [],
     dataPoints: [],
     quotes: [],
@@ -65,10 +68,11 @@ export async function extractSourceFacts(
   const prompt = isPtBr
     ? `Você é um extrator de FATOS ESTRUTURADOS para produção de conteúdo. Analise o texto abaixo e extraia:
 
-1. ENTITIES — 5 a 10 nomes próprios específicos mencionados (pessoas, empresas, produtos, lugares, tokens, ferramentas). Só nomes que aparecem LITERALMENTE no texto.
-2. DATA POINTS — 5 a 10 números, percentuais, datas, estatísticas, valores monetários mencionados. Preserve a unidade ("30%", "R$ 50 mil", "2024", "300 bilhões").
-3. QUOTES — 3 a 5 frases de impacto LITERAIS do autor/speaker (max 80 caracteres cada). Copiar as palavras exatas, sem parafrasear.
-4. ARGUMENTS — 3 argumentos centrais do speaker (1 frase cada, no máximo 120 chars). Os pontos principais que ele está defendendo.
+1. SUMMARY — 3 a 5 bullets editorial em português BR que resumem o que o autor/speaker defende. Cada bullet max 140 chars. Bullets DEVEM ser ESPECÍFICOS (com nomes, números) — não genéricos. Pra um resumo que ajude um redator a entender a fonte sem ler ela.
+2. ENTITIES — 5 a 10 nomes próprios específicos mencionados (pessoas, empresas, produtos, lugares, tokens, ferramentas). Só nomes que aparecem LITERALMENTE no texto.
+3. DATA POINTS — 5 a 10 números, percentuais, datas, estatísticas, valores monetários mencionados. Preserve a unidade ("30%", "R$ 50 mil", "2024", "300 bilhões").
+4. QUOTES — 3 a 5 frases de impacto LITERAIS do autor/speaker (max 80 caracteres cada). Copiar as palavras exatas, sem parafrasear.
+5. ARGUMENTS — 3 argumentos centrais do speaker (1 frase cada, no máximo 120 chars). Os pontos principais que ele está defendendo.
 
 REGRAS:
 - Se o texto não tem nenhum nome próprio, retorna lista vazia (não invente).
@@ -82,7 +86,7 @@ ${sliced}
 """
 
 Retorne APENAS JSON, sem markdown:
-{"entities":[], "dataPoints":[], "quotes":[], "arguments":[]}`
+{"summary":[], "entities":[], "dataPoints":[], "quotes":[], "arguments":[]}`
     : `You are a STRUCTURED FACT extractor. Analyze the text below and extract:
 
 1. ENTITIES — 5 to 10 specific proper nouns mentioned (people, companies, products, places, tokens, tools). Only names that appear LITERALLY in the text.
@@ -132,6 +136,7 @@ Return ONLY JSON, no markdown:
     if (!text.trim()) return emptyFacts();
 
     let parsed: Partial<{
+      summary: unknown;
       entities: unknown;
       dataPoints: unknown;
       quotes: unknown;
@@ -155,6 +160,13 @@ Return ONLY JSON, no markdown:
       return trimmed.length > 0 && trimmed.length < 300 ? trimmed : null;
     };
 
+    const summary = Array.isArray(parsed.summary)
+      ? (parsed.summary as unknown[])
+          .map(cleanStr)
+          .filter((v): v is string => v !== null)
+          .map((s) => (s.length > 200 ? s.slice(0, 200) : s))
+          .slice(0, 6)
+      : [];
     const entities = Array.isArray(parsed.entities)
       ? (parsed.entities as unknown[])
           .map(cleanStr)
@@ -183,6 +195,7 @@ Return ONLY JSON, no markdown:
 
     const usage = result.usageMetadata;
     return {
+      summary,
       entities,
       dataPoints,
       quotes,
