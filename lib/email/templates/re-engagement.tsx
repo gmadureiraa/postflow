@@ -28,7 +28,7 @@ export function ReEngagementEmail({
       </EmailText>
       <EmailText>
         Cola qualquer link que você salvou essa semana e a gente transforma
-        em carrossel. 15 segundos.
+        em carrossel. 60 segundos.
       </EmailText>
       <EmailButton href={`${appUrl}/app/create/new`}>
         Gerar 1 carrossel agora

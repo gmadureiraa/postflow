@@ -64,7 +64,7 @@ A legenda nao deve repetir o carrossel. Use-a para adicionar contexto pessoal, c
 
 O maior obstaculo pra consistencia e o tempo de producao. Criar um bom carrossel manualmente leva de 1 a 3 horas entre pesquisa, escrita, design e revisao.
 
-Ferramentas como o Sequência Viral eliminam essa fricao. Voce cola um link de artigo ou descreve uma ideia, e a IA gera 3 variacoes completas em 30 segundos — cada uma com abordagem diferente (dados, storytelling e provocativa). Seu branding e aplicado automaticamente.
+Ferramentas como o Sequência Viral eliminam essa fricao. Voce cola um link de artigo ou descreve uma ideia, e a IA gera 3 variacoes completas em 60 segundos — cada uma com abordagem diferente (dados, storytelling e provocativa). Seu branding e aplicado automaticamente.
 
 Isso significa que voce pode testar mais formatos, publicar com mais frequencia e gastar sua energia criativa no que importa: ter boas ideias.
 
@@ -315,7 +315,7 @@ Pegue uma ideia do banco e use IA para gerar o conteudo. Com Sequência Viral, v
 - Descrever o tema em uma frase
 - Colar um video do YouTube
 
-A IA gera 3 variacoes de carrossel em 30 segundos.
+A IA gera 3 variacoes de carrossel em 60 segundos.
 
 ### Passo 3: Edicao (humano)
 Revise cada variacao. Injete sua voz. Adicione exemplos pessoais. Remova o que parece generico. Esse passo e crucial — e o que separa conteudo bom de conteudo generico de IA.
@@ -1009,7 +1009,7 @@ Exemplo para LinkedIn:
 Perfeita para carrosseis de produto:
 - Antes: "15h por semana fazendo carrosseis na mao"
 - Depois: "30 minutos por semana, 5 carrosseis prontos"
-- Ponte: "Sequência Viral gera 3 variacoes em 30 segundos"
+- Ponte: "Sequência Viral gera 3 variacoes em 60 segundos"
 
 ### Formula 4: So What?
 

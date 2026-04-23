@@ -1318,7 +1318,7 @@ function StepConnect({
       </H1>
       <Sub>
         A gente lê seus últimos 20 posts, baixa as imagens, transcreve o texto
-        dos slides e infere nicho, tom e público. Leva uns 30 segundos.
+        dos slides e infere nicho, tom e público. Leva uns 60 segundos.
       </Sub>
       <div
         className="flex items-center gap-4 p-5"
@@ -3288,7 +3288,7 @@ function StepGenerating({
       </H1>
       <Sub>
         A gente gera cada um com o DNA que você validou, as pilares, o tom e a
-        identidade visual. Leva uns 30-60 segundos por peça.
+        identidade visual. Leva uns 60 segundos por peça.
       </Sub>
 
       <div className="flex flex-col gap-3">

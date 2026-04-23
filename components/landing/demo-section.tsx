@@ -97,7 +97,7 @@ export interface DemoSectionProps {
 }
 
 export function DemoSection(props: DemoSectionProps = {}) {
-  const { sub = "Cola → lê → entrega", tag = "~15 segundos", heading } = props;
+  const { sub = "Cola → lê → entrega", tag = "~60 segundos", heading } = props;
   const targetText = "https://youtube.com/watch?v=carrossel-viral";
   const [typedLen, setTypedLen] = useState(0);
   const [tick, setTick] = useState(0);

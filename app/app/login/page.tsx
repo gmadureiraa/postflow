@@ -20,7 +20,7 @@ export default function LoginPage() {
     signUpWithEmail,
   } = useAuth();
 
-  // Se veio um `?coupon=BEMVINDO30` do popup, salva em localStorage
+  // Se veio um `?coupon=VIRAL50` do popup, salva em localStorage
   // pra o /app/checkout recuperar depois (sobrevive ao signup+redirect).
   // Lemos via window.location pra não depender de useSearchParams (que
   // obrigaria Suspense wrapping — mais complexo pra uma feature lateral).
@@ -371,7 +371,7 @@ export default function LoginPage() {
           >
             {isSignin
               ? "Entre para continuar criando carrosséis com a identidade da sua marca."
-              : "Comece a gerar carrosséis editoriais em 30 segundos."}
+              : "Comece a gerar carrosséis editoriais em 60 segundos."}
           </p>
 
           {/* OAuth */}

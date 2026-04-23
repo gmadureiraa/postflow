@@ -501,15 +501,15 @@ export default function AdminRegrasPage() {
         <UL
           items={[
             "[CORRIGIDO] app/app/onboarding/page.tsx: R$ 97 hardcoded → R$ 199,90.",
-            "tests/stripe-plans.test.ts defasado: expecta PLANS.pro.priceMonthly=990 e business=2990; usageLimitForPaidPlan('business')=150. Build não roda vitest, mas teste quebra se executado. Fix: atualizar valores esperados.",
+            "[CORRIGIDO] tests/stripe-plans.test.ts atualizado: agora expecta PLANS.pro.priceMonthly=9990, business=19990, usageLimitForPaidPlan('business')=30, stripePaymentAmount=99.90/199.90.",
           ]}
         />
         <SubHead>P1 (alto)</SubHead>
         <UL
           items={[
-            "Tempo de promessa: landing v2 e subject de activation-nudge dizem 15s; login e onboarding dizem 30s; blog posts dizem 30s. Padronizar em ~60s.",
-            "app/app/login/page.tsx lê ?coupon=BEMVINDO30 (aposentado). Trocar pra VIRAL50.",
-            "app/app/checkout/page.tsx mostra BETA50 como placeholder — deveria ser VIRAL50.",
+            "[CORRIGIDO] Tempo de promessa padronizado em ~60s em toda copy pública (landing v2, activation-nudge subject, re-engagement, login, onboarding, blog posts).",
+            "[CORRIGIDO] app/app/login/page.tsx agora lê ?coupon=VIRAL50.",
+            "[CORRIGIDO] app/app/checkout/page.tsx mostra VIRAL50 como placeholder.",
             "Migrations não aplicadas em prod: welcome_coupon.sql (BEMVINDO30) + BETA50 seed + stripe_events_processed + carousel_images + user_images + brand_image_refs (tabelas ausentes).",
           ]}
         />

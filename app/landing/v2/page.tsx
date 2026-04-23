@@ -16,7 +16,7 @@ import { LpVariantTracker } from "@/components/landing/lp-variant-tracker";
 /**
  * Variante /landing/v2 — ANGLE: VELOCIDADE
  * Target: criador solo exausto, posta 2x/semana, 3h por carrossel no Canva.
- * Promessa: 15 segundos de briefing → carrossel pronto pra postar.
+ * Promessa: 60 segundos de briefing → carrossel pronto pra postar.
  * Evento PostHog: lp_viewed { lp_variant: "velocidade" }
  */
 export default function LandingVelocidade() {
@@ -37,7 +37,7 @@ export default function LandingVelocidade() {
       <TopNav />
 
       <Hero
-        eyebrow="3h no Canva · 15s aqui"
+        eyebrow="3h no Canva · 60s aqui"
         h1={
           <>
             <span className="block">3 horas pra fazer</span>
@@ -54,15 +54,15 @@ export default function LandingVelocidade() {
             Quem tem agenda cheia não tem 3 horas pra arrastar caixinha no Canva.
             Cola um link,{" "}
             <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>
-              a IA escreve e monta em 15 segundos
+              a IA escreve e monta em 60 segundos
             </b>
             . Você revisa, ajusta, posta. Ganhou a tarde.
           </>
         }
         primaryCtaLabel="Testar 5 grátis →"
-        topBadge="✦ Em 15 seg"
+        topBadge="✦ Em 60 seg"
         bottomBadge="Sua tarde de volta"
-        trustPills={["~15s por carrossel", "Sem cartão", "Cancele quando quiser"]}
+        trustPills={["~60s por carrossel", "Sem cartão", "Cancele quando quiser"]}
       />
 
       <Ticker />
@@ -124,7 +124,7 @@ export default function LandingVelocidade() {
           eyebrow: "A matemática nova",
           title: (
             <>
-              3 horas caíram pra <em>15 segundos</em>. O resto é teu{" "}
+              3 horas caíram pra <em>60 segundos</em>. O resto é teu{" "}
               <span
                 style={{
                   background: "var(--sv-ink)",
@@ -147,13 +147,13 @@ export default function LandingVelocidade() {
       />
 
       <HowItWorks
-        sub="Fluxo de 15 segundos"
+        sub="Fluxo de 60 segundos"
         tag="Cronometrado"
         heading={
           <>
             Três passos.{" "}
             <span style={{ color: "var(--sv-muted)" }}>Somados,</span>{" "}
-            <em>15 segundos</em> de trabalho seu.
+            <em>60 segundos</em> de trabalho seu.
           </>
         }
         steps={[
@@ -163,7 +163,7 @@ export default function LandingVelocidade() {
             alt: "Ícone de input — cole o link",
             title: (
               <>
-                <em>Cola</em> o link. <span style={{ color: "var(--sv-muted)" }}>5s.</span>
+                <em>Cola</em> o link. <span style={{ color: "var(--sv-muted)" }}>10s.</span>
               </>
             ),
             body: "Link de YouTube, artigo, tweet ou uma frase no campo. Ctrl+V e enter. Acabou sua parte no briefing. A IA já tá transcrevendo em background.",
@@ -174,7 +174,7 @@ export default function LandingVelocidade() {
             alt: "Ícone de máquina de escrever — a IA escreve",
             title: (
               <>
-                A IA <em>escreve</em> e monta. <span style={{ color: "var(--sv-muted)" }}>~12s.</span>
+                A IA <em>escreve</em> e monta. <span style={{ color: "var(--sv-muted)" }}>~50s.</span>
               </>
             ),
             body: "Texto editorial com a sua voz, imagem por slide, capa + CTA. Tudo diagramado em 1080×1350. Você não abre Canva, não abre Figma, não abre ChatGPT.",
@@ -188,25 +188,25 @@ export default function LandingVelocidade() {
                 Revisa e <em>exporta</em>. <span style={{ color: "var(--sv-muted)" }}>depende de você.</span>
               </>
             ),
-            body: "Dá uma olhada, troca duas palavras se quiser. PNG pronto pra Instagram no celular. O tempo aqui é SEU — dá 30 segundos ou dá 3 minutos, não existe obrigação.",
+            body: "Dá uma olhada, troca duas palavras se quiser. PNG pronto pra Instagram no celular. O tempo aqui é SEU — dá 30 segundos ou dá 3 minutos de revisão, não existe obrigação.",
           },
         ]}
       />
 
       <DemoSection
-        sub="15 segundos na tela"
+        sub="60 segundos na tela"
         tag="Tempo real"
         heading={
           <>
             Link colado às <em>20:04:00</em>.{" "}
             <span style={{ color: "var(--sv-muted)" }}>Carrossel pronto às</span>{" "}
-            <em>20:04:15</em>.
+            <em>20:05:00</em>.
           </>
         }
       />
 
       <FeaturesSection
-        sub="O que corta 3h pra 15s"
+        sub="O que corta 3h pra 60s"
         tag="Produto"
         heading={
           <>
@@ -223,7 +223,7 @@ export default function LandingVelocidade() {
         tag="Tempo real"
         heading={
           <>
-            <em>15 segundos</em> aqui.{" "}
+            <em>60 segundos</em> aqui.{" "}
             <span style={{ color: "var(--sv-muted)" }}>
               O resto do mundo cobra sua tarde.
             </span>
@@ -232,12 +232,12 @@ export default function LandingVelocidade() {
         rows={[
           {
             topic: "Tempo por carrossel",
-            withSv: "~15 segundos do link ao PNG",
+            withSv: "~60 segundos do link ao PNG",
             withoutSv: "45 a 60 min arrastando no Canva",
           },
           {
             topic: "Tempo pra 4 posts/semana",
-            withSv: "1 minuto no total",
+            withSv: "4 minutos no total",
             withoutSv: "~4 horas, toda semana",
           },
           {
@@ -354,10 +354,10 @@ export default function LandingVelocidade() {
           {
             q: (
               <>
-                15 segundos é <em>real</em> ou é marketing?
+                60 segundos é <em>real</em> ou é marketing?
               </>
             ),
-            a: "Cronometrado. Link colado no campo, botão 'gerar', carrossel pronto no preview em 12 a 18 segundos. Varia pela duração do vídeo (se for fonte YouTube) e carga dos servidores. Em nenhum teste interno passou de 22s. O que leva tempo é a sua revisão — e esse tempo é seu, não da ferramenta.",
+            a: "Cronometrado. Link colado no campo, botão 'gerar', carrossel pronto no preview em 45 a 75 segundos. Varia pela duração do vídeo (se for fonte YouTube) e carga dos servidores. Em nenhum teste interno passou de 90s. O que leva tempo é a sua revisão — e esse tempo é seu, não da ferramenta.",
           },
           {
             q: (
@@ -365,7 +365,7 @@ export default function LandingVelocidade() {
                 E se a IA <em>errar</em>, não perco tempo corrigindo?
               </>
             ),
-            a: "Editor inline, 2 cliques por correção. Troca texto direto no slide, regenera só o que não ficou bom, muda de layout em 1 toque. A correção média dos nossos usuários é 40 a 90 segundos — ainda assim você sai com 2 minutos totais, contra 3 horas no fluxo antigo. Se a IA errar feio, você refaz o carrossel inteiro em mais 15s. Sem perda.",
+            a: "Editor inline, 2 cliques por correção. Troca texto direto no slide, regenera só o que não ficou bom, muda de layout em 1 toque. A correção média dos nossos usuários é 40 a 90 segundos — ainda assim você sai com 3 minutos totais, contra 3 horas no fluxo antigo. Se a IA errar feio, você refaz o carrossel inteiro em mais 60s. Sem perda.",
           },
           {
             q: (
@@ -373,7 +373,7 @@ export default function LandingVelocidade() {
                 Vale pra quem posta <em>só 1x por semana</em>?
               </>
             ),
-            a: "Vale mais ainda. Se você posta pouco é porque cada post custa 2–3h. Tirando esse custo, você não fica limitado à janela de domingo: grava o vídeo na terça, faz o carrossel na terça mesmo em 15s, posta na quarta. Uma pessoa que postava 4x por mês vira alguém que posta 12x sem trabalhar mais.",
+            a: "Vale mais ainda. Se você posta pouco é porque cada post custa 2–3h. Tirando esse custo, você não fica limitado à janela de domingo: grava o vídeo na terça, faz o carrossel na terça mesmo em 60s, posta na quarta. Uma pessoa que postava 4x por mês vira alguém que posta 12x sem trabalhar mais.",
           },
           {
             q: (
@@ -405,7 +405,7 @@ export default function LandingVelocidade() {
                 Quanto tempo leva pra <em>começar</em>?
               </>
             ),
-            a: "Signup em 20s (Google ou email). Primeiro carrossel sai em 15s depois disso. Total: menos de 1 minuto do momento que você clica o botão até o primeiro PNG exportado. Sem cartão, 5 carrosséis grátis.",
+            a: "Signup em 20s (Google ou email). Primeiro carrossel sai em 60s depois disso. Total: menos de 2 minutos do momento que você clica o botão até o primeiro PNG exportado. Sem cartão, 5 carrosséis grátis.",
           },
           {
             q: (
@@ -424,11 +424,11 @@ export default function LandingVelocidade() {
           <>
             Seu próximo carrossel
             <br />
-            <em style={{ color: "var(--sv-green)" }}>em 15 segundos.</em>
+            <em style={{ color: "var(--sv-green)" }}>em 60 segundos.</em>
           </>
         }
         subtitle="Cola um link. A IA escreve, monta, arte inclusa. Você revisa em 1 min e posta. O resto do domingo é seu."
-        primaryCtaLabel="Testar 5 grátis — 15s →"
+        primaryCtaLabel="Testar 5 grátis — 60s →"
       />
 
       <Footer />

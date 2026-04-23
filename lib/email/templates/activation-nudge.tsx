@@ -18,7 +18,7 @@ export function ActivationNudgeEmail({
 }) {
   const firstName = (name || "").trim().split(" ")[0] || "você";
   return (
-    <EmailLayout preview="Cola 1 link — a IA faz o resto em 15s.">
+    <EmailLayout preview="Cola 1 link — a IA faz o resto em 60s.">
       <EmailKicker>Dica rápida</EmailKicker>
       <EmailHeadline>
         {firstName}, o que tá te segurando?

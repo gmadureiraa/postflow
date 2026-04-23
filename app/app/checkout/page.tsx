@@ -412,7 +412,7 @@ function CheckoutContent() {
                           onChange={(e) =>
                             setCouponInput(e.target.value.toUpperCase())
                           }
-                          placeholder="BETA50"
+                          placeholder="VIRAL50"
                           className="flex-1 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-mono uppercase tracking-wider focus:border-[var(--accent)] focus:outline-none"
                           disabled={couponValidating}
                           maxLength={32}

@@ -47,7 +47,7 @@ export async function sendWelcome(user: Recipient) {
 export async function sendActivationNudge(user: Recipient) {
   return sendEmail({
     to: user.email,
-    subject: "Cola um link e sai com carrossel em 15s",
+    subject: "Cola um link e sai com carrossel em 60s",
     react: ActivationNudgeEmail({ name: user.name, appUrl: APP_URL }),
     tags: [PROJECT_TAG, ENV_TAG, lifecycleTag("activation-nudge")],
   });
