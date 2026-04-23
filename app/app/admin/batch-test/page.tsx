@@ -6,14 +6,13 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, PlayCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { jsonWithAuth } from "@/lib/api-auth-headers";
+import { isAdminEmail } from "@/lib/admin-emails";
 
 /**
  * Admin Batch Test — roda N testes de geração em sequência pra Gabriel
  * validar qualidade em diferentes nichos. Salva os carrosseis gerados
  * na conta indicada em userId (default: self).
  */
-
-const ADMIN_EMAILS = ["gf.madureiraa@gmail.com", "gf.madureira@hotmail.com"];
 
 interface TestConfig {
   label: string;
@@ -88,10 +87,7 @@ export default function BatchTestPage() {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = useMemo(() => {
-    const email = user?.email?.toLowerCase().trim();
-    return email ? ADMIN_EMAILS.includes(email) : false;
-  }, [user]);
+  const isAdmin = useMemo(() => isAdminEmail(user?.email), [user]);
 
   async function run() {
     if (!session || !user) return;

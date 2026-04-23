@@ -69,11 +69,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/app/roadmap", label: "Roadmap", icon: Map },
 ];
 
-/** Emails com acesso ao painel admin. Mesma lista do backend. */
-const ADMIN_EMAILS = [
-  "gf.madureiraa@gmail.com",
-  "gf.madureira@hotmail.com",
-];
+import { isAdminEmail } from "@/lib/admin-emails";
 
 const ADMIN_NAV_ITEM: NavItem = {
   href: "/app/admin",
@@ -247,9 +243,7 @@ function SidebarContent({
 
       {/* Nav — inclui entrada Admin só pra emails autorizados. */}
       {(() => {
-        const isAdmin =
-          !!profile?.email &&
-          ADMIN_EMAILS.includes(profile.email.toLowerCase().trim());
+        const isAdmin = isAdminEmail(profile?.email);
         const items = isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
         return (
           <nav className="flex flex-col gap-[2px]">
@@ -508,9 +502,7 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
   // de onboarding — o admin precisa entrar mesmo antes de preencher
   // onboarding pessoal (ou depois, sem ser redirecionado pra wizard).
   const isAdminArea = pathname.startsWith("/app/admin");
-  const userEmail = user?.email?.toLowerCase().trim();
-  const isAdmin =
-    !!userEmail && ADMIN_EMAILS.includes(userEmail);
+  const isAdmin = isAdminEmail(user?.email);
 
   useEffect(() => {
     if (loading) return;

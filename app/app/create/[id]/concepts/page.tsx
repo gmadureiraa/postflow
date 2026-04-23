@@ -1,5 +1,8 @@
 "use client";
 
+// DEPRECATED: fluxo legado. /new pula direto pra /edit. Rota continua
+// funcional mas nenhum CTA aponta pra ela. Planejamos deletar em 2026-06
+// se nenhum user acessar.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";

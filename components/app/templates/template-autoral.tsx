@@ -1,5 +1,7 @@
 "use client";
 
+// LEGACY — não aparece no picker (TEMPLATE_ORDER = ["manifesto", "twitter"]).
+// Só renderiza drafts antigos salvos com esse id. Mantido por compat.
 import { forwardRef } from "react";
 import type { SlideProps } from "./types";
 import {

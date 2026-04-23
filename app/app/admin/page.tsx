@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { jsonWithAuth } from "@/lib/api-auth-headers";
+import { isAdminEmail } from "@/lib/admin-emails";
 import AnalyticsTab from "./AnalyticsTab";
 import { BarChart3 } from "lucide-react";
 
@@ -32,8 +33,6 @@ import { BarChart3 } from "lucide-react";
  *  - APIs: status env var + último uso por provider
  *  - Assinaturas: MRR, payments, falhas
  */
-
-const ADMIN_EMAILS = ["gf.madureiraa@gmail.com", "gf.madureira@hotmail.com"];
 
 type TabId =
   | "overview"
@@ -245,10 +244,7 @@ export default function AdminPage() {
   // server-side gate (requireAdmin) também compara contra auth.user.email —
   // manter em sync evita falso-negativo que trava o admin em "Sem acesso".
   const isAdmin = useMemo(() => {
-    const emailFromUser = user?.email?.toLowerCase().trim();
-    const emailFromProfile = profile?.email?.toLowerCase().trim();
-    const email = emailFromUser || emailFromProfile;
-    return email ? ADMIN_EMAILS.includes(email) : false;
+    return isAdminEmail(user?.email) || isAdminEmail(profile?.email);
   }, [user, profile]);
 
   useEffect(() => {

@@ -308,6 +308,87 @@ export default function HelpPage() {
         })}
       </div>
 
+      {/* ——— DETALHES: Interview Mode ——— */}
+      <section
+        className="mt-16 p-7"
+        style={{
+          background: "var(--sv-white)",
+          border: "1.5px solid var(--sv-ink)",
+          boxShadow: "4px 4px 0 0 var(--sv-ink)",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: 10,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "var(--sv-muted)",
+          }}
+        >
+          Detalhe · Interview Mode
+        </span>
+        <h2
+          className="sv-display mt-3"
+          style={{
+            fontSize: "clamp(26px, 3.2vw, 34px)",
+            lineHeight: 1.05,
+            letterSpacing: "-0.02em",
+            fontWeight: 400,
+          }}
+        >
+          Perguntar antes de gerar — <em style={{ fontStyle: "italic" }}>o que acontece</em>
+        </h2>
+        <p
+          className="mt-4"
+          style={{
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: "var(--sv-ink)",
+            maxWidth: 720,
+          }}
+        >
+          Dentro do <strong>Modo avançado</strong> em{" "}
+          <Link href="/app/create/new" style={{ borderBottom: "1.5px solid var(--sv-ink)" }}>
+            Criar
+          </Link>
+          , o toggle <strong>&quot;Perguntar antes de gerar&quot;</strong> ativa o
+          interview mode. Quando ligado, antes de chamar o Writer a gente manda
+          seu briefing pro endpoint <code style={{ fontFamily: "var(--sv-mono)", fontSize: 12 }}>/api/generate/interview</code> (Gemini 2.5 Flash) e
+          recebemos 1-2 perguntas cirúrgicas — tipo &quot;qual foi o resultado
+          exato?&quot; ou &quot;é pra qual público?&quot;. Você responde num
+          modal, clica gerar, e as respostas viram contexto extra do prompt
+          final.
+        </p>
+        <p
+          className="mt-3"
+          style={{
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: "var(--sv-ink)",
+            maxWidth: 720,
+          }}
+        >
+          Quando usar: briefings vagos (&quot;fala sobre IA&quot;), ideias sem
+          dado numérico, ou sempre que você quer especificidade máxima. Custo
+          extra: ~$0,001 por geração (desprezível). Trade-off: +5-10s de
+          latência pra gerar as perguntas.
+        </p>
+        <p
+          className="mt-3"
+          style={{
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "var(--sv-muted)",
+            maxWidth: 720,
+          }}
+        >
+          Dica: se você já forneceu link de YouTube ou artigo, geralmente não
+          precisa — o NER do source já traz dados suficientes. Use em briefings
+          tipo ideia solta.
+        </p>
+      </section>
+
       {/* Créditos Kaleidos — pequeno, no fim */}
       <div
         className="mt-16 flex flex-wrap items-center justify-between gap-4 pt-8"

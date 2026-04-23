@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { jsonWithAuth } from "@/lib/api-auth-headers";
-
-const ADMIN_EMAILS = ["gf.madureiraa@gmail.com", "gf.madureira@hotmail.com"];
+import { isAdminEmail } from "@/lib/admin-emails";
 
 // ─────────────────────────── types ───────────────────────────
 
@@ -146,10 +145,7 @@ export default function AdminUserDetailPage(props: {
   // Gate: usar user.email (Supabase auth) como fonte principal — profile
   // pode falhar de carregar. Mesma estratégia do /app/admin root.
   const isAdmin = useMemo(() => {
-    const email =
-      user?.email?.toLowerCase().trim() ||
-      me?.email?.toLowerCase().trim();
-    return email ? ADMIN_EMAILS.includes(email) : false;
+    return isAdminEmail(user?.email) || isAdminEmail(me?.email);
   }, [user, me]);
 
   useEffect(() => {

@@ -6,14 +6,13 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Copy, Loader2, PlayCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { jsonWithAuth } from "@/lib/api-auth-headers";
+import { isAdminEmail } from "@/lib/admin-emails";
 
 /**
  * Admin Source Test — UI que roda extração + NER num source específico
  * sem gerar carrossel. Gabriel usa pra debugar por que certas fontes geram
  * carrosseis shallow (ex: transcript truncado, NER vazio, sem entities).
  */
-
-const ADMIN_EMAILS = ["gf.madureiraa@gmail.com", "gf.madureira@hotmail.com"];
 
 type SourceType = "video" | "link" | "instagram";
 
@@ -52,10 +51,7 @@ export default function SourceTestPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const isAdmin = useMemo(() => {
-    const email = user?.email?.toLowerCase().trim();
-    return email ? ADMIN_EMAILS.includes(email) : false;
-  }, [user]);
+  const isAdmin = useMemo(() => isAdminEmail(user?.email), [user]);
 
   async function run() {
     if (!session) return;
