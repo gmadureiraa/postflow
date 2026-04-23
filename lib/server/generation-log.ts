@@ -61,6 +61,15 @@ const PRICING = {
     input: 0,
     output: 0,
   },
+  // Unsplash — busca de fotos editoriais stock. Freemium (API pública,
+  // 50 req/h demo, 5000 req/h production). Substitui geração IA quando
+  // decider escolhe mode="stock" (conceito abstrato clássico). Tracking
+  // cosmético — custo zero, mas mantido pra admin enxergar a fonte da
+  // imagem do slide.
+  unsplash: {
+    input: 0,
+    output: 0,
+  },
 } as const;
 
 type ModelId = keyof typeof PRICING;
@@ -70,6 +79,7 @@ export type PromptType =
   | "caption"
   | "concepts"
   | "image"
+  | "stock-search"
   | "brand-aesthetic"
   | "brand-analysis"
   | "cover-scene"
@@ -109,7 +119,7 @@ export async function recordGeneration(params: {
   userId: string;
   carouselId?: string | null;
   model: ModelId;
-  provider: "google" | "anthropic" | "openai" | "perplexity" | "firecrawl";
+  provider: "google" | "anthropic" | "openai" | "perplexity" | "firecrawl" | "unsplash";
   inputTokens: number;
   outputTokens: number;
   costUsd: number;

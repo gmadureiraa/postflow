@@ -87,10 +87,11 @@ Fluxo padrão (single-shot):
 7. **Concepts** (só modo avançado): Gemini Flash sugere 4 conceitos antes do writer.
 8. **Image decider** (por slide, `lib/server/image-decider.ts`):
    - Gemini 2.5 Flash lê heading+body+NER+brandAesthetic
-   - Decide `search` (entidade nomeada famosa → Serper Google Images) ou `generate` (abstrato/metáfora → Imagen 4 OU Gemini 3.1 Flash Image, JSON `StructuredImagePrompt`)
+   - Decide `search` (entidade nomeada famosa → Serper Google Images com filtro `tbs=il:cl` Creative Commons, desativável via `SERPER_DISABLE_LICENSE_FILTER=1`), `stock` (conceito abstrato clássico → Unsplash editorial, grátis) ou `generate` (metáfora visual específica → Imagen 4 OU Gemini 3.1 Flash Image, JSON `StructuredImagePrompt`)
    - Capa (slide 1) sempre `generate`
-   - Inner slides default: Flash Image ($0.008/imagem)
-   - Custo: ~$0.0003/slide (decider) + $0.008-0.04/imagem (geração)
+   - Stock (Unsplash) ativa quando `UNSPLASH_ACCESS_KEY` setado; sem match ≥1, cai pra `generate`. Trigger `download_location` obrigatório por guideline Unsplash (fire-and-forget).
+   - Inner slides default: Flash Image ($0.008/imagem), ou Unsplash quando decider escolhe stock ($0/imagem)
+   - Custo: ~$0.0003/slide (decider) + $0-0.04/imagem (geração; $0 quando stock)
 9. **Editor**: `/app/create/[id]/edit` — WYSIWYG, troca texto inline, regenera imagem isolada, troca template/variante.
 10. **Preview**: render exato com html-to-image.
 11. **Export**: PNG (html-to-image), ZIP (JSZip) ou PDF (jsPDF).
@@ -347,9 +348,12 @@ Fonte: `vercel.json`. Todos autenticados via `CRON_SECRET` (header `Authorizatio
 | `STRIPE_PRICE_ID_BUSINESS_YEARLY` | Pro anual | Stripe |
 | `RESEND_API_KEY` | Envio de emails | Resend dashboard |
 | `EMAIL_FROM` | Sender (`Sequência Viral <viral@kaleidos.com.br>`) | Produção manual |
-| `SERPER_API_KEY` | Busca de imagens stock | Serper dashboard |
+| `SERPER_API_KEY` | Busca de imagens stock (Google Images, filtro `tbs=il:cl` CC) | Serper dashboard |
+| `SERPER_DISABLE_LICENSE_FILTER` | Setar `1` pra desativar filtro Creative Commons no Serper (opcional) | — |
+| `UNSPLASH_ACCESS_KEY` | Stock editorial grátis (modo `stock` do image decider, fallback quando decider sugere mas key ausente → generate) | Unsplash developers |
 | `APIFY_API_TOKEN` / `APIFY_API_KEY` | Scraping Instagram | Apify console |
-| `SCRAPECREATORS_API_TOKEN` | Fallback IG scraper | ScrapeCreators |
+| `SCRAPECREATORS_API_KEY` | Fallback IG scraper (primary) | ScrapeCreators |
+| `SCRAPECREATORS_API_KEY_BACKUP` | Fallback do fallback — failover automático quando primary retorna 429/401 | ScrapeCreators (segunda conta) |
 | `SUPADATA_API_KEY` | Transcrição fallback | Supadata |
 | `SUPADATA_API_KEY_BACKUP` | Fallback de transcript quando primary retorna 429/401 | Supadata (segunda conta) |
 | `FIRECRAWL_API_KEY` | Scraping LLM-ready de blogs/artigos (primary em sourceType=link; fallback: url-extractor) | Firecrawl dashboard |

@@ -30,7 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type ImageAction = {
   slideIndex: number;
   /** "skip" = nao gera imagem, layout text-only. */
-  mode: "generate" | "search" | "skip";
+  mode: "generate" | "search" | "stock" | "skip";
   /** Flag pro prompt Imagen ativar pipeline 2-pass cinematografico. */
   isCover: boolean;
   /** Razao da decisao — util pra log/debug. */
@@ -75,7 +75,7 @@ const CACHE_TABLE = "image_theme_cache";
 // meses sem perder qualidade. Se user reclamar de repeticao visual, reduz.
 const CACHE_TTL_DAYS = 30;
 
-function themeHash(query: string, mode: "generate" | "search"): string {
+function themeHash(query: string, mode: "generate" | "search" | "stock"): string {
   const normalized = query
     .trim()
     .toLowerCase()
@@ -90,7 +90,7 @@ function themeHash(query: string, mode: "generate" | "search"): string {
 export async function getCachedThemeImage(
   supabase: SupabaseClient,
   query: string,
-  mode: "generate" | "search"
+  mode: "generate" | "search" | "stock"
 ): Promise<string | null> {
   if (!query.trim()) return null;
   const key = themeHash(query, mode);
@@ -115,7 +115,7 @@ export async function getCachedThemeImage(
 export async function recordThemeImage(
   supabase: SupabaseClient,
   query: string,
-  mode: "generate" | "search",
+  mode: "generate" | "search" | "stock",
   url: string
 ): Promise<void> {
   if (!query.trim() || !url) return;

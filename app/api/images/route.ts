@@ -20,6 +20,11 @@ import {
   type ImageDecision,
   type StructuredImagePrompt,
 } from "@/lib/server/image-decider";
+import {
+  isUnsplashConfigured,
+  unsplashSearch,
+  unsplashTriggerDownload,
+} from "@/lib/unsplash";
 
 export const maxDuration = 60;
 
@@ -110,7 +115,7 @@ export async function POST(request: Request) {
       model: modelOverride,
     } = body as {
       query?: string;
-      mode?: "search" | "generate";
+      mode?: "search" | "stock" | "generate";
       niche?: string;
       tone?: string;
       designTemplate?: DesignTemplateId;
@@ -137,7 +142,7 @@ export async function POST(request: Request) {
     };
 
     // `mode` é reatribuído depois do decider — precisa ser mutável.
-    let mode: "search" | "generate" | undefined = modeFromBody;
+    let mode: "search" | "stock" | "generate" | undefined = modeFromBody;
 
     // Rate limit dividido por modo: generate (Imagen, $0.04/imagem) é
     // mais restrito que search (Serper, ~grátis). Quando useDecider=true
@@ -246,6 +251,7 @@ export async function POST(request: Request) {
     let deciderDecision: ImageDecision | null = null;
     let structuredPromptOverride: StructuredImagePrompt | null = null;
     let deciderSearchQueryOverride: string | null = null;
+    let deciderStockQueryOverride: string | null = null;
     if (useDecider) {
       try {
         deciderDecision = await decideSlideImage({
@@ -284,6 +290,9 @@ export async function POST(request: Request) {
         mode = deciderDecision.mode;
         if (deciderDecision.mode === "search" && deciderDecision.searchQuery) {
           deciderSearchQueryOverride = deciderDecision.searchQuery;
+        }
+        if (deciderDecision.mode === "stock" && deciderDecision.stockQuery) {
+          deciderStockQueryOverride = deciderDecision.stockQuery;
         }
         if (
           deciderDecision.mode === "generate" &&
@@ -325,13 +334,15 @@ export async function POST(request: Request) {
     const shouldUseCache =
       supabaseForCache &&
       cacheQueryKey &&
-      (mode === "generate" || (mode === "search" && (count ?? 1) <= 1));
+      (mode === "generate" ||
+        mode === "stock" ||
+        (mode === "search" && (count ?? 1) <= 1));
     if (shouldUseCache && supabaseForCache) {
       try {
         const cachedUrl = await getCachedThemeImage(
           supabaseForCache,
           cacheQueryKey,
-          mode as "generate" | "search"
+          mode as "generate" | "search" | "stock"
         );
         if (cachedUrl) {
           console.log(
@@ -347,6 +358,95 @@ export async function POST(request: Request) {
       } catch {
         /* best-effort */
       }
+    }
+
+    // ── MODE: STOCK (Unsplash) ──────────────────────────────────────
+    // Decider escolheu "stock" pra conceito abstrato clássico
+    // (produtividade, café, foco, trabalho, leitura etc). Unsplash é
+    // grátis e tem qualidade editorial — substitui geração IA em ~X%
+    // dos slides internos, economizando ~$0.008/img.
+    //
+    // Fallback: se Unsplash não retornar ≥1 resultado ou não estiver
+    // configurado, mode vira "generate" e caímos no branch abaixo
+    // (Imagen 4 / Flash Image). Nunca falha silenciosamente.
+    if (mode === "stock") {
+      const rawStockQuery = deciderStockQueryOverride || query;
+      const stockQ = rawStockQuery.trim().slice(0, 80);
+      if (isUnsplashConfigured() && stockQ) {
+        try {
+          const photos = await unsplashSearch(stockQ, {
+            perPage: 5,
+            orientation: "squarish",
+            timeoutMs: 6_000,
+          });
+          if (photos.length >= 1) {
+            const pick = photos[0];
+            // Trigger obrigatório pra cumprir Unsplash API Guidelines.
+            // Fire-and-forget — não bloqueia resposta.
+            void unsplashTriggerDownload(pick.downloadLocation);
+
+            // Registra no log de geração (custo 0, provider unsplash) pra
+            // admin enxergar a fonte da imagem do slide.
+            void recordGeneration({
+              userId: user.id,
+              model: "unsplash",
+              provider: "unsplash",
+              inputTokens: 0,
+              outputTokens: 0,
+              costUsd: 0,
+              promptType: "stock-search",
+            });
+
+            // Cache tematico: próximos slides com mesma query reusam.
+            if (supabaseForCache && cacheQueryKey) {
+              void recordThemeImage(
+                supabaseForCache,
+                cacheQueryKey,
+                "stock",
+                pick.url
+              );
+            }
+
+            console.log(
+              `[images] OK slide=${slideNumber ?? "?"} source=unsplash query="${stockQ.slice(0, 60)}" author=${pick.author}`
+            );
+
+            return Response.json({
+              images: [
+                {
+                  url: pick.url,
+                  thumbnailUrl: pick.thumbUrl,
+                  title: pick.description || stockQ,
+                  source: `Unsplash — ${pick.author}`,
+                  link: pick.authorUrl,
+                  generated: false,
+                  stock: true,
+                  attribution: {
+                    provider: "unsplash",
+                    author: pick.author,
+                    authorUrl: pick.authorUrl,
+                    photoId: pick.id,
+                  },
+                },
+              ],
+            });
+          }
+          console.warn(
+            `[images] unsplash slide=${slideNumber ?? "?"} empty query="${stockQ.slice(0, 60)}" — fallback para generate`
+          );
+        } catch (err) {
+          console.warn(
+            `[images] unsplash slide=${slideNumber ?? "?"} exception msg=${err instanceof Error ? err.message : String(err)} — fallback para generate`
+          );
+        }
+      } else if (!isUnsplashConfigured()) {
+        console.warn(
+          `[images] unsplash slide=${slideNumber ?? "?"} skipped: UNSPLASH_ACCESS_KEY não configurada — fallback para generate`
+        );
+      }
+      // Fallback: vira generate. Se já temos StructuredImagePrompt do
+      // decider, usa. Senão, o branch generate monta prompt genérico.
+      mode = "generate";
     }
 
     // ── MODE: GENERATE (Gemini Imagen) ──────────────────────────────
@@ -798,13 +898,26 @@ export async function POST(request: Request) {
     );
     if (serperKey) {
       try {
+        // Filtro `tbs=il:cl` pede só imagens Creative Commons licensed.
+        // Reduz risco de copyright em fotos exibidas no carrossel.
+        // Pode ser desativado via env `SERPER_DISABLE_LICENSE_FILTER=1`
+        // caso retorne resultado pobre em algum nicho.
+        const useLicenseFilter =
+          process.env.SERPER_DISABLE_LICENSE_FILTER !== "1";
+        const serperBody: Record<string, unknown> = {
+          q: searchQuery,
+          num: desiredCount,
+        };
+        if (useLicenseFilter) {
+          serperBody.tbs = "il:cl";
+        }
         const resp = await fetch("https://google.serper.dev/images", {
           method: "POST",
           headers: {
             "X-API-KEY": serperKey,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ q: searchQuery, num: desiredCount }),
+          body: JSON.stringify(serperBody),
           signal: AbortSignal.timeout(10_000),
         });
 

@@ -243,7 +243,7 @@ export default function AdminRegrasPage() {
             "Extração: YouTube transcript (Supadata fallback) · Blog HTML scrape · IG Apify + ScrapeCreators fallback · X scrape · texto → skip.",
             "NER pre-processing (Gemini 2.5 Flash thinkingBudget:0) — summary, keyPoints, entities, dataPoints, quotes, arguments. Custo ~$0.0005.",
             "Writer (Gemini 2.5 Pro) — persona BrandsDecoded/Morning Brew/Paul Graham, 3 variações (data/story/provocative) de 6-10 slides. Custo ~$0.02.",
-            "Image decider por slide (Gemini 2.5 Flash) — mode=search (Serper) ou generate (Imagen 4 / Flash Image). Custo ~$0.0003/slide.",
+            "Image decider por slide (Gemini 2.5 Flash) — 3 modos: search (Serper Google Images, filtro CC `tbs=il:cl`), stock (Unsplash editorial grátis) ou generate (Imagen 4 / Flash Image). Custo ~$0.0003/slide; imagem $0-0.04/img.",
             "Editor WYSIWYG: troca texto, regenera imagem isolada, alterna variante.",
             "Export PNG / PDF / ZIP.",
             "Feedback modal pós-download: classifier Gemini Flash extrai regras → grava em carousel_feedback + atualiza profiles.brand_analysis.__generation_memory.",
@@ -328,11 +328,25 @@ export default function AdminRegrasPage() {
 
       <Section num="06" title="Regras de imagens">
         <SubHead>Search (Serper)</SubHead>
-        <P>Entidade nomeada famosa, evento real, pessoa pública, produto físico específico.</P>
+        <P>
+          Entidade nomeada famosa, evento real, pessoa pública, produto físico
+          específico. Query Serper inclui filtro <Code>tbs=il:cl</Code> (só
+          Creative Commons) por padrão — desativar via{" "}
+          <Code>SERPER_DISABLE_LICENSE_FILTER=1</Code>.
+        </P>
+        <SubHead>Stock (Unsplash)</SubHead>
+        <P>
+          Conceito abstrato clássico (produtividade, café, foco, trabalho,
+          leitura, equipe, natureza). Unsplash tem estoque editorial abundante
+          e é grátis. Trigger obrigatório no <Code>download_location</Code>{" "}
+          quando a foto é usada (guideline Unsplash). Fallback se resultado
+          vazio: cai pra generate.
+        </P>
         <SubHead>Generate (Imagen 4 / Flash Image)</SubHead>
         <P>
-          Conceito abstrato, metáfora, princípio, emoção, cena hipotética.
-          Capa (slide 1) SEMPRE generate. Aspect ratio sempre 1:1.
+          Metáfora visual específica, cena cinematográfica única (escassez,
+          solidão do fundador, ruptura, ciclo). Capa (slide 1) SEMPRE generate.
+          Aspect ratio sempre 1:1.
         </P>
         <SubHead>StructuredImagePrompt</SubHead>
         <P style={{ fontFamily: "var(--sv-mono)", fontSize: 11.5 }}>
@@ -463,7 +477,9 @@ export default function AdminRegrasPage() {
             "GEMINI_API_KEY, ANTHROPIC_API_KEY",
             "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID_PRO_{MONTHLY,YEARLY}, STRIPE_PRICE_ID_BUSINESS_{MONTHLY,YEARLY}",
             "RESEND_API_KEY, EMAIL_FROM",
-            "SERPER_API_KEY, APIFY_API_TOKEN (ou APIFY_API_KEY), SCRAPECREATORS_API_TOKEN, SUPADATA_API_KEY, SUPADATA_API_KEY_BACKUP",
+            "SERPER_API_KEY, SERPER_DISABLE_LICENSE_FILTER (opcional)",
+            "UNSPLASH_ACCESS_KEY (stock editorial grátis quando decider sugere mode=stock)",
+            "APIFY_API_TOKEN (ou APIFY_API_KEY), SCRAPECREATORS_API_KEY, SCRAPECREATORS_API_KEY_BACKUP, SUPADATA_API_KEY, SUPADATA_API_KEY_BACKUP",
             "FIRECRAWL_API_KEY (scraping LLM-ready em sourceType=link; fallback: url-extractor)",
             "PERPLEXITY_API_KEY (fact-check live opt-in via useFactCheck + auto-detect em NER)",
             "META_APP_ID, CRON_SECRET",

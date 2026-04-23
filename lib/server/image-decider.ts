@@ -49,12 +49,17 @@ export interface StructuredImagePrompt {
   aspectRatio: "1:1";
 }
 
-export type ImageDeciderMode = "search" | "generate";
+export type ImageDeciderMode = "search" | "stock" | "generate";
 
 export interface ImageDecision {
   mode: ImageDeciderMode;
   /** Preenchido quando mode="search". Query específica de Google Images. */
   searchQuery?: string;
+  /**
+   * Preenchido quando mode="stock". Query curta/genérica pra Unsplash
+   * (2-4 palavras em inglês, conceito abstrato clássico).
+   */
+  stockQuery?: string;
   /** Preenchido quando mode="generate". JSON estruturado. */
   generatePrompt?: StructuredImagePrompt;
   /** Log/debug — 1 frase explicando a decisão. */
@@ -191,16 +196,20 @@ Se o prompt gerado violar qualquer regra acima, o slide será rejeitado.`
 REGRA CRITICA: ESTE É O SLIDE DE CAPA (slide 1 de ${totalSlides}). SEMPRE use mode="generate" com StructuredImagePrompt cinematográfico MAXIMUM DRAMA. Capa precisa parar o scroll em 0.3s. Nunca search na capa.`
     : "";
 
-  return `Você é um DIRETOR DE ARTE escolhendo a melhor imagem para um slide de carrossel Instagram. Decida entre:
+  return `Você é um DIRETOR DE ARTE escolhendo a melhor imagem para um slide de carrossel Instagram. Decida entre 3 modos:
 
 1. mode="search" — buscar foto REAL via Google Images.
    USE QUANDO: o slide fala de uma ENTIDADE NOMEADA específica e real — pessoa famosa viva ou morta (Satoshi Nakamoto, Elon Musk, Steve Jobs, Vitalik Buterin, Warren Buffett), empresa específica (Anthropic, Tesla, OpenAI, Apple, Uniswap), produto específico (iPhone 15, Ledger Nano, Model S), lugar real conhecido (Vale do Silício, Bolsa de NY, Dubai), evento real nomeado (Bitcoin halving 2024, SEC v. Ripple, queda da FTX).
    Search funciona porque existe foto real dessa coisa — gerar com IA daria pior resultado.
 
-2. mode="generate" — gerar imagem com Gemini/Imagen usando StructuredImagePrompt cinematográfico.
-   USE QUANDO: o slide fala de CONCEITO ABSTRATO, PRINCÍPIO, METÁFORA, EMOÇÃO, IDEIA (escassez, medo, ganância, solidão do fundador, decisão difícil, ruptura, transformação, ciclo de mercado, paciência, disciplina). Não existe foto real dessas coisas — gerar com IA cria cena original cinematográfica.
+2. mode="stock" — buscar foto editorial no Unsplash (grátis, qualidade editorial).
+   USE QUANDO: o slide fala de CONCEITO ABSTRATO CLÁSSICO — produtividade, café, foco, trabalho, leitura, fim de semana, criatividade, descanso, reunião, parceria, viagem, natureza, cidade, escritório, equipe, computador, ambiente de trabalho. Conceito que aparece em milhões de fotos editoriais de alta qualidade, NÃO precisa de cena específica inventada.
+   Stock vence generate nesses casos porque: (a) foto real tem qualidade editorial irretocável, (b) economiza custo de geração IA, (c) responde mais rápido.
 
-3. CONTEÚDO MISTO: escolha o que vai dar imagem MAIS IMPACTANTE e específica. Se tem entidade nomeada FORTE, search ganha. Se a entidade é só background e o core é conceito, generate ganha.
+3. mode="generate" — gerar imagem com Gemini/Imagen usando StructuredImagePrompt cinematográfico.
+   USE QUANDO: o slide fala de METÁFORA VISUAL ESPECÍFICA, cena conceitual ÚNICA que stock não capturaria (escassez como cofre se fechando, ganância como mão quebrando moeda, solidão do fundador às 3am, decisão difícil no limiar de uma porta, ruptura literal, transformação metamórfica, ciclo de mercado como onda quebrando). Cenas que precisam de composição cinematográfica inventada, drama máximo, direção de arte original. Também quando é conceito abstrato FORTE mas sem match óbvio no estoque editorial (princípios, emoções muito específicas).
+
+4. CONTEÚDO MISTO: escolha o que vai dar imagem MAIS IMPACTANTE e específica. Se tem entidade nomeada FORTE → search. Se é conceito clássico com estoque abundante → stock. Se é metáfora única/cinematográfica → generate.
 ${coverRule}
 
 CONTEXTO DO SLIDE:
@@ -219,6 +228,11 @@ Se mode="search":
 - searchQuery: 4-8 palavras em INGLÊS, específico, nomeando a entidade. Ex: "Satoshi Nakamoto portrait mysterious figure", "Vitalik Buterin Ethereum conference 2024", "Anthropic headquarters San Francisco office".
 - NÃO use termos genéricos ("strategy", "business", "innovation"). Nome próprio sempre.
 - generatePrompt: omita (pode deixar null).
+
+Se mode="stock":
+- stockQuery: 2-4 palavras em INGLÊS, CURTO e GENÉRICO — termos que existem em estoque editorial abundante. Ex: "morning coffee", "focused work", "reading book", "weekend leisure", "team meeting", "creative workspace", "city skyline night", "laptop desk".
+- NÃO use nomes próprios ou conceitos muito específicos. Stock = termo genérico amplo.
+- searchQuery e generatePrompt: omita.
 
 Se mode="generate":
 - searchQuery: omita.
@@ -240,8 +254,9 @@ REGRAS GERAIS:
 
 Formato de resposta (JSON puro):
 {
-  "mode": "search" | "generate",
+  "mode": "search" | "stock" | "generate",
   "searchQuery": "string (só se mode=search)",
+  "stockQuery": "string (só se mode=stock)",
   "generatePrompt": { ... StructuredImagePrompt ... } OR null,
   "reasoning": "1 frase explicando a escolha"
 }`;
@@ -260,6 +275,7 @@ function normalizeDecision(
   const rawMode = typeof r.mode === "string" ? r.mode.toLowerCase().trim() : "";
   let mode: ImageDeciderMode;
   if (rawMode === "search") mode = "search";
+  else if (rawMode === "stock") mode = "stock";
   else if (rawMode === "generate") mode = "generate";
   else return null;
 
@@ -280,6 +296,21 @@ function normalizeDecision(
         : null;
     if (!searchQuery) return null;
     return { mode: "search", searchQuery, reasoning };
+  }
+
+  if (mode === "stock") {
+    const stockQuery =
+      typeof r.stockQuery === "string" && r.stockQuery.trim()
+        ? r.stockQuery.trim().slice(0, 80)
+        : typeof r.searchQuery === "string" && r.searchQuery.trim()
+          ? r.searchQuery.trim().slice(0, 80)
+          : null;
+    if (!stockQuery) {
+      // Stock sem query cai pra generate (fallback seguro).
+      const structured = normalizeStructuredPrompt(r.generatePrompt, input);
+      return { mode: "generate", generatePrompt: structured, reasoning };
+    }
+    return { mode: "stock", stockQuery, reasoning };
   }
 
   // mode === "generate"

@@ -17,20 +17,24 @@
  */
 
 import { ApifyInstagramScraper } from "./apify";
-import { ScrapeCreatorsScraper } from "./scrapecreators";
+import {
+  ScrapeCreatorsScraper,
+  isScrapeCreatorsConfigured,
+} from "./scrapecreators";
 import { InstagramScraper, ProfileData, ScraperError } from "./types";
 
 export { ScraperError } from "./types";
 export type { ProfileData, RecentPost, InstagramScraper } from "./types";
+export { isScrapeCreatorsConfigured } from "./scrapecreators";
 
 function buildProviderChain(): InstagramScraper[] {
   const chain: InstagramScraper[] = [new ApifyInstagramScraper()];
 
-  if (process.env.SCRAPECREATORS_API_KEY) {
+  if (isScrapeCreatorsConfigured()) {
     chain.push(new ScrapeCreatorsScraper());
   } else {
     console.log(
-      "[scraper] SCRAPECREATORS_API_KEY not set — skipping fallback adapter"
+      "[scraper] nenhuma SCRAPECREATORS_API_KEY/_BACKUP setada — skipping fallback adapter"
     );
   }
 
