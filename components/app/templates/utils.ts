@@ -8,6 +8,33 @@
 
 import * as React from "react";
 
+/**
+ * Hosts que servem imagem pública com CORS: * — não precisam passar pelo
+ * img-proxy autenticado. Passar pelo proxy QUEBRA o export porque a tag
+ * <img> não manda Bearer e o proxy retorna 401 pra hosts fora da whitelist
+ * pública dele, o que causa "imagens faltando no zip" (bug 2026-04-22).
+ */
+const PUBLIC_CORS_HOSTS = [
+  "supabase.co", // todos os buckets publicos (nossos) respondem CORS *
+  "supabase.in",
+  "cdninstagram.com",
+  "fbcdn.net",
+  "pbs.twimg.com",
+  "twimg.com",
+  "licdn.com",
+  "googleusercontent.com",
+  "ytimg.com",
+  "unsplash.com",
+  "images.unsplash.com",
+];
+
+function isPublicCorsHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return PUBLIC_CORS_HOSTS.some(
+    (suffix) => h === suffix || h.endsWith(`.${suffix}`)
+  );
+}
+
 export function resolveImgSrc(
   url: string | undefined,
   exportMode: boolean
@@ -21,6 +48,13 @@ export function resolveImgSrc(
     if (typeof window !== "undefined" && u.origin === window.location.origin) {
       return url;
     }
+    // Hosts publicos com CORS — usa URL direta, evita img-proxy que quebra
+    // com <img> tag (nao manda Bearer, proxy retorna 401 → canvas tainted).
+    if (isPublicCorsHost(u.hostname)) {
+      return url;
+    }
+    // Hosts desconhecidos — ai sim passa pelo proxy (proxy tem whitelist
+    // interna + fallback auth, cobre IG CDN etc).
     return `/api/img-proxy?url=${encodeURIComponent(url)}`;
   } catch {
     return url;

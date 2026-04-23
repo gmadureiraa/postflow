@@ -347,9 +347,22 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                     height: 520,
                     flexShrink: 0,
                     overflow: "hidden",
-                    background: `url(${bodyImgSrc}) center/cover`,
+                    position: "relative",
                   }}
-                />
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={bodyImgSrc}
+                    crossOrigin="anonymous"
+                    alt={heading}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
               )}
               {showBody && body && (
                 <p
@@ -548,9 +561,22 @@ const TemplateManifesto = forwardRef<HTMLDivElement, SlideProps>(
                     width: "100%",
                     borderRadius: 8,
                     overflow: "hidden",
-                    background: `url(${bodyImgSrc}) center/cover`,
+                    position: "relative",
                   }}
-                />
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={bodyImgSrc}
+                    crossOrigin="anonymous"
+                    alt={heading}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
               )}
               {showBody && (
                 <p
