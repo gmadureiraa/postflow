@@ -463,7 +463,9 @@ export default function AdminRegrasPage() {
             "GEMINI_API_KEY, ANTHROPIC_API_KEY",
             "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID_PRO_{MONTHLY,YEARLY}, STRIPE_PRICE_ID_BUSINESS_{MONTHLY,YEARLY}",
             "RESEND_API_KEY, EMAIL_FROM",
-            "SERPER_API_KEY, APIFY_API_TOKEN (ou APIFY_API_KEY), SCRAPECREATORS_API_TOKEN, SUPADATA_API_KEY",
+            "SERPER_API_KEY, APIFY_API_TOKEN (ou APIFY_API_KEY), SCRAPECREATORS_API_TOKEN, SUPADATA_API_KEY, SUPADATA_API_KEY_BACKUP",
+            "FIRECRAWL_API_KEY (scraping LLM-ready em sourceType=link; fallback: url-extractor)",
+            "PERPLEXITY_API_KEY (fact-check live opt-in via useFactCheck + auto-detect em NER)",
             "META_APP_ID, CRON_SECRET",
             "NEXT_PUBLIC_GA_MEASUREMENT_ID (opcional), GEMINI_IMAGE_MODEL (override opcional)",
           ]}

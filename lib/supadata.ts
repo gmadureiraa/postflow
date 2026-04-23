@@ -4,6 +4,10 @@
  * Quando o video não tem legenda manual e o innertube/apify bloqueia, Supadata
  * extrai o texto via ASR. Requer env `SUPADATA_API_KEY`.
  *
+ * Fallback: se `SUPADATA_API_KEY_BACKUP` estiver setado, a helper tenta a
+ * backup key quando a primary retorna 429 (rate limit) ou 401 (auth inválida).
+ * Evita ficar parado quando a primary bateu quota.
+ *
  * Docs: https://supadata.ai/documentation
  */
 
@@ -15,8 +19,70 @@ export type SupadataTranscriptResult = {
   availableLangs: string[];
 };
 
+/** Considera configurado se pelo menos uma das duas keys estiver setada. */
 export function isSupadataConfigured(): boolean {
-  return Boolean(process.env.SUPADATA_API_KEY);
+  return Boolean(
+    process.env.SUPADATA_API_KEY || process.env.SUPADATA_API_KEY_BACKUP
+  );
+}
+
+function getSupadataKeys(): string[] {
+  const primary = process.env.SUPADATA_API_KEY;
+  const backup = process.env.SUPADATA_API_KEY_BACKUP;
+  // Ordem: primary antes, backup como fallback. Mantém compatibilidade pra
+  // deploys que não têm backup ainda.
+  return [primary, backup].filter(
+    (k): k is string => typeof k === "string" && k.length > 0
+  );
+}
+
+/**
+ * Fetch helper que tenta primary → backup quando primary retorna 429/401.
+ * Lança `Error` pra status não-recuperáveis (404, 5xx). Retorna Response
+ * pronta pra o caller interpretar.
+ */
+async function supadataFetch(
+  path: string,
+  init: { qs?: URLSearchParams; timeoutMs: number }
+): Promise<{ res: Response; key: string }> {
+  const keys = getSupadataKeys();
+  if (keys.length === 0) {
+    throw new Error("Supadata: nenhuma API key configurada");
+  }
+
+  const url = init.qs ? `${BASE}${path}?${init.qs.toString()}` : `${BASE}${path}`;
+  let lastErr: Error | null = null;
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "x-api-key": key,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(init.timeoutMs),
+      });
+
+      if ((res.status === 429 || res.status === 401) && i < keys.length - 1) {
+        console.warn(
+          `[supadata] key #${i + 1} retornou ${res.status}, tentando fallback #${i + 2}`
+        );
+        continue;
+      }
+      return { res, key };
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (i < keys.length - 1) {
+        console.warn(
+          `[supadata] key #${i + 1} erro (${lastErr.message}), tentando fallback`
+        );
+        continue;
+      }
+    }
+  }
+
+  throw lastErr ?? new Error("Supadata: todas as keys falharam");
 }
 
 /**
@@ -28,8 +94,7 @@ export async function fetchSupadataTranscript(
   url: string,
   options: { lang?: string; timeoutMs?: number; mode?: "auto" | "native" | "generate" } = {}
 ): Promise<SupadataTranscriptResult | null> {
-  const apiKey = process.env.SUPADATA_API_KEY;
-  if (!apiKey) return null;
+  if (!isSupadataConfigured()) return null;
 
   const qs = new URLSearchParams({
     url,
@@ -39,19 +104,19 @@ export async function fetchSupadataTranscript(
   if (options.lang) qs.set("lang", options.lang);
 
   const totalTimeout = options.timeoutMs ?? 55_000;
-  const res = await fetch(`${BASE}/transcript?${qs.toString()}`, {
-    headers: {
-      "x-api-key": apiKey,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(20_000),
+  const { res } = await supadataFetch("/transcript", {
+    qs,
+    timeoutMs: 20_000,
   });
 
   if (res.status === 404) {
     throw new Error("Supadata: vídeo não encontrado.");
   }
   if (res.status === 429) {
-    throw new Error("Supadata: rate limit atingido.");
+    throw new Error("Supadata: rate limit atingido (todas as keys).");
+  }
+  if (res.status === 401) {
+    throw new Error("Supadata: todas as keys rejeitadas (401).");
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -96,7 +161,6 @@ async function pollJob(
   jobId: string,
   overallTimeoutMs: number
 ): Promise<SupadataTranscriptResult | null> {
-  const apiKey = process.env.SUPADATA_API_KEY!;
   const deadline = Date.now() + overallTimeoutMs;
   let attempt = 0;
 
@@ -105,10 +169,16 @@ async function pollJob(
     const wait = Math.min(2000 * attempt, 6000);
     await new Promise((r) => setTimeout(r, wait));
 
-    const res = await fetch(`${BASE}/transcript/${jobId}`, {
-      headers: { "x-api-key": apiKey },
-      signal: AbortSignal.timeout(15_000),
-    });
+    let res: Response;
+    try {
+      const out = await supadataFetch(`/transcript/${jobId}`, {
+        timeoutMs: 15_000,
+      });
+      res = out.res;
+    } catch {
+      // Erro transiente — tenta de novo no próximo tick.
+      continue;
+    }
     if (res.status === 404) return null;
     if (!res.ok) continue;
     const data = (await res.json()) as {

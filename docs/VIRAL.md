@@ -69,9 +69,9 @@ Fluxo padrão (single-shot):
 1. **Input**: URL (YouTube / blog / Instagram / X) OU texto livre. Rota `/app/create/new`.
 2. **Source detection**: `detectSource()` decide extrator.
 3. **Extração**:
-   - YouTube → transcript (Supadata fallback)
-   - Blog → scrape HTML
-   - Instagram → Apify (primário) + ScrapeCreators (fallback) + Facebook Login opt-in
+   - YouTube → transcript (Supadata primary → Supadata backup key fallback)
+   - Blog/URL → Firecrawl (primary, markdown LLM-ready) → `lib/url-extractor.ts` (fallback fetch+regex)
+   - Instagram → Apify (primário) + ScrapeCreators (fallback) + Facebook Login opt-in (com Supadata p/ transcript do áudio)
    - X → scrape
    - Texto → skip extração
 4. **NER pre-processing** (`lib/server/source-ner.ts`): Gemini 2.5 Flash com `thinkingBudget: 0`. Extrai:
@@ -82,24 +82,27 @@ Fluxo padrão (single-shot):
    - `quotes` (máx 80 chars)
    - `arguments`
    - Custo: ~$0.0005. Silent-fail se falhar.
-5. **Writer** (`app/api/generate/route.ts::writerPrompt` linha 675): Gemini 2.5 Pro. Persona BrandsDecoded + Morning Brew + Paul Graham. Gera 3 variações (data/story/provocative) de 6-10 slides cada. Regras em §5.
-6. **Concepts** (só modo avançado): Gemini Flash sugere 4 conceitos antes do writer.
-7. **Image decider** (por slide, `lib/server/image-decider.ts`):
+5. **Fact-check live (opcional)** (`lib/perplexity.ts`): Perplexity Sonar. Opt-in via flag `useFactCheck: true` no body de `/api/generate` OU auto-detect quando NER tem `dataPoints` com ano ≥2024, %/$ ou "milhão/bilhão" + keyPoints disponíveis. Query monta 2 primeiros keyPoints + ano atual e pede fatos + citations. Resposta injetada no writer prompt como bloco `FACT CHECK LIVE`. Falha silenciosa (writer segue sem). Custo: Sonar $1/M I/O (~$0.001/query).
+6. **Writer** (`app/api/generate/route.ts::writerPrompt`): Gemini 2.5 Pro. Persona BrandsDecoded + Morning Brew + Paul Graham. Gera 3 variações (data/story/provocative) de 6-10 slides cada. Regras em §5.
+7. **Concepts** (só modo avançado): Gemini Flash sugere 4 conceitos antes do writer.
+8. **Image decider** (por slide, `lib/server/image-decider.ts`):
    - Gemini 2.5 Flash lê heading+body+NER+brandAesthetic
    - Decide `search` (entidade nomeada famosa → Serper Google Images) ou `generate` (abstrato/metáfora → Imagen 4 OU Gemini 3.1 Flash Image, JSON `StructuredImagePrompt`)
    - Capa (slide 1) sempre `generate`
    - Inner slides default: Flash Image ($0.008/imagem)
    - Custo: ~$0.0003/slide (decider) + $0.008-0.04/imagem (geração)
-8. **Editor**: `/app/create/[id]/edit` — WYSIWYG, troca texto inline, regenera imagem isolada, troca template/variante.
-9. **Preview**: render exato com html-to-image.
-10. **Export**: PNG (html-to-image), ZIP (JSZip) ou PDF (jsPDF).
-11. **Feedback modal** pós-download: `components/app/FeedbackModal.tsx` captura texto livre, classifier (§9) extrai regras e grava em `carousel_feedback` + `profiles.brand_analysis.__generation_memory`.
+9. **Editor**: `/app/create/[id]/edit` — WYSIWYG, troca texto inline, regenera imagem isolada, troca template/variante.
+10. **Preview**: render exato com html-to-image.
+11. **Export**: PNG (html-to-image), ZIP (JSZip) ou PDF (jsPDF).
+12. **Feedback modal** pós-download: `components/app/FeedbackModal.tsx` captura texto livre, classifier (§9) extrai regras e grava em `carousel_feedback` + `profiles.brand_analysis.__generation_memory`.
 
 **Custo total médio** (carrossel 8 slides, mix de search/generate):
 
 | Etapa | Custo USD |
 |---|---|
+| Firecrawl scrape (quando sourceType=link) | $0 (tier freemium) |
 | NER | ~$0.001 |
+| Fact-check Perplexity (opcional/auto) | ~$0.001 |
 | Writer (Gemini 2.5 Pro) | ~$0.02 |
 | Image decider (8 slides × Flash) | ~$0.0024 |
 | Imagens (mix Serper + Flash Image) | ~$0.015-0.04 |
@@ -348,6 +351,9 @@ Fonte: `vercel.json`. Todos autenticados via `CRON_SECRET` (header `Authorizatio
 | `APIFY_API_TOKEN` / `APIFY_API_KEY` | Scraping Instagram | Apify console |
 | `SCRAPECREATORS_API_TOKEN` | Fallback IG scraper | ScrapeCreators |
 | `SUPADATA_API_KEY` | Transcrição fallback | Supadata |
+| `SUPADATA_API_KEY_BACKUP` | Fallback de transcript quando primary retorna 429/401 | Supadata (segunda conta) |
+| `FIRECRAWL_API_KEY` | Scraping LLM-ready de blogs/artigos (primary em sourceType=link; fallback: url-extractor) | Firecrawl dashboard |
+| `PERPLEXITY_API_KEY` | Fact-check live com citations (opt-in via `useFactCheck` + auto-detect em NER) | Perplexity developers |
 | `META_APP_ID` | FB Login opt-in | Meta developers |
 | `CRON_SECRET` | Auth dos endpoints de cron | Gerado manualmente |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics (opcional) | GA4 |

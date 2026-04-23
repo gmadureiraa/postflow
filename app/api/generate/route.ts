@@ -55,6 +55,12 @@ function parseBriefingOverrides(topic: string): {
 }
 import { extractContentFromUrl } from "@/lib/url-extractor";
 import { getYouTubeTranscript } from "@/lib/youtube-transcript";
+import {
+  firecrawlScrape,
+  formatFirecrawlAsExtractorOutput,
+  isFirecrawlConfigured,
+} from "@/lib/firecrawl";
+import { perplexityQuery, isPerplexityConfigured } from "@/lib/perplexity";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -120,6 +126,14 @@ interface GenerateRequest {
    * Layout-only: IA APENAS distribui o texto em slides, preserva wording, zero reescrita.
    */
   mode?: GenerationMode;
+  /**
+   * Opt-in para rodar uma query no Perplexity antes do writer e injetar
+   * o resultado como bloco "FACT CHECK LIVE" no prompt. Default: false.
+   * Quando false, ainda pode ativar via auto-detect (NER com dataPoints
+   * recentes / números específicos). Falha silenciosa — se Perplexity
+   * indisponível ou timeout, writer segue sem.
+   */
+  useFactCheck?: boolean;
 }
 
 type SlideVariant =
@@ -452,6 +466,7 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
     const { topic, sourceType, sourceUrl, niche, tone, language, advanced } = body;
     const mode: GenerationMode =
       body.mode === "layout-only" ? "layout-only" : "writer";
+    const useFactCheckFlag = body.useFactCheck === true;
     // designTemplate no body é ignorado: mesmo prompt v1 para qualquer visual escolhido no cliente.
 
     // Sanitiza campos do modo avançado — proteção contra prompt injection e tamanhos absurdos.
@@ -520,16 +535,59 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
     let sourceContent = "";
 
     if (sourceType === "link" && sourceUrl) {
-      try {
-        sourceContent = await extractContentFromUrl(sourceUrl);
-      } catch (err) {
-        console.error("[generate] URL extraction failed:", err);
-        return Response.json(
-          {
-            error: `Não foi possível extrair conteúdo da URL: ${err instanceof Error ? err.message : "erro desconhecido"}. Dica: cole o texto manualmente no campo "Minha ideia".`,
-          },
-          { status: 400 }
-        );
+      // Fluxo preferido: Firecrawl (LLM-ready markdown, bypass de cookie/js/ad).
+      // Se retornar null ou <200 chars, cai no url-extractor legado (fetch+regex).
+      let usedMethod: "firecrawl" | "fallback" = "fallback";
+      if (isFirecrawlConfigured()) {
+        try {
+          const fc = await firecrawlScrape(sourceUrl, { timeoutMs: 20_000 });
+          if (fc && fc.markdown.length > 200) {
+            sourceContent = formatFirecrawlAsExtractorOutput(fc, {
+              maxChars: 8000,
+            });
+            usedMethod = "firecrawl";
+          }
+        } catch (err) {
+          // firecrawlScrape já faz silent-fail, mas trancar aqui por garantia.
+          console.warn(
+            "[generate] firecrawl falhou, caindo pro scraper legado:",
+            err instanceof Error ? err.message : String(err)
+          );
+        }
+      }
+      if (!sourceContent) {
+        try {
+          sourceContent = await extractContentFromUrl(sourceUrl);
+          usedMethod = "fallback";
+        } catch (err) {
+          console.error("[generate] URL extraction failed:", err);
+          return Response.json(
+            {
+              error: `Não foi possível extrair conteúdo da URL: ${err instanceof Error ? err.message : "erro desconhecido"}. Dica: cole o texto manualmente no campo "Minha ideia".`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+      console.log(
+        `[source] usado=${usedMethod} length=${sourceContent.length}`
+      );
+      // Track do scrape no generations log (custo zero no tier free mas
+      // aparecer no admin é útil pra ver qual caminho foi usado).
+      if (sb && usedMethod === "firecrawl") {
+        try {
+          await sb.from("generations").insert({
+            user_id: user.id,
+            model: "firecrawl",
+            provider: "firecrawl",
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0,
+            prompt_type: "source-scrape",
+          });
+        } catch {
+          /* silent */
+        }
       }
     } else if (sourceType === "video" && sourceUrl) {
       try {
@@ -909,6 +967,80 @@ Return valid JSON with exactly 3 variations (data, story, provocative). Cada var
     }
     const factsBlock = formatFactsBlock(facts);
 
+    // ── FACT-CHECK LIVE (Perplexity) — opt-in + auto-detect ──
+    // Só roda em writer mode (layout-only preserva wording do user, fact-check
+    // é contra-produtivo ali). Critério auto-detect: NER achou dataPoints com
+    // datas >=2024 OU números específicos (%, $, milhões) OU temos entities
+    // recentes. Opt-in vence auto-detect — se user pediu, roda.
+    let factCheckBlock = "";
+    let perplexityMeta: {
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: number;
+    } | null = null;
+    const shouldAutoFactCheck = (() => {
+      if (!isPerplexityConfigured()) return false;
+      if (mode === "layout-only") return false;
+      if (useFactCheckFlag) return true;
+      if (facts.skipped) return false;
+      // Heurística: dataPoint com ano >=2024 ou com $/R$/% ou palavra "bilhão/milhão".
+      const hasRecentOrSpecific = facts.dataPoints.some((d) => {
+        if (/20(2[4-9]|[3-9]\d)/.test(d)) return true;
+        if (/[%$€]/.test(d) || /R\$/i.test(d)) return true;
+        if (/\b(bilh[ãa]o|milh[ãa]o|trilh[ãa]o|billion|million)\b/i.test(d))
+          return true;
+        return false;
+      });
+      return hasRecentOrSpecific && facts.keyPoints.length > 0;
+    })();
+
+    if (shouldAutoFactCheck) {
+      // Monta query compacta com os 2 primeiros keyPoints (já são frases com
+      // contexto do source) + ano atual pra Perplexity trazer o que mudou/ficou
+      // verificável.
+      const year = new Date().getFullYear();
+      const kpSource = facts.keyPoints.slice(0, 2);
+      const fallbackQuery = `Tema: ${topic ? topic.slice(0, 200) : "assunto do carrossel"}`;
+      const queryBase =
+        kpSource.length > 0
+          ? kpSource.map((k, i) => `${i + 1}. ${k}`).join(" | ")
+          : fallbackQuery;
+      const question = `Em ${year}, verifique esses fatos e traga dados atualizados e fontes: ${queryBase}`;
+      try {
+        const pplx = await perplexityQuery(question, {
+          timeoutMs: 15_000,
+          model: "sonar",
+          maxTokens: 500,
+        });
+        if (pplx && pplx.answer) {
+          const citesStr =
+            pplx.citations.length > 0
+              ? `\n\nFONTES:\n${pplx.citations.slice(0, 5).map((c, i) => `[${i + 1}] ${c}`).join("\n")}`
+              : "";
+          factCheckBlock = `\n\n# FACT CHECK LIVE (Perplexity ${pplx.modelUsed})\nUse como ground truth adicional ao source. Se contradizer NER/source, preferir o dado mais recente verificável (priorize citar fontes reais do output):\n\n${pplx.answer}${citesStr}`;
+          perplexityMeta = {
+            model: pplx.modelUsed,
+            inputTokens: pplx.inputTokens,
+            outputTokens: pplx.outputTokens,
+            costUsd: pplx.costUsd,
+          };
+          console.log(
+            `[generate] perplexity fact-check ok: model=${pplx.modelUsed} in=${pplx.inputTokens} out=${pplx.outputTokens} cost=$${pplx.costUsd}`
+          );
+        } else {
+          console.warn(
+            "[generate] perplexity retornou null — seguindo sem fact-check"
+          );
+        }
+      } catch (err) {
+        console.warn(
+          "[generate] perplexity query falhou, seguindo sem:",
+          err instanceof Error ? err.message : String(err)
+        );
+      }
+    }
+
     // Parse ORDENS DIRETAS do briefing (título fixo, fidelidade literal,
     // modo "referência+twist"). Esse bloco vai PRIMEIRO no userMessage e é
     // marcado como prioridade máxima — o writer tinha hábito de parafrasear
@@ -958,8 +1090,10 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
       : "";
 
     // Facts block (NER) entra ANTES do source content, pra o LLM ver os fatos
-    // que deve citar antes de ler a massa de texto.
+    // que deve citar antes de ler a massa de texto. Fact-check do Perplexity
+    // entra logo depois (só em writer mode — layout-only skipa).
     const factsBlockPrefix = factsBlock ? `\n\n${factsBlock}` : "";
+    const factCheckSuffix = factCheckBlock;
 
     const userMessage =
       mode === "layout-only"
@@ -969,8 +1103,8 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
           ? `${overridesBlock}TEXTO PRA FORMATAR EM SLIDES — extraído da fonte (${sourceType}). Preserve wording, ordem, dados, fale da cabeça do autor quando fizer sentido:${sourceFidelityBlock}${factsBlockPrefix}\n\n"""\n${sourceContent.slice(0, SOURCE_SLICE)}\n"""${topic && topic.trim().length > 50 ? `\n\nContexto/direcionamento do usuário:\n${topic.slice(0, 1000)}` : ""}`
           : `${overridesBlock}TEXTO DO USUÁRIO PRA FORMATAR EM SLIDES (preserve wording, ordem, dados, CTA):\n\n"""\n${topic}\n"""`
         : sourceContent
-          ? `${overridesBlock}Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}${sourceFidelityBlock}${factsBlockPrefix}\n\nSource (${sourceType}):\n${sourceContent.slice(0, SOURCE_SLICE)}`
-          : `${overridesBlock}Create 3 carousel variations (data, story, provocative) about: ${topic}`;
+          ? `${overridesBlock}Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}${sourceFidelityBlock}${factsBlockPrefix}${factCheckSuffix}\n\nSource (${sourceType}):\n${sourceContent.slice(0, SOURCE_SLICE)}`
+          : `${overridesBlock}Create 3 carousel variations (data, story, provocative) about: ${topic}${factCheckSuffix}`;
 
     // Se o usuário pediu fidelidade literal, força layout-only — writer
     // ainda parafraseia mesmo com instrução. Layout-only é o único modo
@@ -1266,6 +1400,30 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
           });
         } catch (e) {
           console.warn("[generate] Failed to record NER generation:", e);
+        }
+      }
+      // Log Perplexity fact-check (quando rodou).
+      if (perplexityMeta) {
+        try {
+          // Normaliza o model id retornado pro enum do PRICING (sonar/sonar-pro).
+          const modelForLog: "sonar" | "sonar-pro" =
+            perplexityMeta.model.toLowerCase().includes("pro")
+              ? "sonar-pro"
+              : "sonar";
+          await sb.from("generations").insert({
+            user_id: user.id,
+            model: modelForLog,
+            provider: "perplexity",
+            input_tokens: perplexityMeta.inputTokens,
+            output_tokens: perplexityMeta.outputTokens,
+            cost_usd: perplexityMeta.costUsd,
+            prompt_type: "fact-check",
+          });
+        } catch (e) {
+          console.warn(
+            "[generate] Failed to record Perplexity generation:",
+            e
+          );
         }
       }
     }

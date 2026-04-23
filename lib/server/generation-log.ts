@@ -41,6 +41,26 @@ const PRICING = {
     input: 0.000003, // $3.00 / 1M input
     output: 0.000015, // $15.00 / 1M output
   },
+  // Perplexity Sonar (small) — fact-check ao vivo com citations. $1/M I/O.
+  // Usado opcionalmente no writer quando o briefing pede dados recentes
+  // verificáveis (opt-in via flag `useFactCheck` ou auto-detect em dataPoints).
+  sonar: {
+    input: 0.000001, // $1.00 / 1M input
+    output: 0.000001, // $1.00 / 1M output
+  },
+  // Perplexity Sonar Pro — raciocínio mais pesado. $3/M input, $15/M output.
+  // Reservado pra casos onde Sonar small não dá conta (raro no pipeline atual).
+  "sonar-pro": {
+    input: 0.000003, // $3.00 / 1M input
+    output: 0.000015, // $15.00 / 1M output
+  },
+  // Firecrawl — scraping LLM-ready de blogs/artigos. Freemium, tracking
+  // cosmético (custos por request não são cobrados no tier atual). Mantemos
+  // entry pra admin enxergar as chamadas de scrape no log.
+  firecrawl: {
+    input: 0,
+    output: 0,
+  },
 } as const;
 
 type ModelId = keyof typeof PRICING;
@@ -56,6 +76,8 @@ export type PromptType =
   | "voice-ingest"
   | "post-vision-transcripts"
   | "source-ner"
+  | "source-scrape"
+  | "fact-check"
   | "feedback-classify";
 
 export function costForTokens(
@@ -87,7 +109,7 @@ export async function recordGeneration(params: {
   userId: string;
   carouselId?: string | null;
   model: ModelId;
-  provider: "google" | "anthropic" | "openai";
+  provider: "google" | "anthropic" | "openai" | "perplexity" | "firecrawl";
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
