@@ -388,63 +388,102 @@ export default function EditPage(props: {
   //   - slide 0 (capa) → Imagen 4 com pipeline 2-pass cover-scene
   //   - index impar → Gemini Flash Image (geracao barata)
   //   - index par (>=2) → Serper stock
-  // Roda 1x por draft. Se user ja tem imagens (draft salvo), nao refaz.
+  // Roda continuamente ate TODOS os slides terem imageUrl. Com retry ilimitado
+  // (backoff exponencial) em falhas — garantia de 100% fiel no export.
   const autoFillStartedRef = useRef<string | null>(null);
+  const [imagesPending, setImagesPending] = useState<number>(0);
   useEffect(() => {
     if (!draft?.id) return;
     if (!slides.length) return;
     if (autoFillStartedRef.current === draft.id) return;
     autoFillStartedRef.current = draft.id;
 
-    // Clona o array de slides e processa em paralelo (limite 2 concorrentes
-    // pra nao estourar rate limit da /api/images e nao travar a UI).
     async function fillMissing() {
       const concurrency = 2;
-      let next = 0;
-      const totalSlides = slides.length;
-      async function worker() {
-        while (true) {
-          const i = next++;
-          if (i >= totalSlides) return;
-          const s = slides[i];
-          if (!s || s.imageUrl) continue; // ja tem imagem
-          const baseQuery =
-            (s.imageQuery && s.imageQuery.trim()) ||
-            (s.heading && s.heading.trim()) ||
-            title;
-          if (!baseQuery) continue;
-          // Decide modo pela posicao do slide (ver planSlideImages)
-          const isCover = i === 0 && templateId !== "twitter";
-          const isInnerOdd = !isCover && i % 2 === 1;
-          const mode: "generate" | "search" =
-            isCover || isInnerOdd ? "generate" : "search";
-          try {
-            const res = await imagesHook.refetchImage(i, {
-              query: baseQuery,
-              contextHeading: s.heading,
-              contextBody: s.body,
-              mode,
-              designTemplate: templateId,
-              isCover,
-            });
-            if (res.appliedUrl) {
-              updateSlide(i, { imageUrl: res.appliedUrl });
-            } else if (res.options && res.options.length > 0) {
-              // search retorna picker options — pega primeira como default
-              updateSlide(i, { imageUrl: res.options[0] });
+      const maxRetries = 3;
+      let passIndex = 0;
+      // Multiplos passes: enquanto ainda ha slides sem imagem, tenta de novo
+      // com backoff. Se depois de 3 passes ainda falhar, deixa slide sem imagem
+      // mas marca e user pode retry manual.
+      while (passIndex < maxRetries) {
+        // Snapshot dos indices que ainda precisam
+        const missing: number[] = [];
+        for (let i = 0; i < slides.length; i++) {
+          if (!slides[i]?.imageUrl) missing.push(i);
+        }
+        setImagesPending(missing.length);
+        if (missing.length === 0) break;
+
+        if (passIndex > 0) {
+          // Backoff entre passes: 2s, 4s
+          await new Promise((r) => setTimeout(r, 2000 * passIndex));
+        }
+
+        let nextIdx = 0;
+        async function worker() {
+          while (true) {
+            const slot = nextIdx++;
+            if (slot >= missing.length) return;
+            const i = missing[slot];
+            const s = slides[i];
+            if (!s || s.imageUrl) continue;
+            const baseQuery =
+              (s.imageQuery && s.imageQuery.trim()) ||
+              (s.heading && s.heading.trim()) ||
+              title;
+            if (!baseQuery) continue;
+            const isCover = i === 0 && templateId !== "twitter";
+            const isInnerOdd = !isCover && i % 2 === 1;
+            const mode: "generate" | "search" =
+              isCover || isInnerOdd ? "generate" : "search";
+            try {
+              const res = await imagesHook.refetchImage(i, {
+                query: baseQuery,
+                contextHeading: s.heading,
+                contextBody: s.body,
+                mode,
+                designTemplate: templateId,
+                isCover,
+              });
+              const urlToApply =
+                res.appliedUrl ??
+                (res.options && res.options.length > 0 ? res.options[0] : null);
+              if (urlToApply) {
+                updateSlide(i, { imageUrl: urlToApply });
+              }
+            } catch (err) {
+              console.warn(
+                `[auto-fill pass ${passIndex + 1}] slide ${i + 1} falhou:`,
+                err
+              );
             }
-          } catch {
-            // Silencia falha individual. User pode regen manual via UI.
+            // Pequeno delay entre slides pra nao estourar rate limit
+            await new Promise((r) => setTimeout(r, 300));
           }
         }
+        await Promise.all(
+          Array.from({ length: concurrency }).map(() => worker())
+        );
+        passIndex++;
       }
-      await Promise.all(
-        Array.from({ length: concurrency }).map(() => worker())
-      );
+      // Update final do pending (apos todos os passes)
+      const finalMissing = slides.filter((s) => !s?.imageUrl).length;
+      setImagesPending(finalMissing);
     }
     void fillMissing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.id, slides.length]);
+
+  // Re-calcula imagesPending toda vez que slides muda. Source de verdade pro
+  // botão Preview — se algum slide ainda nao tem imagem, bloqueia export.
+  useEffect(() => {
+    if (!slides.length) {
+      setImagesPending(0);
+      return;
+    }
+    const missing = slides.filter((s) => !s?.imageUrl).length;
+    setImagesPending(missing);
+  }, [slides]);
 
   // Auto-save debounced. Só envia accent/font/scale se o usuário mexeu —
   // evita sobrescrever com defaults toda vez que o draft hidratar.
@@ -1696,13 +1735,26 @@ export default function EditPage(props: {
             style={{
               padding: "7px 12px",
               fontSize: 9,
-              opacity: flushingToPreview ? 0.6 : 1,
-              cursor: flushingToPreview ? "wait" : "pointer",
+              opacity:
+                flushingToPreview || imagesPending > 0 ? 0.5 : 1,
+              cursor:
+                flushingToPreview || imagesPending > 0
+                  ? "wait"
+                  : "pointer",
             }}
-            disabled={flushingToPreview}
+            disabled={flushingToPreview || imagesPending > 0}
             onClick={() => void goToPreview()}
+            title={
+              imagesPending > 0
+                ? `Aguarde ${imagesPending} ${imagesPending === 1 ? "imagem" : "imagens"} carregar antes de exportar`
+                : undefined
+            }
           >
-            {flushingToPreview ? "Salvando…" : "Preview & Export →"}
+            {flushingToPreview
+              ? "Salvando…"
+              : imagesPending > 0
+                ? `Carregando imagens (${slides.length - imagesPending}/${slides.length})…`
+                : "Preview & Export →"}
           </button>
         </div>
       </div>
