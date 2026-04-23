@@ -402,11 +402,11 @@ export default function EditPage(props: {
 
     async function fillMissing() {
       const concurrency = 2;
-      const maxRetries = 3;
+      const maxRetries = 4;
       let passIndex = 0;
       // Multiplos passes: enquanto ainda ha slides sem imagem, tenta de novo
-      // com backoff. Se depois de 3 passes ainda falhar, deixa slide sem imagem
-      // mas marca e user pode retry manual.
+      // com backoff. Se depois de N passes ainda falhar, marca imageFailed=true
+      // pra UX do editor mostrar card "Gerar de novo" claramente.
       while (passIndex < maxRetries) {
         // Snapshot dos indices que ainda precisam
         const missing: number[] = [];
@@ -417,8 +417,8 @@ export default function EditPage(props: {
         if (missing.length === 0) break;
 
         if (passIndex > 0) {
-          // Backoff entre passes: 2s, 4s
-          await new Promise((r) => setTimeout(r, 2000 * passIndex));
+          // Backoff entre passes: 3s, 6s, 9s
+          await new Promise((r) => setTimeout(r, 3000 * passIndex));
         }
 
         let nextIdx = 0;
@@ -453,7 +453,11 @@ export default function EditPage(props: {
                 res.appliedUrl ??
                 (res.options && res.options.length > 0 ? res.options[0] : null);
               if (urlToApply) {
-                updateSlide(i, { imageUrl: urlToApply });
+                updateSlide(i, { imageUrl: urlToApply, imageFailed: false });
+              } else {
+                console.warn(
+                  `[auto-fill pass ${passIndex + 1}] slide ${i + 1} sem imagem aplicada`
+                );
               }
             } catch (err) {
               console.warn(
@@ -470,7 +474,15 @@ export default function EditPage(props: {
         );
         passIndex++;
       }
-      // Update final do pending (apos todos os passes)
+      // Update final do pending (apos todos os passes).
+      // Slides que ainda nao tem imagem viram imageFailed=true pro card de
+      // erro aparecer em vez de placeholder vazio.
+      setSlides((prev) => {
+        const next = prev.map((s) =>
+          !s?.imageUrl ? { ...s, imageFailed: true } : s
+        );
+        return next;
+      });
       const finalMissing = slides.filter((s) => !s?.imageUrl).length;
       setImagesPending(finalMissing);
     }
@@ -696,7 +708,7 @@ export default function EditPage(props: {
     if (!file) return;
     const url = await imagesHook.uploadImage(targetIndex, file, id);
     if (url) {
-      updateSlide(targetIndex, { imageUrl: url });
+      updateSlide(targetIndex, { imageUrl: url, imageFailed: false });
       toast.success("Imagem carregada.");
     } else if (imagesHook.error) {
       toast.error(imagesHook.error);
@@ -744,7 +756,8 @@ export default function EditPage(props: {
         mode: "search",
         designTemplate: templateId,
       });
-      if (res.appliedUrl) updateSlide(targetIndex, { imageUrl: res.appliedUrl });
+      if (res.appliedUrl)
+        updateSlide(targetIndex, { imageUrl: res.appliedUrl, imageFailed: false });
     } catch {
       if (imagesHook.error) toast.error(imagesHook.error);
     }
@@ -771,7 +784,10 @@ export default function EditPage(props: {
         designTemplate: templateId,
       });
       if (res.appliedUrl) {
-        updateSlide(targetIndex, { imageUrl: res.appliedUrl });
+        updateSlide(targetIndex, {
+          imageUrl: res.appliedUrl,
+          imageFailed: false,
+        });
         toast.success("Imagem gerada.");
       }
     } catch {
@@ -809,7 +825,7 @@ export default function EditPage(props: {
         totalSlides: slides.length,
       });
       if (res.appliedUrl) {
-        updateSlide(0, { imageUrl: res.appliedUrl });
+        updateSlide(0, { imageUrl: res.appliedUrl, imageFailed: false });
         toast.success("Nova capa pronta.");
       }
     } catch {
@@ -1498,6 +1514,65 @@ export default function EditPage(props: {
           }}
           aria-label="Preview da imagem atual"
         />
+      ) : active?.imageFailed ? (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "4/5",
+            background: "var(--sv-paper)",
+            border: "1.5px solid var(--sv-pink, #D262B2)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--sv-mono)",
+              fontSize: 9,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--sv-pink, #D262B2)",
+              fontWeight: 700,
+            }}
+          >
+            ⚠ Imagem falhou
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--sv-sans)",
+              fontSize: 11,
+              color: "var(--sv-muted)",
+              textAlign: "center",
+              lineHeight: 1.4,
+            }}
+          >
+            A geração automática não entregou. Tente novamente abaixo.
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleGenerateImage(activeIndex)}
+            disabled={imagesHook.loadingIndex === activeIndex}
+            className="sv-btn"
+            style={{
+              padding: "8px 14px",
+              fontSize: 10,
+              background: "var(--sv-green)",
+              border: "1.5px solid var(--sv-ink)",
+              boxShadow: "3px 3px 0 0 var(--sv-ink)",
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            {imagesHook.loadingIndex === activeIndex
+              ? "Gerando..."
+              : "✦ Gerar de novo"}
+          </button>
+        </div>
       ) : (
         <div
           style={{
@@ -1686,7 +1761,7 @@ export default function EditPage(props: {
           })()}
           session={session}
           onPick={(url) => {
-            updateSlide(pickerFor, { imageUrl: url });
+            updateSlide(pickerFor, { imageUrl: url, imageFailed: false });
             setPickerFor(null);
             toast.success("Imagem aplicada.");
           }}

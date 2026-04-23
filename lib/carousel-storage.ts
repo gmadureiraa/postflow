@@ -389,6 +389,18 @@ export async function fetchUserCarousel(
   return rowToSavedCarousel(data as unknown as CarouselRow);
 }
 
+/**
+ * Remove campos runtime-only do slide antes de persistir no DB.
+ * - `imageFailed`: flag UX (editor), não deve ir pro banco.
+ */
+function stripRuntimeSlideFields(slides: CarouselSlide[]): CarouselSlide[] {
+  return slides.map((s) => {
+    const cleaned = { ...s } as CarouselSlide & { imageFailed?: boolean };
+    delete cleaned.imageFailed;
+    return cleaned;
+  });
+}
+
 export async function upsertUserCarousel(
   client: SupabaseClient,
   userId: string,
@@ -512,7 +524,7 @@ export async function upsertUserCarousel(
 
     const updatePayload: Record<string, unknown> = {
       title: payload.title,
-      slides: payload.slides,
+      slides: stripRuntimeSlideFields(payload.slides),
       style,
       status: payload.status,
     };

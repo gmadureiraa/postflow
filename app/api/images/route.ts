@@ -31,6 +31,42 @@ function clip(s: string, n: number): string {
   return `${t.slice(0, n - 1)}…`;
 }
 
+/**
+ * Valida uma URL de imagem via HEAD request (timeout 3s). Retorna true se
+ * respondeu 2xx/3xx. Usado pra não salvar URLs quebradas no slide.
+ * Ignora falhas de rede com um warn — URLs internas (Supabase) raramente
+ * falham HEAD se upload foi OK; mas hosts externos podem bloquear HEAD
+ * e permitir GET, então em caso de erro de rede, assume OK (permissivo).
+ */
+async function validateImageUrl(url: string): Promise<boolean> {
+  if (!url) return false;
+  if (url.startsWith("data:")) return true;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(url, {
+      method: "HEAD",
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+    // 2xx/3xx = válido. 405 (method not allowed) = host não aceita HEAD, assume OK.
+    if (res.ok) return true;
+    if (res.status === 405 || res.status === 403) return true; // alguns CDNs bloqueiam HEAD
+    console.warn(
+      `[images] validateImageUrl FAIL status=${res.status} url=${url.slice(0, 120)}`
+    );
+    return false;
+  } catch (err) {
+    // Timeout/network — assume válido (permissivo, evita false negatives).
+    console.warn(
+      "[images] validateImageUrl network error (assuming valid):",
+      err instanceof Error ? err.message : err
+    );
+    return true;
+  }
+}
+
 /** Junta termo de busca com trechos do slide para resultados mais alinhados ao conteúdo. */
 function mergeImageSearchText(
   query: string,
@@ -516,6 +552,9 @@ export async function POST(request: Request) {
             : "imagen-4.0-generate-001";
 
           let imageBytes: string | undefined;
+          let actualModelUsed:
+            | "imagen-4.0-generate-001"
+            | "gemini-3.1-flash-image-preview" = modelId;
 
           if (shouldUseCheapModel) {
             // Gemini Flash Image usa generateContent com responseModalities
@@ -548,39 +587,54 @@ export async function POST(request: Request) {
                   break;
                 }
               }
+              if (!imageBytes) {
+                console.warn(
+                  `[images] FALHA slide=${slideNumber ?? "?"} reason=flash-image-no-bytes isCover=${!!isCover} — vai tentar Imagen 4 fallback`
+                );
+              }
             } catch (err) {
               console.warn(
-                "[images] Gemini Flash Image failed, falling back to Imagen 4:",
-                err instanceof Error ? err.message : err
+                `[images] FALHA slide=${slideNumber ?? "?"} reason=flash-image-exception isCover=${!!isCover} msg=${err instanceof Error ? err.message : String(err)} — vai tentar Imagen 4 fallback`
               );
             }
           }
 
           // Fallback: se Flash Image falhou OU cover → usa Imagen 4.
           if (!imageBytes) {
-            const res = await ai.models.generateImages({
-              model: "imagen-4.0-generate-001",
-              prompt: imagePrompt,
-              config: {
-                numberOfImages: 1,
-                aspectRatio: "1:1",
-                negativePrompt: NEGATIVE_PROMPT,
-              },
-            });
-            imageBytes = res.generatedImages?.[0]?.image?.imageBytes;
+            try {
+              const res = await ai.models.generateImages({
+                model: "imagen-4.0-generate-001",
+                prompt: imagePrompt,
+                config: {
+                  numberOfImages: 1,
+                  aspectRatio: "1:1",
+                  negativePrompt: NEGATIVE_PROMPT,
+                },
+              });
+              imageBytes = res.generatedImages?.[0]?.image?.imageBytes;
+              if (imageBytes) {
+                actualModelUsed = "imagen-4.0-generate-001";
+              } else {
+                console.error(
+                  `[images] FALHA slide=${slideNumber ?? "?"} reason=imagen-no-bytes isCover=${!!isCover}`
+                );
+              }
+            } catch (err) {
+              console.error(
+                `[images] FALHA slide=${slideNumber ?? "?"} reason=imagen-exception isCover=${!!isCover} msg=${err instanceof Error ? err.message : String(err)}`
+              );
+            }
           }
 
           if (imageBytes) {
             // Registra custo ANTES do upload (API ja foi cobrada de qualquer jeito).
-            // Se caiu no fallback de Imagen, o modelId vai logar errado — mas isso
-            // raramente acontece e nao e grave pra analytics.
             await recordGeneration({
               userId: user.id,
-              model: modelId,
+              model: actualModelUsed,
               provider: "google",
               inputTokens: 0,
               outputTokens: 0,
-              costUsd: costForImages(modelId, 1),
+              costUsd: costForImages(actualModelUsed, 1),
               promptType: "image",
             });
 
@@ -601,6 +655,26 @@ export async function POST(request: Request) {
                 const { data: pub } = supabase.storage
                   .from("carousel-images")
                   .getPublicUrl(path);
+
+                // Valida URL final — upload OK mas getPublicUrl pode devolver
+                // URL errada se bucket tiver RLS estranho ou path codificado.
+                const urlOk = await validateImageUrl(pub.publicUrl);
+                if (!urlOk) {
+                  console.error(
+                    `[images] FALHA slide=${slideNumber ?? "?"} reason=public-url-invalid url=${pub.publicUrl}`
+                  );
+                  // Fallback pra data URL — ao menos o carrossel renderiza.
+                  return Response.json({
+                    images: [
+                      {
+                        url: `data:image/png;base64,${imageBytes}`,
+                        title: query,
+                        source: "Gemini (data URL)",
+                        generated: true,
+                      },
+                    ],
+                  });
+                }
 
                 // Salva na galeria do user pra reuso futuro.
                 await saveToUserGallery({
@@ -624,13 +698,17 @@ export async function POST(request: Request) {
                   );
                 }
 
+                console.log(
+                  `[images] OK slide=${slideNumber ?? "?"} model=${actualModelUsed} isCover=${!!isCover}`
+                );
+
                 return Response.json({
                   images: [
                     {
                       url: pub.publicUrl,
                       title: query,
                       source:
-                        modelId === "imagen-4.0-generate-001"
+                        actualModelUsed === "imagen-4.0-generate-001"
                           ? "Imagen 4"
                           : "Gemini Flash Image",
                       generated: true,
@@ -638,7 +716,9 @@ export async function POST(request: Request) {
                   ],
                 });
               }
-              console.warn("[images] Supabase upload failed, returning data URL:", uploadError.message);
+              console.warn(
+                `[images] FALHA slide=${slideNumber ?? "?"} reason=supabase-upload msg=${uploadError.message} — returning data URL`
+              );
             }
 
             // Fallback: return as data URL if storage upload fails
@@ -653,8 +733,15 @@ export async function POST(request: Request) {
               ],
             });
           }
+
+          // imageBytes nao veio nem do Flash Image nem do Imagen → cai pro Serper.
+          console.error(
+            `[images] FALHA slide=${slideNumber ?? "?"} reason=no-image-bytes-after-all-providers isCover=${!!isCover} — fallback pro Serper search`
+          );
         } catch (err) {
-          console.error("[images] Gemini Imagen error:", err);
+          console.error(
+            `[images] FALHA slide=${slideNumber ?? "?"} reason=gemini-outer-exception msg=${err instanceof Error ? err.message : String(err)}`
+          );
           // Fall through to search mode as fallback
         }
       }
@@ -706,17 +793,53 @@ export async function POST(request: Request) {
             )
             .filter((img: { url: string }) => !!img.url);
 
+          if (images.length === 0) {
+            console.warn(
+              `[images] FALHA slide=${slideNumber ?? "?"} reason=serper-empty query=${searchQuery.slice(0, 80)}`
+            );
+          } else {
+            console.log(
+              `[images] OK slide=${slideNumber ?? "?"} source=serper count=${images.length}`
+            );
+          }
           return Response.json({ images });
         }
+        console.warn(
+          `[images] FALHA slide=${slideNumber ?? "?"} reason=serper-non-ok status=${resp.status}`
+        );
       } catch (err) {
-        console.error("Serper API error:", err);
+        console.error(
+          `[images] FALHA slide=${slideNumber ?? "?"} reason=serper-exception msg=${err instanceof Error ? err.message : String(err)}`
+        );
       }
+    } else {
+      console.warn(
+        `[images] FALHA slide=${slideNumber ?? "?"} reason=no-serper-key`
+      );
     }
 
     // Strategy 2: Sem fallback — devolver array vazio com aviso.
     // O endpoint source.unsplash.com foi deprecado em 2024 e retorna 404.
     // Preferimos sinalizar explicitamente pro front mostrar placeholder
     // + botão de "gerar com IA" ou "upload manual".
+    //
+    // Quando o fluxo é auto (useDecider=true ou isCover=true), devolvemos
+    // status 502 explicito com error claro, pro editor detectar e marcar
+    // imageFailed=true no slide em vez de receber array vazio silencioso.
+    console.error(
+      `[images] FALHA slide=${slideNumber ?? "?"} reason=no-sources-available useDecider=${!!useDecider} isCover=${!!isCover}`
+    );
+    const isAutoFlow = !!useDecider || !!isCover;
+    if (isAutoFlow) {
+      return Response.json(
+        {
+          error:
+            "Nenhuma fonte de imagem conseguiu entregar. Tente gerar com IA manualmente ou subir uma imagem.",
+          images: [],
+        },
+        { status: 502 }
+      );
+    }
     return Response.json({
       images: [],
       warning: "Nenhuma fonte de imagem disponível. Tente gerar com IA ou subir uma imagem.",

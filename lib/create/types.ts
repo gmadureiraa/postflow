@@ -22,6 +22,12 @@ export interface CreateSlide {
    * - `bg` oculta imagem de fundo / textura / grid decorativo
    */
   layers?: SlideLayers;
+  /**
+   * Marca que o auto-fill tentou N vezes gerar/buscar imagem pra esse slide
+   * e falhou. Usado pelo editor pra mostrar card "Imagem falhou — [Gerar de
+   * novo]" em vez de placeholder vazio. Campo nao persiste no DB (so runtime).
+   */
+  imageFailed?: boolean;
 }
 
 export interface SlideLayers {

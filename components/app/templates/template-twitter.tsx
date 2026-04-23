@@ -261,10 +261,27 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                     height: "100%",
                     borderRadius: 16,
                     overflow: "hidden",
-                    background: `url(${bodyImgSrc}) center/cover`,
+                    background: "#F4F4F5",
                     border: `1px solid ${borderColor}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                />
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={bodyImgSrc}
+                    crossOrigin="anonymous"
+                    alt={heading}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      objectPosition: "center",
+                      display: "block",
+                    }}
+                  />
+                </div>
               )}
             </div>
           ) : isQuote ? (
@@ -335,11 +352,37 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                 borderRadius: 16,
                 border: `1px solid ${borderColor}`,
                 padding: 40,
-                background: imageUrl && showBg
-                  ? `linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 100%), url(${bodyImgSrc}) center/cover`
-                  : `${verifiedBlue}`,
+                background: imageUrl && showBg ? "#000" : `${verifiedBlue}`,
               }}
             >
+              {imageUrl && showBg && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={bodyImgSrc}
+                    crossOrigin="anonymous"
+                    alt={heading}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      objectPosition: "center",
+                      display: "block",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background:
+                        "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 100%)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </>
+              )}
               {showTitle && (
                 <h2
                   style={{
@@ -349,6 +392,8 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                     margin: 0,
                     letterSpacing: "-0.02em",
                     color: "#FFFFFF",
+                    position: "relative",
+                    zIndex: 1,
                   }}
                 >
                   {renderRichText(heading)}
@@ -421,7 +466,8 @@ const TemplateTwitter = forwardRef<HTMLDivElement, SlideProps>(
                     style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "cover",
+                      objectFit: "contain",
+                      objectPosition: "center",
                       display: "block",
                       borderRadius: 16,
                     }}
