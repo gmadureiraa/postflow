@@ -89,8 +89,12 @@ export function SectionHead({
 }
 
 export function Ticker() {
+  // Claims verificaveis — sem numeros hardcoded que envelhecem mal. Cada item
+  // fala de um fato do produto: cobertura de plataformas, ritmo, origens de
+  // conteudo e capacidade do plano Pro. Se um dia tiver metrica real (live
+  // count de carrosseis), trocar por essa fonte.
   const items = [
-    { k: "2.143", v: "carrosséis gerados" },
+    { k: "YouTube · Blog · IG · X", v: "· 1 link, 1 carrossel" },
     { k: "~60s", v: "por carrossel" },
     { k: "4 origens", v: "· YouTube · Blog · Reel · Ideia" },
     { k: "30 posts", v: "/mês no Pro" },

@@ -3,17 +3,16 @@ import { Hero } from "@/components/landing/hero";
 import { Ticker } from "@/components/landing/shared";
 import { PainSection } from "@/components/landing/pain-section";
 import { HowItWorks } from "@/components/landing/how-it-works";
-import { DemoSection } from "@/components/landing/demo-section";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { CompareSection } from "@/components/landing/compare-section";
 import { PricingSection } from "@/components/landing/pricing-section";
-import { TestimonialsSection } from "@/components/landing/testimonials-section";
 import { FAQSection } from "@/components/landing/faq-section";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 import { WelcomePopup } from "@/components/landing/welcome-popup";
-// Manifesto (banner Kaleidos) e GallerySection (exemplos reais) escondidos
-// por enquanto — reativar importando + inserindo no JSX abaixo.
+// TestimonialsSection oculto ate termos depoimentos reais. Manifesto (banner
+// Kaleidos) e GallerySection (exemplos reais) escondidos — reativar importando
+// + inserindo no JSX abaixo quando tivermos conteudo validado.
 
 /* ─────────────────────────────────────────────────────────────────
    Sequência Viral — Landing brutalist editorial (Kaleidos Digital)
@@ -30,6 +29,9 @@ export default function HomePage() {
         fontFamily: "var(--sv-sans)",
         minHeight: "100vh",
         overflow: "hidden",
+        // Compensar o TopNav fixed (~64px de altura) pra primeira dobra nao
+        // ficar encostada no topo da viewport.
+        paddingTop: 68,
       }}
     >
       <TopNav />
@@ -40,7 +42,6 @@ export default function HomePage() {
       <FeaturesSection />
       <CompareSection />
       <PricingSection />
-      <TestimonialsSection />
       <FAQSection />
       <FinalCTA />
       <Footer />

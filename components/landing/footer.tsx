@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 function FooterCol({
   title,
@@ -68,12 +69,13 @@ export function Footer() {
           <div>
             <div className="mb-[18px]">
               {/* Logo completo maior no footer — brand presence forte. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/brand/logo-sv-full.png"
+              <Image
+                src="/brand/logo-sv-full.webp"
                 alt="Sequência Viral"
+                width={1200}
+                height={655}
                 style={{
-                  height: 120,
+                  height: 90,
                   width: "auto",
                   objectFit: "contain",
                   display: "block",
@@ -104,7 +106,6 @@ export function Footer() {
             title="Kaleidos"
             links={[
               { label: "kaleidos.com.br", href: "https://kaleidos.com.br" },
-              { label: "Manifesto", href: "#manifesto" },
               {
                 label: "WhatsApp suporte",
                 href: "https://wa.me/5512936180547",
@@ -116,10 +117,7 @@ export function Footer() {
             links={[
               { label: "Privacidade", href: "/privacy" },
               { label: "Termos", href: "/terms" },
-              {
-                label: "WhatsApp suporte",
-                href: "https://wa.me/5512936180547",
-              },
+              { label: "Excluir meus dados", href: "/account/data-deletion" },
             ]}
           />
         </div>

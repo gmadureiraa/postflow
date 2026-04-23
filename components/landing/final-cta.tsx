@@ -46,7 +46,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         }}
       />
       <img
-        src={`${BASE_ASSET}/hero-megaphone.png`}
+        src={`${BASE_ASSET}/hero-megaphone.webp`}
         alt=""
         aria-hidden
         loading="lazy"
@@ -64,7 +64,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         }
       />
       <img
-        src={`${BASE_ASSET}/step-typewriter.png`}
+        src={`${BASE_ASSET}/step-typewriter.webp`}
         alt=""
         aria-hidden
         loading="lazy"
@@ -82,7 +82,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         }
       />
       <img
-        src={`${BASE_ASSET}/star-lg.png`}
+        src={`${BASE_ASSET}/star-lg.webp`}
         alt=""
         aria-hidden
         loading="lazy"
@@ -143,7 +143,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
             <>
               Seu primeiro carrossel
               <br />
-              <em style={{ color: "var(--sv-green)" }}>em 30 segundos.</em>
+              <em style={{ color: "var(--sv-green)" }}>em 60 segundos.</em>
             </>
           )}
         </motion.h2>

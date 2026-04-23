@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
@@ -9,17 +10,19 @@ import { BASE_ASSET, REVEAL } from "./shared";
 
 /**
  * Briefs simulados — a IA "escuta" o usuário digitando um pedido direto.
- * Passa a sensação de algo recente e vivo (não preenchimento de template).
+ * 5 variacoes cobrindo os tipos de input mais comuns: algoritmo, vendas,
+ * produtividade, artigo de blog, video do YouTube.
  */
 const TYPE_BRIEFS: string[] = [
   "faz um post sobre o novo algoritmo do Instagram...",
-  "carrossel sobre por que ninguém salva meus posts...",
-  "3 hooks pro meu reel sobre produtividade real...",
+  "Crie o carrossel perfeito para ajudar a minha loja a vender mais...",
+  "Preciso de um carrossel sobre produtividade real...",
   "quebra esse artigo do Bloomberg em 8 slides...",
+  "Crie um carrossel com base nesse vídeo no YouTube...",
 ];
 
 function PhoneMockup() {
-  // Typewriter state: qual brief, quantos chars, e fase (digitando / pausa / apagando).
+  // Typewriter state: qual brief, quantos chars, e fase (typing / hold / deleting).
   const [briefIdx, setBriefIdx] = useState(0);
   const [typed, setTyped] = useState("");
   const [phase, setPhase] = useState<"typing" | "hold" | "deleting">("typing");
@@ -30,14 +33,17 @@ function PhoneMockup() {
 
     if (phase === "typing") {
       if (typed.length < current.length) {
-        timeout = setTimeout(() => setTyped(current.slice(0, typed.length + 1)), 42);
+        // 80ms por char pra parecer digitacao humana natural
+        timeout = setTimeout(() => setTyped(current.slice(0, typed.length + 1)), 80);
       } else {
-        timeout = setTimeout(() => setPhase("hold"), 1400);
+        // pausa 2s no fim de cada brief antes de apagar
+        timeout = setTimeout(() => setPhase("hold"), 2000);
       }
     } else if (phase === "hold") {
-      timeout = setTimeout(() => setPhase("deleting"), 1100);
+      timeout = setTimeout(() => setPhase("deleting"), 600);
     } else if (phase === "deleting") {
       if (typed.length > 0) {
+        // apaga rapido pra nao roubar atencao
         timeout = setTimeout(() => setTyped(current.slice(0, typed.length - 1)), 18);
       } else {
         setBriefIdx((v) => (v + 1) % TYPE_BRIEFS.length);
@@ -135,7 +141,7 @@ function PhoneMockup() {
           {/* Textarea mock com typewriter */}
           <div
             style={{
-              minHeight: 90,
+              minHeight: 110,
               border: "1.5px solid var(--sv-ink)",
               background: "var(--sv-white)",
               padding: "10px 11px",
@@ -212,17 +218,17 @@ function PhoneMockup() {
 }
 
 export interface HeroProps {
-  /** Texto do eyebrow (topo). Default: "YouTube · Reels · Blog · Ideia". */
+  /** Texto do eyebrow (topo). Default: "De ideia a post em 1 minuto". */
   eyebrow?: string;
-  /** H1 custom — se passado, sobrescreve o 3-linhas default. Aceita ReactNode. */
+  /** H1 custom — se passado, sobrescreve o default. Aceita ReactNode. */
   h1?: React.ReactNode;
   /** Parágrafo de descrição. Aceita ReactNode. */
   subtitle?: React.ReactNode;
-  /** Label do CTA principal quando user não logado. Default: "Criar primeiro grátis". */
+  /** Label do CTA principal quando user não logado. */
   primaryCtaLabel?: string;
-  /** Badge decorativo topo-direito. Default: "✦ Em 60 seg". */
+  /** Badge decorativo topo-direito. */
   topBadge?: string;
-  /** Badge decorativo canto-esquerdo-baixo. Default: "Seu conteúdo · seu ritmo". */
+  /** Badge decorativo canto-esquerdo-baixo. */
   bottomBadge?: string;
   /** 3 itens de trust pills (abaixo dos CTAs). */
   trustPills?: [string, string, string];
@@ -235,7 +241,7 @@ export function Hero(props: HeroProps = {}) {
     subtitle,
     primaryCtaLabel,
     topBadge = "✦ Em 60 seg",
-    bottomBadge = "Seu conteúdo · seu ritmo",
+    bottomBadge = "chega de desculpas para postar!",
     trustPills,
   } = props;
   const { isLoggedIn } = useLandingSession();
@@ -247,7 +253,7 @@ export function Hero(props: HeroProps = {}) {
   return (
     <header
       className="sv-hero relative overflow-hidden"
-      style={{ padding: "clamp(28px, 4.2vw, 56px) 0 clamp(16px, 3vw, 40px)" }}
+      style={{ padding: "clamp(32px, 4.2vw, 56px) 0 clamp(16px, 3vw, 40px)" }}
     >
       <style>{`
         @media (max-width: 860px) {
@@ -261,6 +267,26 @@ export function Hero(props: HeroProps = {}) {
           }
         }
       `}</style>
+
+      {/* Logo acima do H1 — brand stamp no inicio da primeira dobra. */}
+      <div
+        className="mx-auto flex max-w-[1240px] justify-center px-6"
+        style={{ marginBottom: "clamp(20px, 3vw, 36px)" }}
+      >
+        <Image
+          src="/brand/logo-sv-full.webp"
+          alt="Sequência Viral"
+          width={1200}
+          height={655}
+          priority
+          style={{
+            height: "clamp(90px, 12vw, 140px)",
+            width: "auto",
+            display: "block",
+          }}
+        />
+      </div>
+
       <div
         className="sv-hero-grid mx-auto grid max-w-[1240px] items-center gap-10 px-6"
         style={{
@@ -276,7 +302,7 @@ export function Hero(props: HeroProps = {}) {
           <h1
             className="sv-display mt-4"
             style={{
-              fontSize: "clamp(36px, 4.8vw, 64px)",
+              fontSize: "clamp(36px, 5vw, 68px)",
               lineHeight: 1.02,
               letterSpacing: "-0.025em",
               fontWeight: 400,
@@ -285,7 +311,7 @@ export function Hero(props: HeroProps = {}) {
             {h1 ?? (
               <>
                 <span className="block">
-                  <em><span className="sv-splash">Carrossel pronto</span></em>
+                  O seu <em><span className="sv-splash">carrossel</span></em> pronto
                 </span>
                 <span className="block">
                   antes do <span className="sv-under">café</span> esfriar.
@@ -307,7 +333,7 @@ export function Hero(props: HeroProps = {}) {
               <>
                 Cola o link, escolhe o template, gera. A IA escreve{" "}
                 <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>no seu tom</b>,
-                monta os slides e deixa tudo pronto pra postar — em{" "}
+                monta os slides e deixa tudo pronto pra postar, em{" "}
                 <b style={{ color: "var(--sv-ink)", fontWeight: 600 }}>
                   menos tempo do que você levaria pra abrir o Canva
                 </b>
@@ -356,28 +382,33 @@ export function Hero(props: HeroProps = {}) {
             aspectRatio: "1 / 1.02",
           }}
         >
-          <img
-            src={`${BASE_ASSET}/hero-mandala.png`}
+          <Image
+            src={`${BASE_ASSET}/hero-mandala.webp`}
             alt=""
             aria-hidden
+            width={400}
+            height={400}
             loading="lazy"
             decoding="async"
             className="sv-anim-spin-slow pointer-events-none absolute"
-            style={{ top: "8%", left: "8%", width: "28%", opacity: 0.12, zIndex: 1 }}
+            style={{ top: "8%", left: "8%", width: "28%", height: "auto", opacity: 0.12, zIndex: 1 }}
           />
 
-          <img
-            src={`${BASE_ASSET}/hero-mouth.png`}
+          <Image
+            src={`${BASE_ASSET}/hero-mouth.webp`}
             alt=""
             aria-hidden
-            decoding="async"
-            fetchPriority="high"
+            width={520}
+            height={520}
+            priority
+            sizes="(max-width: 860px) 200px, 200px"
             className="sv-anim-float-slow absolute"
             style={
               {
                 top: "-4%",
                 left: "-6%",
                 width: "36%",
+                height: "auto",
                 ["--sv-r" as string]: "-8deg",
                 filter: "drop-shadow(4px 6px 0 rgba(10,10,10,.15))",
                 zIndex: 3,
@@ -385,18 +416,22 @@ export function Hero(props: HeroProps = {}) {
             }
           />
 
-          <img
-            src={`${BASE_ASSET}/hero-brain.png`}
+          <Image
+            src={`${BASE_ASSET}/hero-brain.webp`}
             alt=""
             aria-hidden
+            width={500}
+            height={500}
             loading="lazy"
             decoding="async"
+            sizes="(max-width: 860px) 160px, 160px"
             className="sv-anim-float absolute"
             style={
               {
                 top: "8%",
                 right: "-8%",
                 width: "28%",
+                height: "auto",
                 ["--sv-r" as string]: "12deg",
                 filter: "drop-shadow(4px 6px 0 rgba(10,10,10,.15))",
                 zIndex: 3,
@@ -404,18 +439,23 @@ export function Hero(props: HeroProps = {}) {
             }
           />
 
-          <img
-            src={`${BASE_ASSET}/hero-ear.png`}
+          {/* Megaphone no bottom-left (substitui hero-ear, conforme brief). */}
+          <Image
+            src={`${BASE_ASSET}/hero-megaphone.webp`}
             alt=""
             aria-hidden
+            width={260}
+            height={260}
             loading="lazy"
             decoding="async"
+            sizes="(max-width: 860px) 110px, 110px"
             className="sv-anim-drift absolute"
             style={
               {
                 bottom: "2%",
                 left: "-6%",
                 width: "22%",
+                height: "auto",
                 ["--sv-r" as string]: "-10deg",
                 filter: "drop-shadow(4px 6px 0 rgba(10,10,10,.15))",
                 zIndex: 3,
@@ -423,37 +463,23 @@ export function Hero(props: HeroProps = {}) {
             }
           />
 
-          <img
-            src={`${BASE_ASSET}/hero-hand.png`}
+          {/* Megaphone decorativo lateral direita (mantem a silhueta original). */}
+          <Image
+            src={`${BASE_ASSET}/hero-megaphone.webp`}
             alt=""
             aria-hidden
+            width={260}
+            height={260}
             loading="lazy"
             decoding="async"
-            className="sv-anim-float absolute"
-            style={
-              {
-                bottom: "-4%",
-                right: "-4%",
-                width: "24%",
-                ["--sv-r" as string]: "6deg",
-                filter: "drop-shadow(4px 6px 0 rgba(10,10,10,.15))",
-                zIndex: 5,
-              } as React.CSSProperties
-            }
-          />
-
-          <img
-            src={`${BASE_ASSET}/hero-megaphone.png`}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
+            sizes="(max-width: 860px) 140px, 140px"
             className="sv-anim-float-slow absolute"
             style={
               {
                 top: "42%",
                 right: "-18%",
                 width: "32%",
+                height: "auto",
                 ["--sv-r" as string]: "14deg",
                 filter: "drop-shadow(4px 6px 0 rgba(10,10,10,.15))",
                 zIndex: 3,
@@ -461,19 +487,23 @@ export function Hero(props: HeroProps = {}) {
             }
           />
 
-          <img
-            src={`${BASE_ASSET}/star-lg.png`}
+          <Image
+            src={`${BASE_ASSET}/star-lg.webp`}
             alt=""
             aria-hidden
+            width={60}
+            height={60}
             loading="lazy"
             decoding="async"
             className="sv-anim-spin-med pointer-events-none absolute"
-            style={{ top: "10%", left: "42%", width: 40, zIndex: 7 }}
+            style={{ top: "10%", left: "42%", width: 40, height: "auto", zIndex: 7 }}
           />
-          <img
-            src={`${BASE_ASSET}/star-sm.png`}
+          <Image
+            src={`${BASE_ASSET}/star-sm.webp`}
             alt=""
             aria-hidden
+            width={40}
+            height={40}
             loading="lazy"
             decoding="async"
             className="pointer-events-none absolute"
@@ -481,6 +511,7 @@ export function Hero(props: HeroProps = {}) {
               bottom: "6%",
               left: "38%",
               width: 28,
+              height: "auto",
               zIndex: 7,
               animation: "sv-spin-slow 16s linear reverse infinite",
             }}

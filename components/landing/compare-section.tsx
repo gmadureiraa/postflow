@@ -3,37 +3,52 @@
 import { motion } from "framer-motion";
 import { REVEAL, SectionHead } from "./shared";
 
-function thStyle(): React.CSSProperties {
-  return {
-    padding: "14px 18px",
-    textAlign: "left",
-    borderBottom: "1px solid var(--sv-ink)",
-    fontFamily: "var(--sv-display)",
-    fontWeight: 400,
-    fontSize: 18,
-    letterSpacing: "-0.01em",
-    background: "var(--sv-soft)",
-  };
+/**
+ * Tabela comparativa 2 colunas — Com Sequência Viral vs Sem. 5 linhas
+ * cobrindo os diferenciais mais concretos (tempo, transcricao, OCR, voz,
+ * preco pra volume). Simplificou a versao 4 colunas antiga (SV × Canva ×
+ * ChatGPT × Manual) que quebrava em mobile e conflitava com pricing.
+ */
+
+export interface CompareRow {
+  topic: string;
+  withSv: string;
+  withoutSv: string;
 }
 
 export interface CompareSectionProps {
   sub?: string;
   tag?: string;
   heading?: React.ReactNode;
-  columns?: [string, string, string, string];
-  rows?: string[][];
+  rows?: CompareRow[];
 }
 
-const DEFAULT_ROWS: string[][] = [
-  ["Tempo por carrossel", "~ 60 segundos", "45–60 min", "20 min + edição", "2–3 horas"],
-  ["Transcreve YouTube", "✦ Automático", "✕", "Copia/cola", "Manual"],
-  ["Lê legenda de IG/X", "✦ Com OCR dos slides", "✕", "Parcial", "Manual"],
-  ["Escreve com a SUA voz", "✦ Voz configurável por DNA", "✕", "Depende do prompt", "Precisa revisar"],
-  ["Referências visuais da marca", "✦ 3 imagens → paleta/mood", "Manual", "✕", "Manual"],
-  ["Imagem por slide", "✦ Cinemática contextual", "Stock photo", "✕", "Manual"],
-  ["Export pronto pra postar", "✦ 1 clique", "Manual", "✕", "Manual"],
-  ["Preview real (WYSIWYG)", "✦ Sim", "✓", "✕", "✓"],
-  ["Preço pra postar todo dia", "R$ 99,90/mês", "R$ 70/mês", "R$ 100/mês", "Seu tempo"],
+const DEFAULT_ROWS: CompareRow[] = [
+  {
+    topic: "Tempo por carrossel",
+    withSv: "~60s do input ao PNG pronto",
+    withoutSv: "2 a 3 horas no Canva + ChatGPT",
+  },
+  {
+    topic: "Transcreve YouTube",
+    withSv: "Automático, PT · EN · ES",
+    withoutSv: "Manual: copia, cola, revisa",
+  },
+  {
+    topic: "Lê posts do Instagram",
+    withSv: "Com OCR dos slides + legenda",
+    withoutSv: "Nenhuma ferramenta faz direito",
+  },
+  {
+    topic: "Escreve com a SUA voz",
+    withSv: "Voz configurável pelo DNA das redes",
+    withoutSv: "Genérico, cheiro de ChatGPT padrão",
+  },
+  {
+    topic: "Preço pra postar todo dia",
+    withSv: "R$ 99,90/mês (R$ 49,90 com cupom VIRAL50)",
+    withoutSv: "Seu tempo, que custa mais caro",
+  },
 ];
 
 export function CompareSection(props: CompareSectionProps = {}) {
@@ -41,7 +56,6 @@ export function CompareSection(props: CompareSectionProps = {}) {
     sub = "Sem vs Com",
     tag = "Honesto",
     heading,
-    columns = ["Sequência Viral", "Canva", "ChatGPT", "Manual"],
     rows = DEFAULT_ROWS,
   } = props;
 
@@ -65,21 +79,56 @@ export function CompareSection(props: CompareSectionProps = {}) {
             boxShadow: "5px 5px 0 0 var(--sv-ink)",
           }}
         >
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
             <thead>
               <tr>
-                <th style={thStyle()} />
                 <th
                   style={{
-                    ...thStyle(),
+                    padding: "16px 20px",
+                    textAlign: "left",
+                    borderBottom: "1px solid var(--sv-ink)",
+                    fontFamily: "var(--sv-mono)",
+                    fontWeight: 700,
+                    fontSize: 10,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    color: "var(--sv-muted)",
+                    background: "var(--sv-soft)",
+                    width: "28%",
+                  }}
+                />
+                <th
+                  style={{
+                    padding: "16px 20px",
+                    textAlign: "left",
+                    borderBottom: "1px solid var(--sv-ink)",
+                    fontFamily: "var(--sv-display)",
+                    fontWeight: 400,
+                    fontStyle: "italic",
+                    fontSize: 20,
+                    letterSpacing: "-0.01em",
                     background: "var(--sv-green)",
+                    width: "36%",
                   }}
                 >
-                  <em>{columns[0]}</em>
+                  Com Sequência Viral
                 </th>
-                <th style={thStyle()}>{columns[1]}</th>
-                <th style={thStyle()}>{columns[2]}</th>
-                <th style={thStyle()}>{columns[3]}</th>
+                <th
+                  style={{
+                    padding: "16px 20px",
+                    textAlign: "left",
+                    borderBottom: "1px solid var(--sv-ink)",
+                    fontFamily: "var(--sv-display)",
+                    fontWeight: 400,
+                    fontSize: 20,
+                    letterSpacing: "-0.01em",
+                    background: "var(--sv-soft)",
+                    color: "var(--sv-muted)",
+                    width: "36%",
+                  }}
+                >
+                  Sem Sequência Viral
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -91,37 +140,51 @@ export function CompareSection(props: CompareSectionProps = {}) {
                   viewport={{ once: true, margin: "-60px" }}
                   transition={{ duration: 0.4, delay: 0.05 * i, ease: "easeOut" }}
                 >
-                  {r.map((c, j) => {
-                    const isFirst = j === 0;
-                    const isSV = j === 1;
-                    const isMissing = c === "✕";
-                    return (
-                      <td
-                        key={j}
-                        style={{
-                          padding: "14px 18px",
-                          textAlign: isFirst || isSV ? "left" : "center",
-                          borderBottom:
-                            i < rows.length - 1 ? "1px solid var(--sv-ink)" : "none",
-                          fontSize: 13,
-                          fontFamily: isFirst ? "var(--sv-mono)" : undefined,
-                          letterSpacing: isFirst ? "0.16em" : undefined,
-                          textTransform: isFirst ? "uppercase" : undefined,
-                          color: isFirst
-                            ? "var(--sv-muted)"
-                            : isMissing
-                              ? "var(--sv-pink)"
-                              : undefined,
-                          fontWeight: isFirst ? 500 : isSV ? 600 : isMissing ? 700 : undefined,
-                          background: isSV
-                            ? "color-mix(in srgb, var(--sv-green) 22%, var(--sv-white))"
-                            : undefined,
-                        }}
-                      >
-                        {c}
-                      </td>
-                    );
-                  })}
+                  <td
+                    style={{
+                      padding: "16px 20px",
+                      textAlign: "left",
+                      borderBottom:
+                        i < rows.length - 1 ? "1px solid var(--sv-ink)" : "none",
+                      fontSize: 12,
+                      fontFamily: "var(--sv-mono)",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "var(--sv-muted)",
+                      fontWeight: 500,
+                      background: "var(--sv-soft)",
+                    }}
+                  >
+                    {r.topic}
+                  </td>
+                  <td
+                    style={{
+                      padding: "16px 20px",
+                      textAlign: "left",
+                      borderBottom:
+                        i < rows.length - 1 ? "1px solid var(--sv-ink)" : "none",
+                      fontSize: 14,
+                      color: "var(--sv-ink)",
+                      fontWeight: 600,
+                      background:
+                        "color-mix(in srgb, var(--sv-green) 22%, var(--sv-white))",
+                    }}
+                  >
+                    <span style={{ color: "var(--sv-pink)", marginRight: 6 }}>✦</span>
+                    {r.withSv}
+                  </td>
+                  <td
+                    style={{
+                      padding: "16px 20px",
+                      textAlign: "left",
+                      borderBottom:
+                        i < rows.length - 1 ? "1px solid var(--sv-ink)" : "none",
+                      fontSize: 14,
+                      color: "var(--sv-muted)",
+                    }}
+                  >
+                    {r.withoutSv}
+                  </td>
                 </motion.tr>
               ))}
             </tbody>

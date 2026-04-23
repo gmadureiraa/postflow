@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { useLandingSession } from "@/lib/use-landing-session";
 
+// Menu encurtado: "Exemplos" foi removido porque a home nao tem `#exemplos`.
+// Se a section voltar, reativar aqui.
 const NAV_ITEMS = [
   { label: "Como funciona", href: "#como" },
-  { label: "Exemplos", href: "#exemplos" },
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
@@ -22,29 +24,60 @@ export function TopNav() {
 
   return (
     <nav
-      className="sticky top-0 z-50"
+      className="fixed top-0 left-0 right-0 z-50"
       style={{
-        background: "color-mix(in srgb, var(--sv-paper) 90%, transparent)",
+        background: "color-mix(in srgb, var(--sv-paper) 92%, transparent)",
         backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
         borderBottom: "1px solid var(--sv-ink)",
       }}
     >
       <div className="mx-auto flex max-w-[1240px] items-center justify-between px-6 py-3">
-        <Link href="/" className="flex items-center">
-          {/* Logo completa ransom-note — substitui icone+texto, carrega
-              a identidade inteira numa imagem so. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logo-sv-full.png"
-            alt="Sequência Viral"
-            className="sv-anim-float-slow"
+        <Link href="/" className="flex items-center gap-2" aria-label="Sequência Viral">
+          {/* Logo "SV" — mark compacto. Usa a webp otimizada da identidade
+              gigante (fundo preto embedded). Em contextos com hover em verde
+              o mark continua legivel porque e full ink. */}
+          <span
             style={{
-              height: 44,
-              width: "auto",
-              objectFit: "contain",
-              display: "block",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              background: "var(--sv-ink)",
+              border: "1.5px solid var(--sv-ink)",
+              boxShadow: "2px 2px 0 0 var(--sv-ink)",
+              overflow: "hidden",
             }}
-          />
+          >
+            <Image
+              src="/brand/logo-sv-full.webp"
+              alt=""
+              width={1200}
+              height={655}
+              priority
+              style={{
+                width: "90%",
+                height: "auto",
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </span>
+          <span
+            aria-hidden
+            className="hidden sm:inline"
+            style={{
+              fontFamily: "var(--sv-display)",
+              fontSize: 20,
+              fontStyle: "italic",
+              letterSpacing: "-0.01em",
+              color: "var(--sv-ink)",
+              lineHeight: 1,
+            }}
+          >
+            Sequência Viral
+          </span>
         </Link>
 
         <ul className="hidden items-center md:flex">
@@ -72,7 +105,7 @@ export function TopNav() {
             <Link
               href="/app/login"
               className="sv-btn sv-btn-ghost"
-              style={{ padding: "8px 14px", fontSize: 9.5 }}
+              style={{ padding: "8px 14px", fontSize: 11 }}
             >
               Entrar
             </Link>
@@ -80,14 +113,16 @@ export function TopNav() {
           <Link
             href={primaryHref}
             className="sv-btn sv-btn-primary"
-            style={{ padding: "8px 14px", fontSize: 9.5 }}
+            style={{ padding: "8px 14px", fontSize: 11 }}
           >
             {primaryLabel}
           </Link>
         </div>
 
         <button
-          aria-label="Abrir menu"
+          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={open}
+          aria-controls="sv-mobile-menu"
           onClick={() => setOpen((v) => !v)}
           className="md:hidden"
           style={{
@@ -104,6 +139,7 @@ export function TopNav() {
       <AnimatePresence>
         {open && (
           <motion.div
+            id="sv-mobile-menu"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -139,7 +175,7 @@ export function TopNav() {
                   <Link
                     href="/app/login"
                     className="sv-btn sv-btn-outline"
-                    style={{ padding: "10px 16px", fontSize: 10 }}
+                    style={{ padding: "10px 16px", fontSize: 11 }}
                   >
                     Entrar
                   </Link>
@@ -147,7 +183,7 @@ export function TopNav() {
                 <Link
                   href={primaryHref}
                   className="sv-btn sv-btn-primary"
-                  style={{ padding: "10px 16px", fontSize: 10 }}
+                  style={{ padding: "10px 16px", fontSize: 11 }}
                 >
                   {primaryLabel}
                 </Link>

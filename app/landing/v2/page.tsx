@@ -28,6 +28,9 @@ export default function LandingVelocidade() {
         fontFamily: "var(--sv-sans)",
         minHeight: "100vh",
         overflow: "hidden",
+        // TopNav agora e fixed — paddingTop compensa a altura do nav (~64px)
+        // pra primeira dobra nao ficar encostada no topo.
+        paddingTop: 68,
       }}
     >
       <LpVariantTracker variant="velocidade" />
@@ -156,7 +159,8 @@ export default function LandingVelocidade() {
         steps={[
           {
             n: "01",
-            img: "hero-ear.png",
+            img: "hero-mandala.webp",
+            alt: "Ícone de input — cole o link",
             title: (
               <>
                 <em>Cola</em> o link. <span style={{ color: "var(--sv-muted)" }}>5s.</span>
@@ -166,7 +170,8 @@ export default function LandingVelocidade() {
           },
           {
             n: "02",
-            img: "step-typewriter.png",
+            img: "step-typewriter.webp",
+            alt: "Ícone de máquina de escrever — a IA escreve",
             title: (
               <>
                 A IA <em>escreve</em> e monta. <span style={{ color: "var(--sv-muted)" }}>~12s.</span>
@@ -176,7 +181,8 @@ export default function LandingVelocidade() {
           },
           {
             n: "03",
-            img: "hero-megaphone.png",
+            img: "hero-megaphone.webp",
+            alt: "Ícone de megafone — exporta e posta",
             title: (
               <>
                 Revisa e <em>exporta</em>. <span style={{ color: "var(--sv-muted)" }}>depende de você.</span>
@@ -210,87 +216,6 @@ export default function LandingVelocidade() {
             </span>
           </>
         }
-        bigCard={{
-          kicker: "Preview ao vivo",
-          title: (
-            <>
-              O que você vê
-              <br />é o que <em>sai</em>.
-            </>
-          ),
-          body: (
-            <>
-              Zero &quot;vamos ajustar no Canva depois&quot;. Tipografia, espaço, cor:
-              o PNG que exporta é idêntico ao preview. Sem retoque final.
-            </>
-          ),
-          slideMeta: "Slide 01 / 04 · Exportado em 0,4s",
-          slideHeadline: (
-            <>
-              15 segundos,{" "}
-              <em style={{ color: "var(--sv-green)" }}>3 carrosséis.</em>
-            </>
-          ),
-          slideHandle: "@voce · agora",
-        }}
-        aestheticCard={{
-          badge: "–20s",
-          kicker: "Estética salva, uma vez",
-          title: (
-            <>
-              Cola 3 refs. <em>Nunca mais</em> escolhe cor.
-            </>
-          ),
-          body: (
-            <>
-              Subiu as referências na primeira vez. Pronto: todo carrossel futuro já sai com a sua paleta, textura e tipografia. Zero decisão visual na hora do post.
-            </>
-          ),
-          footer: "↓ Aplicado em 100% dos slides",
-        }}
-        voiceCard={{
-          kicker: "Voz em 1 clique",
-          title: (
-            <>
-              Seu tom, <em>sem</em> prompt.
-            </>
-          ),
-          body: (
-            <>
-              Conecta o @, a IA aprende em 10 posts. Você para de escrever prompt de 2 parágrafos no ChatGPT pra sair algo parecido com você.
-            </>
-          ),
-          inputTitle: "Entrada · 10s",
-          inputBody: "Cola link. Só isso.",
-          outputTitle: "Saída · 15s",
-          outputBody: "Carrossel com o seu tom já aplicado",
-        }}
-        editorCard={{
-          kicker: "Variantes em 1 clique",
-          title: (
-            <>
-              Layout <em>novo</em> em 2 segundos.
-            </>
-          ),
-          body: (
-            <>
-              Não gostou do slide 3? Clica e troca entre 6 layouts prontos. Não volta pro Canva, não redesenha. 2 segundos por ajuste, limite são os seus dedos.
-            </>
-          ),
-        }}
-        imageCard={{
-          kicker: "Imagem pronta",
-          title: (
-            <>
-              Zero <em>stock photo</em>. Zero busca.
-            </>
-          ),
-          body: (
-            <>
-              Uma ilustração por slide, gerada no tema do texto. Não abre Unsplash, não paga Shutterstock, não perde 15 min escolhendo foto.
-            </>
-          ),
-        }}
       />
 
       <CompareSection
@@ -304,57 +229,32 @@ export default function LandingVelocidade() {
             </span>
           </>
         }
-        columns={["Sequência Viral", "Canva", "ChatGPT + Canva", "Manual"]}
         rows={[
-          [
-            "Tempo total por carrossel",
-            "✦ ~15 segundos",
-            "45–60 min",
-            "20 min prompt + 40 min design",
-            "2–3 horas",
-          ],
-          [
-            "Tempo pra 4 posts na semana",
-            "✦ 1 min",
-            "~4 horas",
-            "~4 horas",
-            "~12 horas",
-          ],
-          [
-            "Transcrever vídeo de YouTube",
-            "✦ Automático · 3s",
-            "—",
-            "Copia/cola manual · 10min",
-            "Escuta na mão · 30min",
-          ],
-          [
-            "Diagramar 6 slides",
-            "✦ Automático",
-            "~20 min arrastando",
-            "Nada — precisa outro app",
-            "Do zero no Figma · 1h",
-          ],
-          [
-            "Trocar layout de 1 slide",
-            "✦ 2s (1 clique)",
-            "~3 min",
-            "Não aplicável",
-            "~5 min",
-          ],
-          [
-            "Exportar pronto pra postar",
-            "✦ 1 clique · PNG 1080×1350",
-            "Export manual",
-            "Não exporta",
-            "Export + ajuste tamanho",
-          ],
-          [
-            "Custo pra postar todo dia",
-            "R$ 49/mês",
-            "R$ 80/mês + seu tempo",
-            "R$ 110/mês + seu tempo",
-            "Seu fim de semana inteiro",
-          ],
+          {
+            topic: "Tempo por carrossel",
+            withSv: "~15 segundos do link ao PNG",
+            withoutSv: "45 a 60 min arrastando no Canva",
+          },
+          {
+            topic: "Tempo pra 4 posts/semana",
+            withSv: "1 minuto no total",
+            withoutSv: "~4 horas, toda semana",
+          },
+          {
+            topic: "Transcrever YouTube",
+            withSv: "Automático em 3s",
+            withoutSv: "Copia/cola manual: 10min+",
+          },
+          {
+            topic: "Diagramar 6 slides",
+            withSv: "Automático, layout pronto",
+            withoutSv: "~20 min por carrossel",
+          },
+          {
+            topic: "Custo pra postar todo dia",
+            withSv: "R$ 99,90/mês (ou R$ 49,90 com VIRAL50)",
+            withoutSv: "Seu fim de semana inteiro",
+          },
         ]}
       />
 

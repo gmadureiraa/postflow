@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     "linkedin carousel",
     "conteúdo redes sociais ia",
     "thread visual",
-    "sequencia-viral",
+    "sequencia viral",
     "export png carrossel",
   ],
   alternates: {

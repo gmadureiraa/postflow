@@ -45,6 +45,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    {
+      // Rota obrigatoria Meta App Review — user pode chegar via Facebook.
+      url: `${BASE_URL}/account/data-deletion`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.1,
+    },
     ...blogEntries,
   ];
 }

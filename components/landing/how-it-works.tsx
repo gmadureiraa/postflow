@@ -6,6 +6,7 @@ import { BASE_ASSET, REVEAL, SectionHead } from "./shared";
 export interface HowItWorksStep {
   n: string;
   img: string;
+  alt: string;
   title: React.ReactNode;
   body: React.ReactNode;
 }
@@ -20,17 +21,19 @@ export interface HowItWorksProps {
 const DEFAULT_STEPS: HowItWorksStep[] = [
   {
     n: "01",
-    img: "hero-ear.png",
+    img: "hero-mandala.webp",
+    alt: "Ícone de escuta — a IA recebe o seu input",
     title: (
       <>
         <em>Cole</em> a fonte.
       </>
     ),
-    body: "Link de YouTube, artigo de blog, post do Instagram, PDF ou só uma ideia em uma frase. A IA escuta e entende.",
+    body: "Link de YouTube, artigo de blog, post do Instagram ou só uma ideia em uma frase. A IA escuta e entende.",
   },
   {
     n: "02",
-    img: "step-typewriter.png",
+    img: "step-typewriter.webp",
+    alt: "Ícone de máquina de escrever — a IA processa e escreve",
     title: (
       <>
         A IA <em>pensa</em>.
@@ -40,7 +43,8 @@ const DEFAULT_STEPS: HowItWorksStep[] = [
   },
   {
     n: "03",
-    img: "hero-megaphone.png",
+    img: "hero-megaphone.webp",
+    alt: "Ícone de megafone — o carrossel pronto pra postar",
     title: (
       <>
         Edite. Exporte. <em>Poste</em>.
@@ -119,8 +123,7 @@ export function HowItWorks(props: HowItWorksProps = {}) {
                 >
                   <img
                     src={`${BASE_ASSET}/${s.img}`}
-                    alt=""
-                    aria-hidden
+                    alt={s.alt}
                     loading="lazy"
                     decoding="async"
                     className="h-full w-full object-contain"

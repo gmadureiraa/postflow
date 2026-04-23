@@ -162,7 +162,7 @@ export function DemoSection(props: DemoSectionProps = {}) {
             }}
           >
             <img
-              src={`${BASE_ASSET}/demo-cutout.png`}
+              src={`${BASE_ASSET}/hero-megaphone.webp`}
               alt=""
               aria-hidden
               loading="lazy"

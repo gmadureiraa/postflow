@@ -1,39 +1,39 @@
 /** FAQ da landing — fonte única para UI (page) e JSON-LD (layout). */
 export const LANDING_FAQ = [
   {
+    q: "A IA copia o meu estilo?",
+    a: "Não copia. Aprende. O Sequência Viral puxa seus últimos posts no perfil cadastrado, extrai padrões (vocabulário, ritmo, tipo de abertura, tabus) e usa isso como restrição. Você ainda pode adicionar regras manuais no onboarding (ex.: 'não uso hashtag', 'evito emoji'). O resultado é um carrossel que passa pelo teste do 'parece algo que eu escreveria'.",
+  },
+  {
+    q: "A IA inventa coisas no carrossel?",
+    a: "Não. A IA trabalha exclusivamente em cima da fonte que você colou: transcrição de vídeo, artigo, post do Instagram ou sua nota. Se não estiver na fonte, não entra no carrossel. No modo avançado você ainda revisa os ângulos antes da IA escrever, duas camadas de controle. Nada de alucinação.",
+  },
+  {
     q: "Quanto tempo leva pra gerar um carrossel?",
-    a: "De 20 a 40 segundos do input até os conceitos; depois você escolhe um ângulo e recebe até três variações (dados, narrativa, provocação). No modo avançado, cada etapa leva um pouco mais porque você controla triagem e espinha dorsal.",
+    a: "Em média 60 segundos do input ao carrossel completo com imagens. Transcrição de vídeos longos (>2h) e geração de imagens em picos podem adicionar alguns segundos, mas o fluxo é contínuo: você não fica esperando fase por fase.",
   },
   {
-    q: "Qual é o formato visual do carrossel?",
-    a: "Hoje o app usa um único layout: thread estilo Twitter/X (avatar, nome, texto e imagem), com tipografia fixa. O modo rápido e o modo avançado mudam a copy, não o desenho do slide.",
+    q: "Posso usar os carrosséis comercialmente?",
+    a: "Sim, todo conteúdo gerado é seu. Textos, imagens geradas, PNGs exportados: uso pessoal, cliente, agência, venda, não importa. Não cobramos royalty e não reclamamos autoria. A única coisa que pedimos é não republicar a ferramenta em si como se fosse sua.",
   },
   {
-    q: "O que é modo rápido e modo avançado?",
-    a: "Modo rápido: a IA gera cinco conceitos, você escolhe um e recebe o carrossel completo. Modo avançado: fluxo guiado com triagem, headlines e espinha dorsal — ideal quando você quer mais controle na copy. O formato do slide (thread) é sempre o mesmo.",
+    q: "E se eu não gostar da imagem gerada?",
+    a: "Três opções. Uma: regenera a imagem daquele slide específico (não re-gera o carrossel todo). Duas: troca pro modo 'sem imagem', fica só texto editorial e é rápido. Três: faz upload da sua própria foto/ilustração e a IA reajusta o layout em volta. Nenhuma dessas opções custa geração extra.",
   },
   {
-    q: "Os carrosséis saem cheirando a IA genérica?",
-    a: "Não. O Sequência Viral aprende sua voz a partir do seu perfil, seus últimos posts e o nicho que você define no onboarding. Saem com o tom que você escreve, não com o tom do ChatGPT padrão.",
+    q: "Funciona com qualquer canal do YouTube?",
+    a: "Qualquer vídeo público com áudio audível. Transcrevemos em português, inglês e espanhol. Vídeos acima de 2h podem levar alguns minutos extras. Lives e podcasts longos funcionam, rodamos transcrição em background enquanto você trabalha em outra coisa.",
   },
   {
-    q: "Posso editar texto e imagem depois de gerar?",
-    a: "Sim. Título, corpo, ordem dos slides, imagens — tudo editável inline. Se a imagem sugerida não serviu, você troca por upload, busca no banco ou gera uma nova com IA.",
+    q: "Os carrosséis podem ser editados depois?",
+    a: "Sim, tudo é editável inline: texto, tamanho da fonte, cor, template, ordem dos slides, variante do layout. Você pode reutilizar um carrossel antigo como base pra um novo e só trocar a fonte de conteúdo. Fluxo usado por agências pra padronizar entrega.",
   },
   {
-    q: "Funciona pro meu nicho?",
-    a: "Marketing, finanças, cripto, saúde, tech, educação, design, produtividade — já usado em todos. A voz vem do seu input, não de templates travados de nicho.",
+    q: "Posso cancelar quando quiser?",
+    a: "Sem fidelidade. Cancela pelo painel em 2 cliques. Se cancelar no plano Pro no mesmo mês que assinou, fazemos rateio proporcional pros dias usados. No plano Creator, o mês em curso continua ativo até o próximo ciclo e depois não renova.",
   },
   {
-    q: "E se eu não gostar das 3 variações?",
-    a: "Pede mais. Cada geração vem em 3 ângulos diferentes (dados, história, provocação). Se nenhum encaixar, regera o mesmo input em poucos segundos — nos planos pagos o limite é pelo volume mensal de carrosséis, não por clique.",
-  },
-  {
-    q: "Posso usar pra clientes da minha agência?",
-    a: "Sim, no plano Business. São 3 seats, suporte prioritário e API pra integrar no seu fluxo existente. Brand kits multi-cliente estão no roadmap.",
-  },
-  {
-    q: "O que posso fazer no plano grátis?",
-    a: "5 carrosséis por mês, export PNG, modo rápido e modo avançado, e 1 perfil. Suficiente pra testar de verdade antes de decidir.",
+    q: "Quem tá por trás do Sequência Viral?",
+    a: "Sequência Viral é um produto da Kaleidos Digital, agência brasileira de marketing de conteúdo que atende criadores, fintechs e projetos cripto/web3. A gente cansou de ver copy genérica dominando o feed e fez a ferramenta que queríamos usar com os nossos clientes.",
   },
 ] as const;

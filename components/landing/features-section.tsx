@@ -5,22 +5,20 @@ import { motion } from "framer-motion";
 import { REVEAL, SectionHead } from "./shared";
 
 /**
- * Briefs simulados rotativos pro card animado. Passa sensação de uma
- * ferramenta ouvindo o user — não um prompt filler.
+ * FeaturesSection — enxuta pra 2 cards reais (Brief Engine + Voz da IA).
+ * Historico: antes vivia com props/helpers pra 5 cards que nunca foram
+ * renderizados. Limpeza em 2026-04-22 pra ficar coerente com o que a
+ * landing realmente entrega.
  */
+
 const TYPE_BRIEFS = [
   "faz um post sobre o novo algoritmo do Instagram...",
-  "carrossel sobre por que ninguém salva meus posts...",
-  "3 hooks pro meu reel sobre produtividade real...",
+  "Crie o carrossel perfeito para ajudar a minha loja a vender mais...",
+  "Preciso de um carrossel sobre produtividade real...",
   "quebra esse artigo do Bloomberg em 8 slides...",
+  "Crie um carrossel com base nesse vídeo no YouTube...",
 ];
 
-/**
- * Card animado "brief engine" — antes vivia no hero, agora virou feature card
- * junto com os outros 3. Usa um state machine simples (typing → hold → thinking
- * → ready → clearing) pra deixar claro cada fase, uma de cada vez, em vez de
- * múltiplas animações concorrentes visualmente competindo.
- */
 function BriefEngineCard() {
   const [briefIdx, setBriefIdx] = useState(0);
   const [typed, setTyped] = useState("");
@@ -43,7 +41,7 @@ function BriefEngineCard() {
       t = setTimeout(() => setPhase("ready"), 1600);
     } else if (phase === "ready") {
       t = setTimeout(() => setPhase("clearing"), 1400);
-    } else if (phase === "clearing") {
+    } else {
       if (typed.length > 0) {
         t = setTimeout(() => setTyped(current.slice(0, typed.length - 1)), 14);
       } else {
@@ -78,8 +76,8 @@ function BriefEngineCard() {
         não só um gerador.
       </FeatTitle>
       <FeatBody>
-        Escreve o briefing e a IA processa contexto, voz e referências —
-        antes de virar slide.
+        Escreve o briefing e a IA processa contexto, voz e referências, antes
+        de virar slide.
       </FeatBody>
 
       <div
@@ -157,8 +155,7 @@ function BriefEngineCard() {
           fontFamily: "var(--sv-mono)",
           fontSize: 8.5,
           letterSpacing: "0.2em",
-          color:
-            phase === "ready" ? "var(--sv-ink)" : "var(--sv-muted)",
+          color: phase === "ready" ? "var(--sv-ink)" : "var(--sv-muted)",
           fontWeight: 700,
         }}
       >
@@ -195,6 +192,7 @@ function FeatKicker({ children }: { children: React.ReactNode }) {
     </span>
   );
 }
+
 function FeatTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3
@@ -211,6 +209,7 @@ function FeatTitle({ children }: { children: React.ReactNode }) {
     </h3>
   );
 }
+
 function FeatBody({ children }: { children: React.ReactNode }) {
   return (
     <p
@@ -224,6 +223,7 @@ function FeatBody({ children }: { children: React.ReactNode }) {
     </p>
   );
 }
+
 function VoiceBox({
   title,
   body,
@@ -259,124 +259,16 @@ function VoiceBox({
     </div>
   );
 }
-function ExportRow({
-  fmt,
-  title,
-  sub,
-  ink = false,
-}: {
-  fmt: string;
-  title: string;
-  sub: string;
-  ink?: boolean;
-}) {
-  return (
-    <div
-      className="flex items-center gap-[10px]"
-      style={{
-        padding: 10,
-        border: "1px solid var(--sv-ink)",
-        background: "var(--sv-white)",
-        boxShadow: "2px 2px 0 0 var(--sv-ink)",
-      }}
-    >
-      <span
-        className="inline-flex items-center justify-center"
-        style={{
-          width: 34,
-          height: 34,
-          border: "1px solid var(--sv-ink)",
-          background: ink ? "var(--sv-ink)" : "var(--sv-green)",
-          color: ink ? "var(--sv-paper)" : "var(--sv-ink)",
-          fontFamily: "var(--sv-mono)",
-          fontSize: 9.5,
-          fontWeight: 800,
-          letterSpacing: "0.06em",
-        }}
-      >
-        {fmt}
-      </span>
-      <div style={{ lineHeight: 1.2 }}>
-        <b
-          style={{
-            display: "block",
-            fontSize: 11.5,
-            fontFamily: "var(--sv-mono)",
-            letterSpacing: "0.08em",
-          }}
-        >
-          {title}
-        </b>
-        <span
-          style={{
-            fontSize: 9,
-            color: "var(--sv-muted)",
-            fontFamily: "var(--sv-mono)",
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-          }}
-        >
-          {sub}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export interface FeaturesSectionProps {
   sub?: string;
   tag?: string;
   heading?: React.ReactNode;
-  /** Card grande (c-7) — preview real. */
-  bigCard?: {
-    kicker?: React.ReactNode;
-    title?: React.ReactNode;
-    body?: React.ReactNode;
-    slideHeadline?: React.ReactNode;
-    slideHandle?: string;
-    slideMeta?: string;
-  };
-  /** Card de referências visuais (c-5). */
-  aestheticCard?: {
-    badge?: string;
-    kicker?: React.ReactNode;
-    title?: React.ReactNode;
-    body?: React.ReactNode;
-    footer?: React.ReactNode;
-  };
-  /** Card de brand voice (c-4). */
-  voiceCard?: {
-    kicker?: React.ReactNode;
-    title?: React.ReactNode;
-    body?: React.ReactNode;
-    inputTitle?: string;
-    inputBody?: string;
-    outputTitle?: string;
-    outputBody?: string;
-  };
-  /** Card variantes/editor (c-4). */
-  editorCard?: {
-    kicker?: React.ReactNode;
-    title?: React.ReactNode;
-    body?: React.ReactNode;
-  };
-  /** Card imagem contextual (c-4). */
-  imageCard?: {
-    kicker?: React.ReactNode;
-    title?: React.ReactNode;
-    body?: React.ReactNode;
-  };
 }
 
 export function FeaturesSection(props: FeaturesSectionProps = {}) {
-  const {
-    sub = "Features",
-    tag = "Produto",
-    heading,
-    aestheticCard,
-    voiceCard,
-    editorCard,
-  } = props;
+  const { sub = "Features", tag = "Produto", heading } = props;
+
   return (
     <section id="features" style={{ padding: "96px 0" }}>
       <div className="mx-auto max-w-[1240px] px-6">
@@ -400,33 +292,22 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
         >
           <BriefEngineCard />
 
-          {/* Brand voice c-4 */}
           <motion.div
             {...REVEAL}
             className="sv-card sv-feat"
             style={{ gridColumn: "span 6" }}
           >
-            <FeatKicker>{voiceCard?.kicker ?? "Voz da IA"}</FeatKicker>
+            <FeatKicker>Voz da IA</FeatKicker>
             <FeatTitle>
-              {voiceCard?.title ?? (
-                <>
-                  O tom é <em>seu</em>,<br />
-                  não do ChatGPT.
-                </>
-              )}
+              O tom é <em>seu</em>,<br />
+              não do ChatGPT.
             </FeatTitle>
             <FeatBody>
-              {voiceCard?.body ?? (
-                <>
-                  Configure pilares, audiência, tabus, exemplos de posts. A IA escreve dentro dessas regras.
-                </>
-              )}
+              Configure pilares, audiência, tabus e exemplos de posts. A IA
+              escreve dentro dessas regras, sem devolver copy genérica.
             </FeatBody>
             <div className="mt-4 flex flex-col gap-2">
-              <VoiceBox
-                title={voiceCard?.inputTitle ?? "Entrada"}
-                body={voiceCard?.inputBody ?? "@meuperfil · 30 posts + regras"}
-              />
+              <VoiceBox title="Entrada" body="@meuperfil · 30 posts + regras" />
               <div
                 style={{
                   textAlign: "center",
@@ -438,22 +319,15 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
               >
                 ↓
               </div>
-              <VoiceBox
-                title={voiceCard?.outputTitle ?? "Saída"}
-                body={voiceCard?.outputBody ?? "Carrossel com o seu tom"}
-                highlight
-              />
+              <VoiceBox title="Saída" body="Carrossel com o seu tom" highlight />
             </div>
           </motion.div>
-
         </div>
       </div>
       <style>{`
         @media (max-width: 900px) {
           #features .sv-bento { grid-template-columns: 1fr !important; }
           #features .sv-feat { grid-column: auto !important; }
-          #features .sv-feat[style*="1fr 1.6fr"] { grid-template-columns: 1fr !important; }
-          #features .sv-feat[style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </section>
