@@ -76,6 +76,56 @@ async function validateImageUrl(url: string): Promise<boolean> {
   }
 }
 
+/**
+ * Validação ESTRITA pra URLs que vão virar <img src> no browser — rejeita
+ * tudo que não seja 2xx (inclusive 403, que é hotlink bloqueado na maioria
+ * dos casos). Tenta GET parcial se HEAD falhar, porque alguns CDNs (ex:
+ * Cloudflare News) respondem 403 em HEAD mas 200 em GET.
+ * Bug 24/04: Serper devolvia URLs de news/blog sites com hotlinking off,
+ * frontend recebia e renderizava broken image no slide.
+ */
+async function validateImageUrlForDisplay(url: string): Promise<boolean> {
+  if (!url) return false;
+  if (url.startsWith("data:")) return true;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(url, {
+      method: "HEAD",
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      // Se HEAD OK, confirma que é imagem (não html, não pdf)
+      const ct = res.headers.get("content-type") || "";
+      return ct.startsWith("image/") || ct === "" || ct === "application/octet-stream";
+    }
+    // 405: host não aceita HEAD → tenta GET parcial (1 byte)
+    if (res.status === 405) {
+      try {
+        const ctrl2 = new AbortController();
+        const to2 = setTimeout(() => ctrl2.abort(), 2500);
+        const res2 = await fetch(url, {
+          method: "GET",
+          headers: { Range: "bytes=0-0" },
+          signal: ctrl2.signal,
+          redirect: "follow",
+        });
+        clearTimeout(to2);
+        return res2.ok || res2.status === 206;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  } catch {
+    // Timeout/network: REJEITA nesse modo estrito. Não queremos assumir
+    // válido e renderizar broken — pior que filtrar falsos negativos.
+    return false;
+  }
+}
+
 /** Junta termo de busca com trechos do slide para resultados mais alinhados ao conteúdo. */
 function mergeImageSearchText(
   query: string,
@@ -1141,8 +1191,12 @@ export async function POST(request: Request) {
 
         if (resp.ok) {
           const data = await resp.json();
-          const images = (data.images || [])
-            .slice(0, desiredCount)
+          // Serper sempre devolve mais do que pedimos — pedimos num:
+          // desiredCount mas mandamos num:Math.max(8,desiredCount) pra
+          // ter margem de fallback. Se o user quer 1 imagem, precisamos
+          // ter 6-8 candidatas pra filtrar as broken.
+          const rawImages = (data.images || [])
+            .slice(0, Math.max(desiredCount * 6, 12))
             .map(
               (img: {
                 imageUrl?: string;
@@ -1172,16 +1226,30 @@ export async function POST(request: Request) {
             promptType: "image-picker-search",
           });
 
-          if (images.length === 0) {
+          // Filtra URLs que 403/404/timeout — evita broken image no slide.
+          // Usa validador ESTRITO (rejeita 403 que pro browser é fatal).
+          // Custo: ~400-800ms pro slide (HEADs em paralelo). Vale o UX.
+          const checked = await Promise.all(
+            rawImages.map(async (img: { url: string }) => ({
+              img,
+              ok: await validateImageUrlForDisplay(img.url),
+            }))
+          );
+          const validImages = checked
+            .filter((c) => c.ok)
+            .map((c) => c.img)
+            .slice(0, desiredCount);
+
+          if (validImages.length === 0) {
             console.warn(
-              `[images] FALHA slide=${slideNumber ?? "?"} reason=serper-empty query=${searchQuery.slice(0, 80)}`
+              `[images] FALHA slide=${slideNumber ?? "?"} reason=serper-all-broken raw=${rawImages.length} query=${searchQuery.slice(0, 80)}`
             );
           } else {
             console.log(
-              `[images] OK slide=${slideNumber ?? "?"} source=serper count=${images.length}`
+              `[images] OK slide=${slideNumber ?? "?"} source=serper raw=${rawImages.length} valid=${validImages.length}`
             );
           }
-          return Response.json({ images });
+          return Response.json({ images: validImages });
         }
         console.warn(
           `[images] FALHA slide=${slideNumber ?? "?"} reason=serper-non-ok status=${resp.status}`
