@@ -1182,10 +1182,11 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
         };
 
     async function runWriterAttempt(strict: boolean): Promise<AttemptResult> {
-      // Strict mode (retry): temperature baixa pra previsibilidade + instrução
-      // extra no system pra forçar JSON cru. Roda SEM grounding porque tools +
-      // responseMimeType JSON são mutuamente exclusivos e estrito prioriza
-      // parseabilidade sobre pesquisa.
+      // Strict mode (retry): 3 mudanças pra maximizar chance de JSON válido:
+      // 1. Temperature 0.3 (vs 0.95) — previsibilidade
+      // 2. Troca modelo Pro → Flash — Flash é bem mais obediente em JSON
+      //    strict (Pro é mais criativo mas alucina markdown fences)
+      // 3. responseMimeType=application/json forçado (grounding off)
       const strictSystemSuffix = strict
         ? `\n\n# RETRY ESTRITO\nA tentativa anterior devolveu JSON inválido. Agora responde APENAS o objeto JSON cru, sem fences \`\`\`, sem prefixo, sem sufixo, sem comentários. O primeiro caractere da resposta é '{' e o último é '}'. Valide mentalmente que o JSON parseia antes de devolver.`
         : "";
@@ -1193,6 +1194,11 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
         ? `${systemPrompt}\n\n# OUTPUT ONLY VALID JSON\nYour response must be ONLY the JSON object specified in OUTPUT FORMAT — no markdown code fences, no prose before or after. Parser expects valid JSON from character 0.${strictSystemSuffix}`
         : `${systemPrompt}${strictSystemSuffix}`;
       const attemptUseGrounding = useGrounding && !strict;
+      // Flash na retry: muito mais previsível em JSON structure, mesmo
+      // pagando pequena perda de "criatividade". Tradeoff valioso — é
+      // sucesso vs falha na 2ª tentativa, não qualidade editorial.
+      const attemptModel = strict ? "gemini-2.5-flash" : modelId;
+      const attemptThinkingBudget = strict ? 4000 : thinkingBudget;
 
       let textResponse = "";
       let inputTokens = 0;
@@ -1201,7 +1207,7 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
       try {
         const genResult = await geminiWithRetry(() =>
           ai.models.generateContent({
-            model: modelId,
+            model: attemptModel,
             contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
             config: {
               systemInstruction: attemptSystem,
@@ -1211,7 +1217,7 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
               ...(attemptUseGrounding
                 ? { tools: [{ googleSearch: {} }] }
                 : { responseMimeType: "application/json" }),
-              thinkingConfig: { thinkingBudget },
+              thinkingConfig: { thinkingBudget: attemptThinkingBudget },
             },
           })
         );
