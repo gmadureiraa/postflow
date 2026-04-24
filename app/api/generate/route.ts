@@ -1162,7 +1162,17 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
     // conteúdo), antes 14000 era superdimensionado.
     const thinkingBudget = effectiveMode === "layout-only" ? 2000 : 12000;
     const maxOutputTokens = effectiveMode === "layout-only" ? 10000 : 10000;
-    const useGrounding = effectiveMode !== "layout-only";
+    // GROUNDING DESATIVADO como default após descoberta (24/04) que Pro +
+    // grounding + system "output JSON" retorna JSON DENTRO de ```json fences
+    // com frequência, quebrando o parse. Grounding é mutuamente exclusivo
+    // com responseMimeType=application/json — só tem sentido se precisar
+    // pesquisar fatos recentes no meio da geração. Mas:
+    //   (a) fact-check via Perplexity já roda ANTES do writer (mais
+    //       confiável e previsível)
+    //   (b) JSON mode + Pro funciona 100% em todos testes
+    //   (c) retry estrito com Flash sempre cai em JSON mode mesmo
+    // Se precisar grounding pontualmente no futuro, passa override via body.
+    const useGrounding = false;
 
     // Helper: roda 1 tentativa do writer Gemini + parse + validate.
     // Retorno tipado permite diferenciar retry-eligível de fatal.
@@ -1182,27 +1192,29 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
         };
 
     async function runWriterAttempt(strict: boolean): Promise<AttemptResult> {
-      // Strict mode (retry): 3 mudanças pra maximizar chance de JSON válido:
-      // 1. Temperature 0.3 (vs 0.95) — previsibilidade
-      // 2. Troca modelo Pro → Flash — Flash é bem mais obediente em JSON
-      //    strict (Pro é mais criativo mas alucina markdown fences)
-      // 3. responseMimeType=application/json forçado (grounding off)
+      // Diagnóstico exaustivo do bug do athanasio.team (24/04):
+      // Testes reveleram que:
+      //   - Pro + grounding ON + "output JSON" → envolve em ```json fences``` às vezes
+      //   - Pro + no grounding + responseMimeType=json → JSON cru sempre
+      //   - Flash + no grounding → JSON cru sempre (mais obediente ainda)
+      // Conclusão: grounding é o culpado. Desativamos como default.
+      //
+      // Attempt normal (strict=false):
+      //   - Pro + no grounding + responseMimeType=json + temp 0.85 + prompt original
+      //
+      // Retry strict (strict=true):
+      //   - Flash + no grounding + responseMimeType=json + temp 0.3 + prompt reforço
       const strictSystemSuffix = strict
-        ? `\n\n# RETRY ESTRITO\nA tentativa anterior devolveu JSON inválido. Agora responde APENAS o objeto JSON cru, sem fences \`\`\`, sem prefixo, sem sufixo, sem comentários. O primeiro caractere da resposta é '{' e o último é '}'. Valide mentalmente que o JSON parseia antes de devolver.`
+        ? `\n\n# RETRY ESTRITO\nA tentativa anterior devolveu algo inválido. Agora responde APENAS o objeto JSON cru — sem fences \`\`\`, sem prefixo, sem sufixo, sem comentários. Primeiro caractere '{', último '}'. Valide mentalmente que parseia antes de devolver.`
         : "";
-      const attemptSystem = useGrounding && !strict
-        ? `${systemPrompt}\n\n# OUTPUT ONLY VALID JSON\nYour response must be ONLY the JSON object specified in OUTPUT FORMAT — no markdown code fences, no prose before or after. Parser expects valid JSON from character 0.${strictSystemSuffix}`
-        : `${systemPrompt}${strictSystemSuffix}`;
-      const attemptUseGrounding = useGrounding && !strict;
-      // Flash na retry: muito mais previsível em JSON structure, mesmo
-      // pagando pequena perda de "criatividade". Tradeoff valioso — é
-      // sucesso vs falha na 2ª tentativa, não qualidade editorial.
+      const attemptSystem = `${systemPrompt}${strictSystemSuffix}`;
       const attemptModel = strict ? "gemini-2.5-flash" : modelId;
       const attemptThinkingBudget = strict ? 4000 : thinkingBudget;
 
       let textResponse = "";
       let inputTokens = 0;
       let outputTokens = 0;
+      let finishReason: string | undefined;
 
       try {
         const genResult = await geminiWithRetry(() =>
@@ -1211,17 +1223,17 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
             contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
             config: {
               systemInstruction: attemptSystem,
-              temperature: strict ? 0.3 : 0.95,
-              topP: strict ? 0.8 : 0.95,
+              temperature: strict ? 0.3 : 0.85,
+              topP: strict ? 0.8 : 0.9,
               maxOutputTokens,
-              ...(attemptUseGrounding
-                ? { tools: [{ googleSearch: {} }] }
-                : { responseMimeType: "application/json" }),
+              // Sempre JSON mode — grounding off resolve o bug de fences.
+              responseMimeType: "application/json",
               thinkingConfig: { thinkingBudget: attemptThinkingBudget },
             },
           })
         );
         textResponse = genResult.text || "";
+        finishReason = genResult.candidates?.[0]?.finishReason;
         const usage = genResult.usageMetadata;
         if (usage) {
           inputTokens = usage.promptTokenCount ?? 0;
@@ -1237,10 +1249,16 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
             stack: err instanceof Error ? err.stack : undefined,
             strict,
           },
-          // API errors geralmente não resolvem com retry estrito — deixa
-          // o fluxo decidir baseado em qual tentativa estamos.
-          retryable: false,
+          // Retryable true — Flash pode resolver onde Pro falhou.
+          retryable: true,
         };
+      }
+
+      // Log finishReason sempre — MAX_TOKENS/SAFETY/etc quebram output.
+      if (finishReason && finishReason !== "STOP") {
+        console.warn(
+          `[generate] finishReason=${finishReason} strict=${strict} outputLen=${textResponse.length}`
+        );
       }
 
       if (!textResponse) {
@@ -1252,42 +1270,98 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
         };
       }
 
-      // Parse JSON
+      // Parse JSON — defensive ladder:
+      // 1. Parse direto (JSON mode puro)
+      // 2. Strip markdown fences ```json ... ``` (defensivo caso modelo
+      //    ainda vaze fence mesmo com responseMimeType)
+      // 3. Regex match do primeiro `{...}` balanceado
       let parsed: unknown;
+      const stripFences = (s: string): string => {
+        // Remove ```json\n...\n``` ou ```...```
+        const fenceMatch = s.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (fenceMatch) return fenceMatch[1].trim();
+        return s.trim();
+      };
+
       try {
         parsed = JSON.parse(textResponse);
       } catch {
-        const match = textResponse.match(/\{[\s\S]*\}/);
-        if (match) {
+        const stripped = stripFences(textResponse);
+        if (stripped !== textResponse.trim()) {
           try {
-            parsed = JSON.parse(match[0]);
-          } catch (parseErr) {
+            parsed = JSON.parse(stripped);
+          } catch {
+            // segue pro próximo fallback
+            const match = stripped.match(/\{[\s\S]*\}/);
+            if (match) {
+              try {
+                parsed = JSON.parse(match[0]);
+              } catch (parseErr) {
+                return {
+                  ok: false,
+                  reason: "parse",
+                  details: {
+                    textResponseLen: textResponse.length,
+                    textResponseHead: textResponse.slice(0, 800),
+                    finishReason: finishReason ?? "unknown",
+                    parseErrMsg:
+                      parseErr instanceof Error
+                        ? parseErr.message
+                        : String(parseErr),
+                    strict,
+                  },
+                  retryable: true,
+                };
+              }
+            } else {
+              return {
+                ok: false,
+                reason: "parse",
+                details: {
+                  textResponseLen: textResponse.length,
+                  textResponseHead: textResponse.slice(0, 800),
+                  finishReason: finishReason ?? "unknown",
+                  strict,
+                },
+                retryable: true,
+              };
+            }
+          }
+        } else {
+          const match = textResponse.match(/\{[\s\S]*\}/);
+          if (match) {
+            try {
+              parsed = JSON.parse(match[0]);
+            } catch (parseErr) {
+              return {
+                ok: false,
+                reason: "parse",
+                details: {
+                  textResponseLen: textResponse.length,
+                  textResponseHead: textResponse.slice(0, 800),
+                  finishReason: finishReason ?? "unknown",
+                  parseErrMsg:
+                    parseErr instanceof Error
+                      ? parseErr.message
+                      : String(parseErr),
+                  strict,
+                },
+                retryable: true,
+              };
+            }
+          } else {
             return {
               ok: false,
               reason: "parse",
               details: {
                 textResponseLen: textResponse.length,
                 textResponseHead: textResponse.slice(0, 800),
-                parseErrMsg:
-                  parseErr instanceof Error
-                    ? parseErr.message
-                    : String(parseErr),
+                finishReason: finishReason ?? "unknown",
                 strict,
               },
               retryable: true,
             };
           }
-        } else {
-          return {
-            ok: false,
-            reason: "parse",
-            details: {
-              textResponseLen: textResponse.length,
-              textResponseHead: textResponse.slice(0, 800),
-              strict,
-            },
-            retryable: true,
-          };
         }
       }
 
