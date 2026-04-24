@@ -81,9 +81,10 @@ const TemplateAmbitious = forwardRef<HTMLDivElement, SlideProps>(
     const displayStack = displayFontOverride || defaultDisplay;
     const ts = Math.max(0.6, Math.min(1.6, textScale));
 
-    // Tamanho médio (não gigante) — mira ~38-42px @ preview 0.38, ou seja
-    // ~100-110px @ canvas 1080. Igual ref.
-    const mainSize = 78 * ts;
+    // Gabriel revisou a fonte em 24/04 — estava gigante demais. Ref
+    // @anajords tem texto bem mais contido, ocupando 2-3 linhas sem
+    // dominar a foto. 48px no canvas = ~18px no preview (scale 0.38).
+    const mainSize = 48 * ts;
 
     const fallbackBg = bgColor || INK;
 

@@ -787,30 +787,38 @@ function PhotoTopLayout({
       {imageSrc ? (
         <div
           style={{
-            width: "100%",
-            height: 480,
-            overflow: "hidden",
+            padding: "80px 80px 0",
             flexShrink: 0,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageSrc}
-            crossOrigin="anonymous"
-            alt={heading}
+          <div
             style={{
               width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
+              height: 480,
+              overflow: "hidden",
+              borderRadius: 20,
+              boxShadow: "0 6px 22px rgba(15,15,20,0.18)",
             }}
-          />
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageSrc}
+              crossOrigin="anonymous"
+              alt={heading}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
         </div>
       ) : null}
       <div
         style={{
           flex: 1,
-          padding: "60px 80px 110px",
+          padding: imageSrc ? "50px 80px 110px" : "110px 80px 110px",
           display: "flex",
           flexDirection: "column",
           gap: 28,

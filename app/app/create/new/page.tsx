@@ -302,7 +302,12 @@ export default function NewCarouselPage() {
       return `Muitas gerações em pouco tempo.${wait}`;
     }
     if (e.status === 401) return "Sessão expirou. Faça login novamente.";
-    if (e.status === 503) return "IA indisponível agora. Tenta em 10s.";
+    if (e.status === 503) {
+      // Servidor manda mensagem específica (ex: "cota diária atingida") —
+      // usar ela em vez do fallback genérico sempre que presente.
+      if (e.message && e.message.trim().length > 0) return e.message;
+      return "IA indisponível agora. Tenta em 10s.";
+    }
     if (e.status === 502) {
       // Quando erro 502 vier do server com mensagem customizada (ex: dica de
       // colar legenda como texto), mostra ela em vez do fallback genérico.

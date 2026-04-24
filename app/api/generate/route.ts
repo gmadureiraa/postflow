@@ -64,7 +64,10 @@ import { perplexityQuery, isPerplexityConfigured } from "@/lib/perplexity";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
-import { geminiWithRetry } from "@/lib/server/gemini-retry";
+import {
+  geminiWithRetry,
+  isGeminiQuotaExhausted,
+} from "@/lib/server/gemini-retry";
 import { GoogleGenAI } from "@google/genai";
 import {
   extractSourceFacts,
@@ -1516,6 +1519,22 @@ Regras:
       await rollbackUsage();
       if (attempt.reason === "gemini-error") {
         const msg = (attempt.details.msg as string | undefined) ?? "falha na IA";
+        // Quota exhausted (Free Tier da Gemini API ou billing pausado).
+        // Frontend tem handler dedicado pra 503 com msg amigável. Não
+        // mandar 502 porque o fallback do cliente é "modelo devolveu
+        // resposta inválida" — mentira, o modelo nem foi chamado.
+        if (isGeminiQuotaExhausted({ message: msg })) {
+          console.warn(
+            "[generate] quota Gemini esgotada — retornando 503 (billing?)"
+          );
+          return Response.json(
+            {
+              error:
+                "IA indisponível agora (cota diária atingida). Tenta em alguns minutos — já tô resolvendo do nosso lado.",
+            },
+            { status: 503 }
+          );
+        }
         return Response.json(
           {
             error:
