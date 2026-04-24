@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       peopleMode: peopleModeRaw,
       isCover,
       count,
+      page,
       useDecider,
       slideNumber,
       totalSlides,
@@ -124,6 +125,8 @@ export async function POST(request: Request) {
       peopleMode?: ImagePeopleMode;
       isCover?: boolean;
       count?: number;
+      /** Paginação manual (picker UI). Default 1. Serper + Unsplash aceitam page. */
+      page?: number;
       useDecider?: boolean;
       slideNumber?: number;
       totalSlides?: number;
@@ -886,22 +889,208 @@ export async function POST(request: Request) {
       // If Gemini failed, fall through to Serper search as fallback
     }
 
-    // ── MODE: SEARCH (Serper / Unsplash) ────────────────────────────
+    // ── MODE: SEARCH (Serper + Unsplash em paralelo) ────────────────
 
-    // Strategy 1: Serper.dev Google Image Search
     const serperKey = process.env.SERPER_API_KEY;
-    // Count: default 5 pro fluxo automático; picker na UI pede count=24 pra
-    // grid de seleção manual. Cap em 40 (limite Serper free).
     const desiredCount = Math.max(
       1,
       Math.min(40, typeof count === "number" && count > 0 ? count : 5)
     );
+    const requestedPage = Math.max(
+      1,
+      Math.min(10, typeof page === "number" && page > 0 ? Math.floor(page) : 1)
+    );
+
+    // Picker manual (count > 10 OU page > 1) ativa o modo "mix":
+    // Serper + Unsplash em paralelo. Dedupe por URL. Retorna combined.
+    // - Custo: Serper = 1 query/página cobrada; Unsplash = 1 req/página,
+    //   grátis (tier demo 50/h ou prod 5000/h).
+    // - Ganho: ~40 Serper + ~30 Unsplash = ~70 fotos por página, com
+    //   variedade maior (Unsplash é stock editorial, Serper é Google
+    //   Images genérico). Sem custo extra versus pedir só Serper.
+    // - Pagination: Serper aceita `page` (1-indexed); Unsplash aceita `page`
+    //   (1-indexed). Cada chamada "load more" = 1 página nova de cada fonte.
+    const isPickerManualMode = desiredCount > 10 || requestedPage > 1;
+
+    if (isPickerManualMode) {
+      type MergedImage = {
+        url: string;
+        thumbnailUrl: string;
+        title: string;
+        source: string;
+        link: string;
+        generated: false;
+        provider: "serper" | "unsplash";
+        /** Atribuição obrigatória Unsplash. null pra Serper. */
+        author?: string;
+        authorUrl?: string;
+        /** Pings de download pro Unsplash. Caller faz quando user escolhe. */
+        downloadLocation?: string;
+      };
+
+      async function fetchSerper(): Promise<MergedImage[]> {
+        if (!serperKey) return [];
+        try {
+          const useLicenseFilter =
+            process.env.SERPER_DISABLE_LICENSE_FILTER !== "1";
+          const serperBody: Record<string, unknown> = {
+            q: searchQuery,
+            num: Math.min(40, desiredCount),
+          };
+          if (useLicenseFilter) serperBody.tbs = "il:cl";
+          if (requestedPage > 1) serperBody.page = requestedPage;
+
+          const resp = await fetch("https://google.serper.dev/images", {
+            method: "POST",
+            headers: {
+              "X-API-KEY": serperKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(serperBody),
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (!resp.ok) return [];
+          const data = await resp.json();
+          return ((data.images || []) as Array<{
+            imageUrl?: string;
+            thumbnailUrl?: string;
+            title?: string;
+            source?: string;
+            link?: string;
+          }>)
+            .map((img) => ({
+              url: img.imageUrl || "",
+              thumbnailUrl: img.thumbnailUrl || img.imageUrl || "",
+              title: img.title || "",
+              source: img.source || "",
+              link: img.link || "",
+              generated: false as const,
+              provider: "serper" as const,
+            }))
+            .filter((img) => !!img.url);
+        } catch (err) {
+          console.warn(
+            `[images] serper exception page=${requestedPage}: ${
+              err instanceof Error ? err.message : String(err)
+            }`
+          );
+          return [];
+        }
+      }
+
+      async function fetchUnsplashImages(): Promise<MergedImage[]> {
+        try {
+          // unsplashSearch não suporta page nativamente — usamos fetch direto
+          // pra controlar paginação. Mesma auth/timeout.
+          if (!process.env.UNSPLASH_ACCESS_KEY) return [];
+          const qs = new URLSearchParams({
+            query: searchQuery,
+            per_page: "30",
+            page: String(requestedPage),
+            orientation: "squarish",
+          });
+          const res = await fetch(
+            `https://api.unsplash.com/search/photos?${qs.toString()}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}`,
+                "Accept-Version": "v1",
+                Accept: "application/json",
+              },
+              signal: AbortSignal.timeout(6_000),
+            }
+          );
+          if (!res.ok) return [];
+          const data = (await res.json()) as {
+            results?: Array<{
+              id?: string;
+              description?: string | null;
+              alt_description?: string | null;
+              urls?: { regular?: string; small?: string; small_s3?: string; thumb?: string };
+              user?: { name?: string; username?: string; links?: { html?: string } };
+              links?: { download_location?: string; html?: string };
+            }>;
+          };
+          return (data.results || [])
+            .map((r) => {
+              const url =
+                r.urls?.regular || r.urls?.small || "";
+              const thumbUrl =
+                r.urls?.small_s3 || r.urls?.thumb || r.urls?.small || url;
+              const author = r.user?.name || r.user?.username || "Unknown";
+              const authorUrl = r.user?.links?.html || "https://unsplash.com";
+              return {
+                url,
+                thumbnailUrl: thumbUrl,
+                title:
+                  r.description?.trim() ||
+                  r.alt_description?.trim() ||
+                  `Foto de ${author}`,
+                source: "Unsplash",
+                link: r.links?.html || "https://unsplash.com",
+                generated: false as const,
+                provider: "unsplash" as const,
+                author,
+                authorUrl,
+                downloadLocation: r.links?.download_location,
+              };
+            })
+            .filter((img) => !!img.url);
+        } catch (err) {
+          console.warn(
+            `[images] unsplash exception page=${requestedPage}: ${
+              err instanceof Error ? err.message : String(err)
+            }`
+          );
+          return [];
+        }
+      }
+
+      const [serperImgs, unsplashImgs] = await Promise.all([
+        fetchSerper(),
+        fetchUnsplashImages(),
+      ]);
+
+      // Dedupe por URL. Intercala serper + unsplash pra variedade visual
+      // (em vez de 40 do google + 30 unsplash em blocos).
+      const seen = new Set<string>();
+      const interleaved: MergedImage[] = [];
+      const max = Math.max(serperImgs.length, unsplashImgs.length);
+      for (let i = 0; i < max; i++) {
+        for (const src of [serperImgs[i], unsplashImgs[i]]) {
+          if (!src) continue;
+          if (seen.has(src.url)) continue;
+          seen.add(src.url);
+          interleaved.push(src);
+        }
+      }
+
+      console.log(
+        `[images] OK picker-mix slide=${slideNumber ?? "?"} page=${requestedPage} serper=${serperImgs.length} unsplash=${unsplashImgs.length} merged=${interleaved.length}`
+      );
+
+      // hasMore heurístico: se alguma fonte retornou >= seu "per_page",
+      // provavelmente tem mais páginas. Frontend usa pra habilitar o botão.
+      const hasMore =
+        serperImgs.length >= Math.min(40, desiredCount) ||
+        unsplashImgs.length >= 30;
+
+      return Response.json({
+        images: interleaved,
+        page: requestedPage,
+        hasMore,
+        counts: {
+          serper: serperImgs.length,
+          unsplash: unsplashImgs.length,
+          merged: interleaved.length,
+        },
+      });
+    }
+
+    // ── Fluxo auto (single source, count <= 10): só Serper ──────────
     if (serperKey) {
       try {
-        // Filtro `tbs=il:cl` pede só imagens Creative Commons licensed.
-        // Reduz risco de copyright em fotos exibidas no carrossel.
-        // Pode ser desativado via env `SERPER_DISABLE_LICENSE_FILTER=1`
-        // caso retorne resultado pobre em algum nicho.
         const useLicenseFilter =
           process.env.SERPER_DISABLE_LICENSE_FILTER !== "1";
         const serperBody: Record<string, unknown> = {

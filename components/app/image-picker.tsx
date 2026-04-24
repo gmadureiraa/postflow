@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { jsonWithAuth } from "@/lib/api-auth-headers";
 import type { Session } from "@supabase/supabase-js";
 
 /**
- * Modal que abre uma busca no Google Images (via Serper) com grid clicável.
- * Usuário digita query custom, vê 20 resultados, clica na que quiser →
- * retorna a URL pro caller aplicar no slide.
+ * Modal que abre busca mix Google Images (Serper) + Unsplash em paralelo,
+ * com scroll + load more. Dedupe por URL no client pra evitar repetição
+ * entre páginas. Unsplash dispara trigger de download quando user escolhe
+ * uma foto dele (obrigação da API Unsplash).
  *
- * Foi requisitado porque a busca automática embutida em /api/images
- * escolhia uma das 5 primeiras sem dar controle ao usuário — as
- * escolhas eram frequentemente não ideais pra carrossel editorial.
+ * Histórico:
+ * - v1 (2026-03): Google Images via Serper, 20 resultados fixos
+ * - v2 (2026-04-23): subiu pra 40 resultados (cap Serper)
+ * - v3 (2026-04-24): mix Serper + Unsplash paralelo + paginação load-more
  */
 
 interface ImageResult {
@@ -22,6 +24,11 @@ interface ImageResult {
   title?: string;
   source?: string;
   link?: string;
+  provider?: "serper" | "unsplash";
+  author?: string;
+  authorUrl?: string;
+  /** Quando user escolhe uma foto Unsplash, disparar ping pra esse endpoint. */
+  downloadLocation?: string;
 }
 
 export function ImagePicker({
@@ -38,56 +45,95 @@ export function ImagePicker({
   const [query, setQuery] = useState(initialQuery.slice(0, 200));
   const [results, setResults] = useState<ImageResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const firedOnceRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  async function doSearch() {
-    const q = query.trim();
-    if (!q) {
-      setError("Digita algo pra buscar.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/images", {
-        method: "POST",
-        headers: jsonWithAuth(session),
-        body: JSON.stringify({
-          query: q,
-          mode: "search",
-          // 40 = cap do Serper free; 1 query Serper = 1 request cobrado,
-          // independente da quantidade retornada. Então pedir 40 custa o
-          // mesmo que pedir 5 e dá muito mais escolha pro usuário.
-          count: 40,
-        }),
-      });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(
-          typeof body?.error === "string"
-            ? body.error
-            : "Falha ao buscar imagens."
-        );
+  const runSearch = useCallback(
+    async (opts: { append: boolean; page: number }) => {
+      const q = query.trim();
+      if (!q) {
+        setError("Digita algo pra buscar.");
+        return;
       }
-      const imgs = Array.isArray(body?.images) ? (body.images as ImageResult[]) : [];
-      if (imgs.length === 0) {
-        setError(
-          typeof body?.warning === "string"
-            ? body.warning
-            : "Nenhum resultado. Tenta outra query."
-        );
-        setResults([]);
-      } else {
-        setResults(imgs);
+      if (opts.append) setLoadingMore(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/images", {
+          method: "POST",
+          headers: jsonWithAuth(session),
+          body: JSON.stringify({
+            query: q,
+            mode: "search",
+            // 40 = cap do Serper free; Unsplash entra em paralelo (até 30).
+            // 1 request Serper e 1 Unsplash por página, ambos baratos.
+            count: 40,
+            page: opts.page,
+          }),
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            typeof body?.error === "string"
+              ? body.error
+              : "Falha ao buscar imagens."
+          );
+        }
+        const imgs = Array.isArray(body?.images)
+          ? (body.images as ImageResult[])
+          : [];
+        const nextHasMore = Boolean(body?.hasMore);
+        if (opts.append) {
+          setResults((prev) => {
+            const seen = new Set(prev.map((r) => r.url));
+            const deduped = imgs.filter((r) => !seen.has(r.url));
+            return [...prev, ...deduped];
+          });
+          if (imgs.length === 0) {
+            setHasMore(false);
+          } else {
+            setHasMore(nextHasMore);
+          }
+        } else {
+          if (imgs.length === 0) {
+            setError(
+              typeof body?.warning === "string"
+                ? body.warning
+                : "Nenhum resultado. Tenta outra query."
+            );
+            setResults([]);
+            setHasMore(false);
+          } else {
+            setResults(imgs);
+            setHasMore(nextHasMore);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro na busca.");
+      } finally {
+        if (opts.append) setLoadingMore(false);
+        else setLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro na busca.");
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [query, session]
+  );
+
+  const doSearch = useCallback(async () => {
+    setSelected(null);
+    setPage(1);
+    await runSearch({ append: false, page: 1 });
+  }, [runSearch]);
+
+  const loadMore = useCallback(async () => {
+    const next = page + 1;
+    setPage(next);
+    await runSearch({ append: true, page: next });
+  }, [page, runSearch]);
 
   // Primeira busca automática com o initialQuery.
   useEffect(() => {
@@ -96,6 +142,27 @@ export function ImagePicker({
     void doSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Scroll infinito: IntersectionObserver no sentinel final do grid.
+  // Carrega mais automaticamente quando o sentinel entra na viewport do
+  // container scrollável. User ainda pode clicar botão manualmente.
+  useEffect(() => {
+    if (!hasMore) return;
+    if (loading || loadingMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "200px", threshold: 0.01 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, loadingMore, loadMore]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -155,7 +222,7 @@ export function ImagePicker({
                 fontWeight: 700,
               }}
             >
-              Google Images · Serper
+              Google Images + Unsplash
             </div>
             <h2
               className="sv-display"
@@ -268,6 +335,10 @@ export function ImagePicker({
             >
               {results.map((img, i) => {
                 const isSelected = selected === img.url;
+                const badge =
+                  img.provider === "unsplash"
+                    ? `Unsplash · ${img.author || "autor"}`
+                    : img.source || "";
                 return (
                   <button
                     key={`${img.url}-${i}`}
@@ -290,7 +361,7 @@ export function ImagePicker({
                       padding: 0,
                       overflow: "hidden",
                     }}
-                    title={img.title || img.source || ""}
+                    title={img.title || badge || ""}
                   >
                     {isSelected && (
                       <div
@@ -315,7 +386,7 @@ export function ImagePicker({
                         ✓
                       </div>
                     )}
-                    {img.source && (
+                    {badge && (
                       <div
                         className="uppercase"
                         style={{
@@ -324,7 +395,10 @@ export function ImagePicker({
                           left: 0,
                           right: 0,
                           padding: "4px 6px",
-                          background: "rgba(10,10,10,0.72)",
+                          background:
+                            img.provider === "unsplash"
+                              ? "rgba(20,40,60,0.82)"
+                              : "rgba(10,10,10,0.72)",
                           color: "var(--sv-white)",
                           fontFamily: "var(--sv-mono)",
                           fontSize: 8.5,
@@ -335,12 +409,52 @@ export function ImagePicker({
                           textOverflow: "ellipsis",
                         }}
                       >
-                        {img.source}
+                        {badge}
                       </div>
                     )}
                   </button>
                 );
               })}
+
+              {/* Sentinel pro IntersectionObserver — dispara loadMore
+                  quando chega no fim do grid com scroll. */}
+              {hasMore && (
+                <div
+                  ref={sentinelRef}
+                  style={{
+                    gridColumn: "1 / -1",
+                    padding: "16px 0",
+                    textAlign: "center",
+                  }}
+                >
+                  {loadingMore ? (
+                    <div
+                      className="uppercase"
+                      style={{
+                        fontFamily: "var(--sv-mono)",
+                        fontSize: 10,
+                        letterSpacing: "0.18em",
+                        color: "var(--sv-muted)",
+                      }}
+                    >
+                      <Loader2
+                        size={12}
+                        className="animate-spin inline-block mr-2"
+                      />
+                      Carregando mais...
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void loadMore()}
+                      className="sv-btn sv-btn-outline"
+                      style={{ fontSize: 10, padding: "6px 14px" }}
+                    >
+                      Carregar mais imagens
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3">
