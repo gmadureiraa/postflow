@@ -1164,131 +1164,230 @@ Se ignorar essas regras, o carrossel fica shallow e generico. O criador quer tra
     const maxOutputTokens = effectiveMode === "layout-only" ? 10000 : 10000;
     const useGrounding = effectiveMode !== "layout-only";
 
-    let textResponse: string;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    const tWriter = Date.now();
-    try {
-      const genResult = await geminiWithRetry(() =>
-        ai.models.generateContent({
-          model: modelId,
-          contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
-          config: {
-            systemInstruction: useGrounding
-              ? `${systemPrompt}\n\n# OUTPUT ONLY VALID JSON\nYour response must be ONLY the JSON object specified in OUTPUT FORMAT — no markdown code fences, no prose before or after. Parser expects valid JSON from character 0.`
-              : systemPrompt,
-            temperature: 0.95,
-            topP: 0.95,
-            maxOutputTokens,
-            // Grounding não aceita responseMimeType=application/json.
-            ...(useGrounding
-              ? { tools: [{ googleSearch: {} }] }
-              : { responseMimeType: "application/json" }),
-            thinkingConfig: { thinkingBudget },
-          },
-        })
-      );
-      textResponse = genResult.text || "";
-      // Capture real token usage for cost auditing
-      const usage = genResult.usageMetadata;
-      if (usage) {
-        inputTokens = usage.promptTokenCount ?? 0;
-        outputTokens = usage.candidatesTokenCount ?? 0;
-      }
-      timing.writer = Date.now() - tWriter;
-      console.log(
-        `[generate][timing] source=${timing.source}ms ner=${timing.ner}ms writer=${timing.writer}ms total=${Date.now() - t0}ms mode=${effectiveMode} out_tokens=${outputTokens}`
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const stack = err instanceof Error ? err.stack : undefined;
-      console.error("[generate] Gemini API error (after retries):", {
-        message: msg,
-        stack,
-        userId: user.id,
-        sourceType,
-        hasSourceContent: Boolean(sourceContent),
-      });
-      return Response.json(
-        {
-          error:
-            process.env.NODE_ENV === "production"
-              ? `Geração com IA falhou. ${msg.slice(0, 120)}`
-              : `Geração com IA falhou. ${msg}`,
-        },
-        { status: 502 }
-      );
-    }
+    // Helper: roda 1 tentativa do writer Gemini + parse + validate.
+    // Retorno tipado permite diferenciar retry-eligível de fatal.
+    type AttemptResult =
+      | {
+          ok: true;
+          result: GenerateResponse;
+          textResponse: string;
+          inputTokens: number;
+          outputTokens: number;
+        }
+      | {
+          ok: false;
+          reason: "gemini-error" | "empty" | "parse" | "structure";
+          details: Record<string, unknown>;
+          retryable: boolean;
+        };
 
-    if (!textResponse) {
-      return Response.json(
-        { error: "No response from AI" },
-        { status: 502 }
-      );
-    }
+    async function runWriterAttempt(strict: boolean): Promise<AttemptResult> {
+      // Strict mode (retry): temperature baixa pra previsibilidade + instrução
+      // extra no system pra forçar JSON cru. Roda SEM grounding porque tools +
+      // responseMimeType JSON são mutuamente exclusivos e estrito prioriza
+      // parseabilidade sobre pesquisa.
+      const strictSystemSuffix = strict
+        ? `\n\n# RETRY ESTRITO\nA tentativa anterior devolveu JSON inválido. Agora responde APENAS o objeto JSON cru, sem fences \`\`\`, sem prefixo, sem sufixo, sem comentários. O primeiro caractere da resposta é '{' e o último é '}'. Valide mentalmente que o JSON parseia antes de devolver.`
+        : "";
+      const attemptSystem = useGrounding && !strict
+        ? `${systemPrompt}\n\n# OUTPUT ONLY VALID JSON\nYour response must be ONLY the JSON object specified in OUTPUT FORMAT — no markdown code fences, no prose before or after. Parser expects valid JSON from character 0.${strictSystemSuffix}`
+        : `${systemPrompt}${strictSystemSuffix}`;
+      const attemptUseGrounding = useGrounding && !strict;
 
-    // 4. Parse the JSON response (Gemini with responseMimeType=json should return clean JSON)
-    let result: GenerateResponse;
-    try {
-      result = JSON.parse(textResponse);
-    } catch {
-      // Try extracting JSON from potential wrapper
-      const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          result = JSON.parse(jsonMatch[0]);
-        } catch (parseErr) {
-          console.error("[generate] JSON parse falhou mesmo após match:", {
-            userId: user.id,
-            sourceType,
-            sourceUrl: sourceUrl?.slice(0, 200),
-            textResponseLen: textResponse.length,
-            textResponseHead: textResponse.slice(0, 800),
-            parseErrMsg: parseErr instanceof Error ? parseErr.message : String(parseErr),
-          });
-          return Response.json(
-            {
-              error:
-                "Modelo devolveu resposta inválida. Tenta de novo. Se persistir, cole a legenda/texto direto em 'Minha ideia' (modo texto livre).",
+      let textResponse = "";
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      try {
+        const genResult = await geminiWithRetry(() =>
+          ai.models.generateContent({
+            model: modelId,
+            contents: `${userMessage}\n\n[variation-seed: ${Date.now()}-${Math.random().toString(36).slice(2, 8)}]`,
+            config: {
+              systemInstruction: attemptSystem,
+              temperature: strict ? 0.3 : 0.95,
+              topP: strict ? 0.8 : 0.95,
+              maxOutputTokens,
+              ...(attemptUseGrounding
+                ? { tools: [{ googleSearch: {} }] }
+                : { responseMimeType: "application/json" }),
+              thinkingConfig: { thinkingBudget },
             },
-            { status: 502 }
+          })
+        );
+        textResponse = genResult.text || "";
+        const usage = genResult.usageMetadata;
+        if (usage) {
+          inputTokens = usage.promptTokenCount ?? 0;
+          outputTokens = usage.candidatesTokenCount ?? 0;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          ok: false,
+          reason: "gemini-error",
+          details: {
+            msg,
+            stack: err instanceof Error ? err.stack : undefined,
+            strict,
+          },
+          // API errors geralmente não resolvem com retry estrito — deixa
+          // o fluxo decidir baseado em qual tentativa estamos.
+          retryable: false,
+        };
+      }
+
+      if (!textResponse) {
+        return {
+          ok: false,
+          reason: "empty",
+          details: { strict },
+          retryable: true,
+        };
+      }
+
+      // Parse JSON
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(textResponse);
+      } catch {
+        const match = textResponse.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            parsed = JSON.parse(match[0]);
+          } catch (parseErr) {
+            return {
+              ok: false,
+              reason: "parse",
+              details: {
+                textResponseLen: textResponse.length,
+                textResponseHead: textResponse.slice(0, 800),
+                parseErrMsg:
+                  parseErr instanceof Error
+                    ? parseErr.message
+                    : String(parseErr),
+                strict,
+              },
+              retryable: true,
+            };
+          }
+        } else {
+          return {
+            ok: false,
+            reason: "parse",
+            details: {
+              textResponseLen: textResponse.length,
+              textResponseHead: textResponse.slice(0, 800),
+              strict,
+            },
+            retryable: true,
+          };
+        }
+      }
+
+      const typed = parsed as { variations?: unknown };
+      if (!typed.variations || !Array.isArray(typed.variations)) {
+        return {
+          ok: false,
+          reason: "structure",
+          details: {
+            resultKeys: Object.keys(typed ?? {}),
+            variationsType: typeof typed?.variations,
+            strict,
+          },
+          retryable: true,
+        };
+      }
+
+      return {
+        ok: true,
+        result: parsed as GenerateResponse,
+        textResponse,
+        inputTokens,
+        outputTokens,
+      };
+    }
+
+    // Rollback de uso (decrementa) quando 2 tentativas falham. User não paga
+    // por falha do modelo — é problema nosso, não dele. Chama só se o uso foi
+    // efetivamente incrementado antes.
+    async function rollbackUsage() {
+      if (!sb || !usageAlreadyIncremented) return;
+      try {
+        const { data: prof } = await sb
+          .from("profiles")
+          .select("usage_count")
+          .eq("id", user.id)
+          .single();
+        const current = prof?.usage_count ?? 0;
+        if (current > 0) {
+          await sb
+            .from("profiles")
+            .update({ usage_count: current - 1 })
+            .eq("id", user.id);
+          console.log(
+            `[generate] usage rollback: userId=${user.id} ${current} → ${current - 1}`
           );
         }
-      } else {
-        console.error("[generate] Nenhum JSON encontrado na resposta Gemini:", {
-          userId: user.id,
-          sourceType,
-          sourceUrl: sourceUrl?.slice(0, 200),
-          textResponseLen: textResponse.length,
-          textResponseHead: textResponse.slice(0, 800),
-        });
-        return Response.json(
-          {
-            error:
-              "Modelo devolveu resposta inválida. Tenta de novo. Se persistir, cole a legenda/texto direto em 'Minha ideia' (modo texto livre).",
-          },
-          { status: 502 }
+      } catch (err) {
+        console.error(
+          "[generate] rollback falhou:",
+          err instanceof Error ? err.message : String(err)
         );
       }
     }
 
-    // 5. Validate structure
-    if (!result.variations || !Array.isArray(result.variations)) {
-      console.error("[generate] Estrutura inválida (sem variations[]):", {
+    const tWriter = Date.now();
+    let attempt = await runWriterAttempt(false);
+    if (!attempt.ok && attempt.retryable) {
+      console.warn("[generate] attempt 1 falhou, tentando strict retry:", {
         userId: user.id,
         sourceType,
         sourceUrl: sourceUrl?.slice(0, 200),
-        resultKeys: Object.keys(result ?? {}),
-        variationsType: typeof (result as { variations?: unknown })?.variations,
+        reason: attempt.reason,
+        details: attempt.details,
       });
+      attempt = await runWriterAttempt(true);
+    }
+
+    if (!attempt.ok) {
+      console.error("[generate] ambas tentativas falharam:", {
+        userId: user.id,
+        sourceType,
+        sourceUrl: sourceUrl?.slice(0, 200),
+        reason: attempt.reason,
+        details: attempt.details,
+      });
+      await rollbackUsage();
+      if (attempt.reason === "gemini-error") {
+        const msg = (attempt.details.msg as string | undefined) ?? "falha na IA";
+        return Response.json(
+          {
+            error:
+              process.env.NODE_ENV === "production"
+                ? `Geração com IA falhou. ${msg.slice(0, 120)}`
+                : `Geração com IA falhou. ${msg}`,
+          },
+          { status: 502 }
+        );
+      }
       return Response.json(
         {
           error:
-            "Modelo devolveu resposta inválida. Tenta de novo. Se persistir, cole a legenda/texto direto em 'Minha ideia' (modo texto livre).",
+            "Modelo devolveu resposta inválida. Tenta novamente em alguns segundos — não cobramos esse erro no seu plano.",
         },
         { status: 502 }
       );
     }
+
+    const textResponse = attempt.textResponse;
+    const inputTokens = attempt.inputTokens;
+    const outputTokens = attempt.outputTokens;
+    const result = attempt.result;
+    timing.writer = Date.now() - tWriter;
+    console.log(
+      `[generate][timing] source=${timing.source}ms ner=${timing.ner}ms writer=${timing.writer}ms total=${Date.now() - t0}ms mode=${effectiveMode} out_tokens=${outputTokens}`
+    );
 
     // 5b. Normalize + sanitize slides:
     //     - variant: apenas corrige inválidos. NÃO força slide 1 = cover
