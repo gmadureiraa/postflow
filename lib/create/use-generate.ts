@@ -64,10 +64,12 @@ export function useGenerate(session: Session | null) {
       setError(null);
       setLoadingConcepts(true);
       try {
+        // Timeout de 60s — concepts é Gemini Flash, mais rápido que generate.
         const res = await fetch("/api/generate-concepts", {
           method: "POST",
           headers: jsonWithAuth(session),
           body: JSON.stringify(input),
+          signal: AbortSignal.timeout(60_000),
         });
         const ct = res.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
@@ -110,6 +112,10 @@ export function useGenerate(session: Session | null) {
         const topicPayload = hasExplicitConcept
           ? `${concept.title}\n\nHook: ${concept.hook}\nAngle: ${concept.angle}\nStyle: ${concept.style}`
           : concept.angle?.trim() || concept.title?.trim() || "";
+        // Timeout de 130s — Vercel Hobby tem cap de 60s no Node runtime, mas
+        // /api/generate tem maxDuration estendido. 130s cobre P99 (writer Pro
+        // + retry Flash). Se o backend trava, evita o cliente bloquear eterno
+        // (audit 02 — fix [LOW] do briefing→generation).
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: jsonWithAuth(session),
@@ -124,6 +130,7 @@ export function useGenerate(session: Session | null) {
             advanced: advanced ?? undefined,
             mode: input.mode ?? "writer",
           }),
+          signal: AbortSignal.timeout(130_000),
         });
         const ct = res.headers.get("content-type") || "";
         if (!ct.includes("application/json")) {
@@ -145,8 +152,18 @@ export function useGenerate(session: Session | null) {
           promptUsed: data.promptUsed,
         };
       } catch (err) {
-        const msg =
+        let msg =
           err instanceof Error ? err.message : "Erro ao gerar carrossel.";
+        // AbortSignal.timeout dispara DOMException "TimeoutError" — humaniza.
+        if (
+          err instanceof Error &&
+          (err.name === "TimeoutError" ||
+            err.name === "AbortError" ||
+            msg.toLowerCase().includes("timeout"))
+        ) {
+          msg =
+            "A geração demorou demais e foi cancelada. Pode ser sobrecarga do Gemini ou source muito grande. Tenta de novo em alguns minutos, ou simplifica o briefing.";
+        }
         setError(msg);
         throw err;
       } finally {
