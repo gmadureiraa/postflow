@@ -40,3 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env.local
+
+# scripts de debug/teste local (não versionados — são throwaway)
+/scripts/test-*.ts
+/scripts/measure-*.ts
+/scripts/time-*.ts
+/scripts/analyze-refs-*.ts
+/scripts/fetch-gabriel-*.ts
