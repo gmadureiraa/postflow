@@ -85,6 +85,10 @@ import {
   buildFallbackImageQuery,
 } from "@/lib/server/generate-carousel";
 import { translateSourceIfNeeded } from "@/lib/server/translate-source";
+import {
+  describeImages,
+  type ImageDescription,
+} from "@/lib/server/describe-images";
 
 // 120s cobre com folga: IG extract (~12s) + NER (~5s) + Pro writer (~45s)
 // + retry Flash (~15s) + overhead. Antes era 60s — bug recorrente em gerações
@@ -538,6 +542,21 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
           .filter((u): u is string => typeof u === "string" && u.length < 2000)
           .slice(0, 12)
       : [];
+
+    // Visão prévia das imagens — Gemini Flash analisa cada imagem ANTES do writer,
+    // pra que a copy de cada slide case semanticamente com a imagem correspondente.
+    let imageDescriptions: ImageDescription[] = [];
+    if (advUploadedImages.length > 0) {
+      try {
+        imageDescriptions = await describeImages(advUploadedImages);
+        console.log(
+          `[generate] describe-images: ${imageDescriptions.length} imagens analisadas`
+        );
+      } catch (err) {
+        console.warn("[describe-images] falhou, seguindo sem visão:", err);
+      }
+    }
+
     const advContentFramework: ContentFramework | null =
       advanced?.contentFramework === "story-arc" ||
       advanced?.contentFramework === "problem-solution" ||
@@ -1157,16 +1176,29 @@ Se ignorar, o carrossel fica shallow e generico — não é o que o criador quer
     const factsBlockPrefix = factsBlock ? `\n\n${factsBlock}` : "";
     const factCheckSuffix = factCheckBlock;
 
+    // Bloco de imagens do usuário — injetado ANTES do conteúdo principal pra que
+    // o writer associe semanticamente cada slide às imagens disponíveis.
+    // O modelo deve retornar `imageRef` (1-based) em cada slide que quiser usar imagem.
+    const imagesBlock =
+      imageDescriptions.length > 0
+        ? `\n\n# IMAGENS QUE O USER QUER USAR (você DEVE incorporar nos slides certos)\n${imageDescriptions
+            .map(
+              (img, i) =>
+                `- Imagem #${i + 1}: ${img.kind} · ${img.description} · mood ${img.mood}`
+            )
+            .join("\n")}\n\nREGRA: cada slide que use imagem deve ter copy que CASA com a imagem. Você decide a ORDEM pelo conteúdo. Devolva no JSON: slides[i].imageRef = índice (1, 2, 3...) da imagem que casa, ou null se não usar imagem nesse slide.`
+        : "";
+
     const userMessage =
       mode === "layout-only"
         ? // Em layout-only + source: o transcript/scrape VIRA o texto a ser formatado
           // (não é "fonte adicional", é O conteúdo). Topic do user é só hint/contexto.
           sourceContent
-          ? `${overridesBlock}TEXTO PRA FORMATAR EM SLIDES — extraído da fonte (${sourceType}). Preserve wording, ordem, dados, fale da cabeça do autor quando fizer sentido:${sourceFidelityBlock}${factsBlockPrefix}\n\n"""\n${sourceContent.slice(0, SOURCE_SLICE)}\n"""${topic && topic.trim().length > 50 ? `\n\nContexto/direcionamento do usuário:\n${topic.slice(0, 1000)}` : ""}`
-          : `${overridesBlock}TEXTO DO USUÁRIO PRA FORMATAR EM SLIDES (preserve wording, ordem, dados, CTA):\n\n"""\n${topic}\n"""`
+          ? `${overridesBlock}TEXTO PRA FORMATAR EM SLIDES — extraído da fonte (${sourceType}). Preserve wording, ordem, dados, fale da cabeça do autor quando fizer sentido:${sourceFidelityBlock}${factsBlockPrefix}${imagesBlock}\n\n"""\n${sourceContent.slice(0, SOURCE_SLICE)}\n"""${topic && topic.trim().length > 50 ? `\n\nContexto/direcionamento do usuário:\n${topic.slice(0, 1000)}` : ""}`
+          : `${overridesBlock}TEXTO DO USUÁRIO PRA FORMATAR EM SLIDES (preserve wording, ordem, dados, CTA):${imagesBlock}\n\n"""\n${topic}\n"""`
         : sourceContent
-          ? `${overridesBlock}Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}${sourceFidelityBlock}${factsBlockPrefix}${factCheckSuffix}\n\nSource (${sourceType}):\n${sourceContent.slice(0, SOURCE_SLICE)}`
-          : `${overridesBlock}Create 3 carousel variations (data, story, provocative) about: ${topic}${factCheckSuffix}`;
+          ? `${overridesBlock}Create 3 carousel variations (data, story, provocative) based on this content:\n\nTopic: ${topic}${sourceFidelityBlock}${factsBlockPrefix}${imagesBlock}${factCheckSuffix}\n\nSource (${sourceType}):\n${sourceContent.slice(0, SOURCE_SLICE)}`
+          : `${overridesBlock}Create 3 carousel variations (data, story, provocative) about: ${topic}${imagesBlock}${factCheckSuffix}`;
 
     // Se o usuário pediu fidelidade literal, força layout-only — writer
     // ainda parafraseia mesmo com instrução. Layout-only é o único modo
@@ -1684,12 +1716,45 @@ Regras:
       }
     }
 
-    // Se o user subiu imagens, injeta como imageUrl final nos slides na ordem
-    // fornecida. Front pula fetch de imagem pra esses slides.
+    // Pós-processamento de imagens do usuário.
+    // Se o modelo retornou imageRef (1-based) nos slides, usa esse mapeamento semântico.
+    // Fallback posicional (comportamento antigo) cobre slides sem imageRef.
     if (advUploadedImages.length > 0 && result.variations[0]?.slides) {
-      for (let i = 0; i < Math.min(advUploadedImages.length, result.variations[0].slides.length); i++) {
-        (result.variations[0].slides[i] as { imageUrl?: string }).imageUrl =
-          advUploadedImages[i];
+      // Etapa 1: aplica imageRef do modelo (mapeamento semântico)
+      for (let i = 0; i < result.variations[0].slides.length; i++) {
+        const slide = result.variations[0].slides[i] as {
+          imageUrl?: string;
+          imageRef?: number;
+        };
+        if (
+          typeof slide.imageRef === "number" &&
+          slide.imageRef >= 1 &&
+          slide.imageRef <= advUploadedImages.length
+        ) {
+          slide.imageUrl = advUploadedImages[slide.imageRef - 1];
+        }
+      }
+      // Etapa 2: fallback posicional para slides que ainda não têm imageUrl
+      // (cobre o caso onde o modelo não retornou imageRef ou ignorou a instrução)
+      const usedIndices = new Set<number>();
+      for (const s of result.variations[0].slides) {
+        const ref = (s as { imageRef?: number }).imageRef;
+        if (typeof ref === "number" && ref >= 1 && ref <= advUploadedImages.length) {
+          usedIndices.add(ref - 1);
+        }
+      }
+      let nextUnused = 0;
+      for (let i = 0; i < result.variations[0].slides.length; i++) {
+        const slide = result.variations[0].slides[i] as { imageUrl?: string };
+        if (slide.imageUrl) continue; // já tem imagem (via imageRef)
+        while (usedIndices.has(nextUnused) && nextUnused < advUploadedImages.length) {
+          nextUnused++;
+        }
+        if (nextUnused < advUploadedImages.length) {
+          slide.imageUrl = advUploadedImages[nextUnused];
+          usedIndices.add(nextUnused);
+          nextUnused++;
+        }
       }
     }
 
