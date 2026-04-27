@@ -20,8 +20,12 @@
  *  - Total: ~\$0.08 = R\$ 0.45/carrossel (dentro do budget R\$ 1)
  *
  * Cache tematico (TTL 30d):
- *  - Hash sha256(mode::query) → image_theme_cache
- *  - Economia adicional em users que repetem temas do mesmo nicho
+ *  - Hash sha256(userId::mode::query) → image_theme_cache
+ *  - Chave inclui userId para evitar vazamento de imagens entre usuarios:
+ *    User A gera "bitcoin chart" → User B com mesma query NAO recebe a
+ *    imagem cacheada do A. Cada usuario tem seu proprio espaco de cache.
+ *  - Caches antigos (sem userId na chave) viram orphans no DB — expiram
+ *    naturalmente via TTL 30d sem necessidade de limpeza manual.
  */
 
 import { createHash } from "node:crypto";
@@ -75,14 +79,28 @@ const CACHE_TABLE = "image_theme_cache";
 // meses sem perder qualidade. Se user reclamar de repeticao visual, reduz.
 const CACHE_TTL_DAYS = 30;
 
-function themeHash(query: string, mode: "generate" | "search" | "stock"): string {
+/**
+ * Gera a chave de cache incluindo userId para garantir isolamento entre
+ * usuarios. Sem user_id na chave, um usuario poderia receber imagens
+ * geradas no contexto de outro (ex: imagens com identidade de marca
+ * diferente, personas, nichos distintos).
+ *
+ * userId pode ser vazio string em contextos sem auth (fallback seguro:
+ * nenhum hit de cache sera retornado pois a chave sera diferente).
+ */
+function themeHash(
+  query: string,
+  mode: "generate" | "search" | "stock",
+  userId: string
+): string {
   const normalized = query
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ")
     .slice(0, 300);
+  // Chave: userId::mode::query — userId garante isolamento por usuario
   return createHash("sha256")
-    .update(`${mode}::${normalized}`)
+    .update(`${userId}::${mode}::${normalized}`)
     .digest("hex")
     .slice(0, 32);
 }
@@ -90,10 +108,11 @@ function themeHash(query: string, mode: "generate" | "search" | "stock"): string
 export async function getCachedThemeImage(
   supabase: SupabaseClient,
   query: string,
-  mode: "generate" | "search" | "stock"
+  mode: "generate" | "search" | "stock",
+  userId: string
 ): Promise<string | null> {
-  if (!query.trim()) return null;
-  const key = themeHash(query, mode);
+  if (!query.trim() || !userId) return null;
+  const key = themeHash(query, mode, userId);
   const cutoff = new Date(
     Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
@@ -116,16 +135,19 @@ export async function recordThemeImage(
   supabase: SupabaseClient,
   query: string,
   mode: "generate" | "search" | "stock",
-  url: string
+  url: string,
+  userId: string
 ): Promise<void> {
-  if (!query.trim() || !url) return;
-  const key = themeHash(query, mode);
+  if (!query.trim() || !url || !userId) return;
+  const key = themeHash(query, mode, userId);
   try {
     await supabase.from(CACHE_TABLE).insert({
       theme_key: key,
       query_text: query.slice(0, 300),
       mode,
       url,
+      // user_id gravado para auditoria e futuras queries filtradas
+      user_id: userId,
     });
   } catch {
     /* cache e best-effort — falha nao quebra fluxo */

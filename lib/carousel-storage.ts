@@ -663,6 +663,37 @@ export async function deleteUserCarousel(
   userId: string,
   id: string
 ) {
+  // ── Limpeza de Storage: remove imagens geradas/uploaded do bucket antes
+  //    de deletar o registro. Best-effort: falha no storage nao bloqueia o
+  //    DELETE da row — apenas loga warning. Evita acumulo indefinido de
+  //    arquivos orfaos em carousel-images/{userId}/{carouselId}/.
+  try {
+    const folderPrefix = `${userId}/${id}`;
+    const { data: files, error: listError } = await client
+      .storage
+      .from("carousel-images")
+      .list(folderPrefix, { limit: 100 });
+
+    if (listError) {
+      console.warn("[deleteUserCarousel] storage.list falhou (continuando delete):", listError.message);
+    } else if (files && files.length > 0) {
+      const paths = files.map((f) => `${folderPrefix}/${f.name}`);
+      const { error: removeError } = await client
+        .storage
+        .from("carousel-images")
+        .remove(paths);
+
+      if (removeError) {
+        console.warn("[deleteUserCarousel] storage.remove falhou (continuando delete):", removeError.message);
+      } else {
+        console.log(`[deleteUserCarousel] storage: ${paths.length} arquivo(s) removido(s) de ${folderPrefix}`);
+      }
+    }
+  } catch (storageErr) {
+    // Nunca bloqueia o delete da row por erro de storage
+    console.warn("[deleteUserCarousel] erro inesperado no cleanup de storage:", storageErr);
+  }
+
   const { error } = await client
     .from("carousels")
     .delete()

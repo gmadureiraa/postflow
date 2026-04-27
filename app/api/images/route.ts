@@ -401,7 +401,8 @@ export async function POST(request: Request) {
         const cachedUrl = await getCachedThemeImage(
           supabaseForCache,
           cacheQueryKey,
-          mode as "generate" | "search" | "stock"
+          mode as "generate" | "search" | "stock",
+          user.id
         );
         if (cachedUrl) {
           console.log(
@@ -456,13 +457,15 @@ export async function POST(request: Request) {
               promptType: "stock-search",
             });
 
-            // Cache tematico: próximos slides com mesma query reusam.
+            // Cache tematico: proximos slides com mesma query reusam.
+            // user.id na chave garante isolamento entre usuarios.
             if (supabaseForCache && cacheQueryKey) {
               void recordThemeImage(
                 supabaseForCache,
                 cacheQueryKey,
                 "stock",
-                pick.url
+                pick.url,
+                user.id
               );
             }
 
@@ -901,14 +904,16 @@ export async function POST(request: Request) {
                   supabase,
                 });
 
-                // Grava no cache tematico global: proximos slides/carrosseis
-                // com a mesma query reusam essa URL em vez de gastar API.
+                // Grava no cache tematico: proximos slides/carrosseis do mesmo
+                // usuario com a mesma query reusam essa URL sem gastar API.
+                // user.id na chave garante que o cache NAO vaza entre usuarios.
                 if (cacheQueryKey) {
                   await recordThemeImage(
                     supabase,
                     cacheQueryKey,
                     "generate",
-                    pub.publicUrl
+                    pub.publicUrl,
+                    user.id
                   );
                 }
 
