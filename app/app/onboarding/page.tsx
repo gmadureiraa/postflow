@@ -174,6 +174,9 @@ export default function OnboardingPage() {
 
   const [step, setStep] = useState<Step>("about");
   const [saving, setSaving] = useState(false);
+  // Fix #1: rastreia quando user pulou o connect sem vincular IG.
+  // Usado por backFrom() pra redirecionar Voltar direto ao connect.
+  const [skippedConnect, setSkippedConnect] = useState(false);
 
   // about
   const [displayName, setDisplayName] = useState("");
@@ -279,6 +282,23 @@ export default function OnboardingPage() {
 
   const goto = useCallback((next: Step) => setStep(next), []);
 
+  // Fix #1: helper de Voltar ciente de skippedConnect.
+  // Se user pulou o connect, os steps photo/visual/dna/refs voltam direto
+  // pro connect em vez de atravessar o back-stack de analyze/refs/dna.
+  const backFrom = useCallback(
+    (current: "photo" | "visual" | "dna" | "refs"): Step => {
+      if (skippedConnect) return "connect";
+      const fallbacks: Record<"photo" | "visual" | "dna" | "refs", Step> = {
+        visual: "photo",
+        photo: "dna",
+        dna: "refs",
+        refs: "analyze",
+      };
+      return fallbacks[current];
+    },
+    [skippedConnect]
+  );
+
   // ─── Run analysis: scrape → vision → brand-analysis ───
   const runAnalysis = useCallback(
     async (handleInput: string, preScraped?: ScrapedProfile) => {
@@ -300,10 +320,13 @@ export default function OnboardingPage() {
         if (preScraped) {
           scraped = preScraped;
         } else {
+          // Fix #4: timeout de 60s no cliente — evita spinner eterno se o
+          // servidor travar ou o Apify demorar além do maxDuration.
           scraped = await fetch("/api/profile-scraper", {
             method: "POST",
             headers: jsonWithAuth(session),
             body: JSON.stringify({ platform: "instagram", handle: clean }),
+            signal: AbortSignal.timeout(60_000),
           }).then(async (r) => {
             if (!r.ok) {
               const b = await r.json().catch(() => null);
@@ -320,8 +343,14 @@ export default function OnboardingPage() {
         setScrapedProfile(scraped);
         setAnalyzePhase(2);
 
+        // Fix #5: perfil privado / handle errado → 0 posts retornados.
+        // Antes, o código avançava a fase sem setar erro, deixando o botão
+        // "Continuar" desabilitado sem mensagem. Agora exibe orientação clara.
         if (!scraped.recentPosts || scraped.recentPosts.length === 0) {
-          setAnalyzePhase(6);
+          setAnalysisError(
+            "Não consegui ler posts desse perfil. Possíveis causas: (1) perfil privado, (2) conta nova sem posts, (3) @ digitado errado. Confere o handle e tenta de novo, ou pula essa etapa."
+          );
+          setAnalyzePhase(0);
           return;
         }
 
@@ -358,9 +387,11 @@ export default function OnboardingPage() {
         }
 
         setAnalyzePhase(4);
+        // Fix #4: timeout de 60s também na brand-analysis.
         const analysisRes = await fetch("/api/brand-analysis", {
           method: "POST",
           headers: jsonWithAuth(session),
+          signal: AbortSignal.timeout(60_000),
           body: JSON.stringify({
             bio: scraped.bio,
             recentPosts: scraped.recentPosts.slice(0, 12).map((p) => ({
@@ -398,8 +429,19 @@ export default function OnboardingPage() {
         setDnaPillars((analysis.suggested_pillars ?? []).join(", "));
         setAnalyzePhase(6);
       } catch (err) {
+        // Fix #4 bonus: mensagem amigável para timeout/abort.
+        const isTimeout =
+          err instanceof Error &&
+          (err.name === "TimeoutError" ||
+            err.name === "AbortError" ||
+            err.message.toLowerCase().includes("timeout") ||
+            err.message.toLowerCase().includes("aborted"));
         setAnalysisError(
-          err instanceof Error ? err.message : "Erro inesperado."
+          isTimeout
+            ? "A análise demorou demais. Pode ser perfil privado, conexão lenta ou Apify indisponível. Tenta de novo em alguns minutos."
+            : err instanceof Error
+            ? err.message
+            : "Erro inesperado."
         );
         setAnalyzePhase(0);
       } finally {
@@ -801,6 +843,7 @@ export default function OnboardingPage() {
                 setHandle={setIgHandle}
                 onBack={() => goto("about")}
                 onConnect={async () => {
+                  setSkippedConnect(false);
                   goto("analyze");
                   await runAnalysis(igHandle);
                 }}
@@ -809,7 +852,12 @@ export default function OnboardingPage() {
                   goto("analyze");
                   await runAnalysis("", profile);
                 }}
-                onSkip={() => goto("photo")}
+                onSkip={() => {
+                  // Fix #1: marca que user pulou o connect.
+                  // backFrom() usa esse flag pra redirecionar o Voltar corretamente.
+                  setSkippedConnect(true);
+                  goto("photo");
+                }}
               />
             )}
             {step === "analyze" && (
@@ -830,7 +878,7 @@ export default function OnboardingPage() {
                 key="refs"
                 urls={referencePosts}
                 setUrls={setReferencePosts}
-                onBack={() => goto("analyze")}
+                onBack={() => goto(backFrom("refs"))}
                 onNext={() => goto("dna")}
               />
             )}
@@ -853,7 +901,7 @@ export default function OnboardingPage() {
                 setStyleLine={setDnaStyle}
                 pillars={dnaPillars}
                 setPillars={setDnaPillars}
-                onBack={() => goto("refs")}
+                onBack={() => goto(backFrom("dna"))}
                 onNext={() => goto("photo")}
               />
             )}
@@ -865,7 +913,7 @@ export default function OnboardingPage() {
                 fileInputRef={fileInputRef}
                 preview={avatarDataUrl}
                 uploading={avatarUploading}
-                onBack={() => goto("dna")}
+                onBack={() => goto(backFrom("photo"))}
                 onNext={() => goto("visual")}
               />
             )}
@@ -887,7 +935,8 @@ export default function OnboardingPage() {
                 imageAesthetic={imageAesthetic}
                 aestheticAnalyzing={aestheticAnalyzing}
                 aestheticError={aestheticError}
-                onBack={() => goto("photo")}
+                onBack={() => goto(backFrom("visual"))}
+                saving={saving}
                 onNext={async () => {
                   // Salvamos o perfil antes de fechar onboarding — antes
                   // o save vinha embutido no `runGeneration`, mas como o
@@ -2308,6 +2357,7 @@ function StepVisual({
   aestheticAnalyzing,
   aestheticError,
   onBack,
+  saving,
   onNext,
 }: {
   colorHex: string;
@@ -2331,6 +2381,7 @@ function StepVisual({
   aestheticAnalyzing: boolean;
   aestheticError: string | null;
   onBack: () => void;
+  saving: boolean;
   onNext: () => void;
 }) {
   // Default = presets; se user subiu referencias, mostra custom mode.
@@ -2784,9 +2835,10 @@ function StepVisual({
         </div>
       </div>
 
+      {/* Fix #3: loading={saving} desabilita duplo-clique; label atualizado */}
       <Footer
         back={{ label: "Voltar", onClick: onBack }}
-        primary={{ label: "Ver ideias →", onClick: onNext }}
+        primary={{ label: "Finalizar →", onClick: onNext, loading: saving }}
       />
     </Card>
   );
@@ -3404,239 +3456,31 @@ function StepGenerating({
 
 // ──────────────────────────────────────────────────────────────────
 // Step: Done
+// Fix #2: reescrito para refletir o fluxo real (sem geração no onboarding).
+// Removidas referências a "carrosséis gerados", "limite consumido" e grid de
+// ideias aprovadas — tudo dependia de steps ideas/generating que foram
+// removidos em 2026-04-27. Agora celebra o DNA salvo e direciona pro app.
 // ──────────────────────────────────────────────────────────────────
 function StepDone({
-  generated,
   onGoDashboard,
   onGoCreate,
-  firstCarouselId,
-  approvedIdeas,
 }: {
-  generated: number;
+  generated?: number; // mantido na assinatura pra não quebrar chamada existente
   onGoDashboard: () => void;
   onGoCreate: () => void;
-  firstCarouselId: string | null;
-  approvedIdeas: Suggestion[];
+  firstCarouselId?: string | null; // idem
+  approvedIdeas?: Suggestion[]; // idem
 }) {
-  const [showPaywall, setShowPaywall] = useState(false);
-
-  if (showPaywall) {
-    return (
-      <Card>
-        <Eyebrow>● Último passo · Plano</Eyebrow>
-        <H1>
-          <em className="italic">Destrave</em> a sequência inteira.
-        </H1>
-        <Sub>
-          Os 3 primeiros carrosséis já consumiram o limite gratuito. Pra
-          continuar publicando no ritmo certo, escolha um plano.
-        </Sub>
-
-        <div className="grid sm:grid-cols-2 gap-3 mt-3">
-          <div
-            style={{
-              padding: 22,
-              border: "1.5px solid var(--sv-ink)",
-              background: "var(--sv-white)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            <span
-              className="uppercase"
-              style={{
-                fontFamily: "var(--sv-mono)",
-                fontSize: 10,
-                letterSpacing: "0.2em",
-                color: "var(--sv-muted)",
-              }}
-            >
-              Creator
-            </span>
-            <div
-              style={{
-                fontFamily: "var(--sv-display)",
-                fontSize: 32,
-                color: "var(--sv-ink)",
-              }}
-            >
-              R$ 49,90<span style={{ fontSize: 14 }}>/mês</span>
-            </div>
-            <ul
-              style={{
-                fontFamily: "var(--sv-sans)",
-                fontSize: 13,
-                color: "var(--sv-ink)",
-                paddingLeft: 18,
-                listStyle: "disc",
-                lineHeight: 1.6,
-              }}
-            >
-              <li>10 carrosséis / mês</li>
-              <li>Até 12 slides por carrossel</li>
-              <li>Todos os templates</li>
-              <li>Edição ilimitada</li>
-            </ul>
-          </div>
-          <div
-            style={{
-              padding: 22,
-              border: "1.5px solid var(--sv-ink)",
-              background: "var(--sv-green)",
-              boxShadow: "4px 4px 0 0 var(--sv-ink)",
-              transform: "translate(-1px, -1px)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              position: "relative",
-            }}
-          >
-            <span
-              className="uppercase"
-              style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                background: "var(--sv-ink)",
-                color: "#fff",
-                padding: "3px 8px",
-                fontFamily: "var(--sv-mono)",
-                fontSize: 9,
-                letterSpacing: "0.18em",
-                fontWeight: 700,
-              }}
-            >
-              Popular
-            </span>
-            <span
-              className="uppercase"
-              style={{
-                fontFamily: "var(--sv-mono)",
-                fontSize: 10,
-                letterSpacing: "0.2em",
-                color: "var(--sv-ink)",
-              }}
-            >
-              Pro
-            </span>
-            <div
-              style={{
-                fontFamily: "var(--sv-display)",
-                fontSize: 32,
-                color: "var(--sv-ink)",
-              }}
-            >
-              R$ 97,90<span style={{ fontSize: 14 }}>/mês</span>
-            </div>
-            <ul
-              style={{
-                fontFamily: "var(--sv-sans)",
-                fontSize: 13,
-                color: "var(--sv-ink)",
-                paddingLeft: 18,
-                listStyle: "disc",
-                lineHeight: 1.6,
-              }}
-            >
-              <li>300 carrosséis / mês</li>
-              <li>Até 12 slides por carrossel</li>
-              <li>Imagens IA + stock + cache</li>
-              <li>Suporte prioritário</li>
-            </ul>
-          </div>
-        </div>
-
-        <div
-          className="mt-8 flex items-center justify-between gap-3"
-          style={{ borderTop: "1.5px solid var(--sv-ink)", paddingTop: 20 }}
-        >
-          <button
-            onClick={onGoDashboard}
-            className="sv-btn sv-btn-ghost"
-            style={{ padding: "10px 14px", fontSize: 11 }}
-          >
-            Continuar grátis por enquanto
-          </button>
-          <button
-            onClick={() => (window.location.href = "/app/plans")}
-            className="sv-btn sv-btn-primary"
-            style={{ padding: "14px 22px", fontSize: 12 }}
-          >
-            Ver planos completos →
-          </button>
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <Eyebrow>● Passo 08 · Pronto</Eyebrow>
       <H1>
-        <em className="italic">Pronto.</em> {generated} carrossel
-        {generated === 1 ? "" : "éis"} gerado{generated === 1 ? "" : "s"}.
+        Tudo <em className="italic">pronto.</em>
       </H1>
       <Sub>
-        Cada um já está no seu editor com slides, título e imagem. Abre, refina
-        o texto e posta.
+        Seu DNA de marca está salvo. A IA já sabe seu nicho, tom e estilo
+        visual. Agora é só criar o primeiro carrossel.
       </Sub>
-
-      {approvedIdeas.length > 0 && (
-        <div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1"
-          style={{ marginBottom: 10 }}
-        >
-          {approvedIdeas.slice(0, 3).map((idea, i) => (
-            <div
-              key={idea.id}
-              style={{
-                padding: 14,
-                border: "1.5px solid var(--sv-ink)",
-                background: "var(--sv-white)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                minHeight: 140,
-              }}
-            >
-              <span
-                className="uppercase"
-                style={{
-                  fontFamily: "var(--sv-mono)",
-                  fontSize: 9,
-                  letterSpacing: "0.2em",
-                  color: "var(--sv-muted)",
-                }}
-              >
-                Carrossel {i + 1}
-              </span>
-              <h4
-                style={{
-                  fontFamily: "var(--sv-display)",
-                  fontSize: 16,
-                  lineHeight: 1.2,
-                  color: "var(--sv-ink)",
-                }}
-              >
-                {idea.title}
-              </h4>
-              {idea.angle && (
-                <p
-                  style={{
-                    fontFamily: "var(--sv-sans)",
-                    fontSize: 11,
-                    color: "var(--sv-muted)",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {idea.angle.slice(0, 100)}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       <div
         className="flex flex-col gap-3 mt-2"
@@ -3655,18 +3499,24 @@ function StepDone({
             color: "var(--sv-ink)",
           }}
         >
-          Heads up
+          O que foi salvo
         </span>
-        <span
+        <ul
           style={{
             fontFamily: "var(--sv-sans)",
             fontSize: 13,
             color: "var(--sv-ink)",
+            paddingLeft: 18,
+            listStyle: "disc",
+            lineHeight: 1.8,
+            margin: 0,
           }}
         >
-          Esses 3 carrosséis já consumiram seu limite gratuito. Continuar
-          publicando com frequência = plano Creator ou Pro.
-        </span>
+          <li>Nicho e pilares de conteúdo</li>
+          <li>Tom de voz detectado</li>
+          <li>Cor de destaque e template de design</li>
+          <li>Referências visuais (se enviadas)</li>
+        </ul>
       </div>
 
       <div
@@ -3674,23 +3524,18 @@ function StepDone({
         style={{ borderTop: "1.5px solid var(--sv-ink)", paddingTop: 20 }}
       >
         <button
-          onClick={
-            firstCarouselId
-              ? () =>
-                  (window.location.href = `/app/create/${firstCarouselId}/edit`)
-              : onGoCreate
-          }
+          onClick={onGoDashboard}
           className="sv-btn sv-btn-ghost"
           style={{ padding: "10px 14px", fontSize: 11 }}
         >
-          Editar primeiro carrossel
+          Ver dashboard
         </button>
         <button
-          onClick={() => setShowPaywall(true)}
+          onClick={onGoCreate}
           className="sv-btn sv-btn-primary"
           style={{ padding: "14px 22px", fontSize: 12 }}
         >
-          Continuar →
+          Criar primeiro carrossel →
         </button>
       </div>
     </Card>
