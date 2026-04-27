@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:demos": "npx tsx scripts/seed-demo-carousels.ts",
-    "assets:landing": "bun scripts/generate-landing-assets.ts"
+    "assets:landing": "bun scripts/generate-landing-assets.ts",
+    "assets:optimize": "bun scripts/optimize-images.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -88,6 +89,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"
