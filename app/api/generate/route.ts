@@ -1,4 +1,9 @@
 import type { DesignTemplateId } from "@/lib/carousel-templates";
+import {
+  buildTemplateLockBlock,
+  getDesignTemplateMeta,
+  normalizeDesignTemplate,
+} from "@/lib/carousel-templates";
 
 /**
  * Extrai "ordens diretas" do briefing do usuário — título fixo entre aspas,
@@ -474,7 +479,14 @@ ${voiceSamples ? `- Voice samples (imite ritmo e estrutura, NÃO copie literalme
     const mode: GenerationMode =
       body.mode === "layout-only" ? "layout-only" : "writer";
     const useFactCheckFlag = body.useFactCheck === true;
-    // designTemplate no body é ignorado: mesmo prompt v1 para qualquer visual escolhido no cliente.
+    // designTemplate AGORA é respeitado pelo writer (2026-04-25 — fix de fidelidade visual).
+    // Antes era ignorado e o carrossel saía fora da referência. Hoje o template trava:
+    //  - quantidade de slides (blockCount)
+    //  - paleta (preferPalette / avoidPalette)
+    //  - modifier estético injetado em TODAS as imageQuery
+    //  - style guide narrativo coerente com o visual
+    const designTemplateNormalized = normalizeDesignTemplate(body.designTemplate);
+    const templateLockBlock = buildTemplateLockBlock(designTemplateNormalized);
 
     // Sanitiza campos do modo avançado — proteção contra prompt injection e tamanhos absurdos.
     const advCustomCta =
@@ -680,7 +692,11 @@ Se algum desses itens contradizer outra instrução genérica, o direcionamento 
       : "";
 
     // ── LAYOUT-ONLY MODE — prompt minimalista, NÃO escreve ──
+    // 2026-04-25: templateLockBlock também aqui — mesmo no layout-only o
+    // template trava blockCount, variants permitidas e modifier do imageQuery.
     const layoutOnlyPrompt = `Você é um FORMATADOR de texto em slides de carrossel. O usuário já escreveu o conteúdo. Sua ÚNICA função é distribuir esse texto em slides de Instagram/LinkedIn.
+
+${templateLockBlock}
 
 ${languageInstruction}
 
@@ -795,7 +811,13 @@ Se ignorar essas regras: ref vira "inspiração solta" e o carrossel sai fora do
     // - "CONTAGEM E EXEMPLOS CONCRETOS" (fundido em GROUND TRUTH)
     // - "STORY ARC CHECK" (fundido em QUALITY GATES)
     // - Niche guide com 4 parágrafos de refs → 1 linha por nicho
+    //
+    // 2026-04-25: templateLockBlock injetado NO TOPO. Sem isso, o writer
+    // ignora o template visual e gera slides com layout/paleta/quantidade
+    // fora da referência. Bloco vence qualquer regra estética abaixo.
     const writerPrompt = `You are the senior editorial director of BrandsDecoded meets Morning Brew meets Paul Graham. Every slide is a scene that earns the next swipe.
+
+${templateLockBlock}
 
 # LINGUAGEM (obrigatória)
 Escreva como se uma criança de 12 anos precisasse entender sem reler. Frases máx 18 palavras. Zero jargão, zero corporês. Se não falaria em conversa com amigo, reescreva. Exceção: tom analítico pode usar 1-2 termos do nicho que o leitor reconhece.

@@ -25,6 +25,10 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import {
+  getDesignTemplateMeta,
+  type DesignTemplateId,
+} from "@/lib/carousel-templates";
 
 const TIMEOUT_MS = 12_000;
 
@@ -88,6 +92,13 @@ export interface ImageDeciderInput {
    * "menos saturação", "sem pessoas com rosto na frente". Peso ALTO.
    */
   imageRules?: string[];
+  /**
+   * Template visual escolhido pelo user. Decider usa pra ajustar style guide,
+   * paleta e modifier estético do StructuredImagePrompt — garantindo que
+   * imagens fiquem coerentes com a referência visual do template (manifesto,
+   * twitter, ambitious, blank, etc).
+   */
+  designTemplate?: DesignTemplateId;
 }
 
 /**
@@ -172,7 +183,26 @@ function buildDeciderPrompt(input: ImageDeciderInput): string {
     brandAesthetic,
     facts,
     imageRules,
+    designTemplate,
   } = input;
+
+  // Template lock — força o decider a respeitar paleta + modifier estético
+  // do template visual. Sem isso, ele inventa palette própria que conflita
+  // com o template render.
+  const tmplMeta = designTemplate
+    ? getDesignTemplateMeta(designTemplate)
+    : null;
+  const templateBlock = tmplMeta
+    ? `
+## TEMPLATE VISUAL ESCOLHIDO (REGRA INVIOLÁVEL — não improvise)
+- Template: "${tmplMeta.name}" (id: ${tmplMeta.id})
+- Style guide: ${tmplMeta.styleGuidePrompt}
+- Modifier estético OBRIGATÓRIO em todas as 8 imagens deste carrossel: "${tmplMeta.slideAestheticModifier}"
+- Paleta PREFERIDA (use só essas cores no campo palette do StructuredImagePrompt): ${tmplMeta.preferPalette.join(", ")}
+- Paleta PROIBIDA (NUNCA use, conflita com accent): ${tmplMeta.avoidPalette.join(", ") || "(nenhuma)"}
+
+Se você gerar StructuredImagePrompt, o campo palette DEVE conter APENAS cores do "preferida". Mood + lighting devem ser coerentes com o style guide acima.`
+    : "";
 
   const factsBlock =
     facts && (facts.entities.length || facts.dataPoints.length || facts.summary.length)
@@ -221,6 +251,7 @@ ${tone ? `- Tom: ${tone}` : ""}
 ${brandAesthetic ? `- Estética da marca: ${brandAesthetic.slice(0, 300)}` : ""}
 ${factsBlock}
 ${imageRulesBlock}
+${templateBlock}
 
 REGRAS DE OUTPUT:
 

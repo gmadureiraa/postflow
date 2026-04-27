@@ -6,6 +6,11 @@ import { checkRateLimit, getRateLimitKey } from "@/lib/server/rate-limit";
 import { geminiWithRetry } from "@/lib/server/gemini-retry";
 import { GoogleGenAI } from "@google/genai";
 import { costForTokens, recordGeneration } from "@/lib/server/generation-log";
+import {
+  getDesignTemplateMeta,
+  normalizeDesignTemplate,
+  type DesignTemplateId,
+} from "@/lib/carousel-templates";
 
 export const maxDuration = 15;
 
@@ -15,6 +20,8 @@ interface CoverSceneRequest {
   niche?: string;
   tone?: string;
   brandAesthetic?: string;
+  /** Template visual escolhido — trava style guide + modifier estético. */
+  designTemplate?: DesignTemplateId;
 }
 
 interface CoverScenePayload {
@@ -70,6 +77,13 @@ export async function POST(request: Request) {
   const niche = (body.niche || "").slice(0, 80);
   const tone = (body.tone || "").slice(0, 80);
   const brandAesthetic = (body.brandAesthetic || "").slice(0, 1500);
+  // Template lock — cover-scene respeita style guide + modifier do template
+  // visual. Sem isso, a "cena cinematográfica" sai do mood do template
+  // (ex: tema editorial Manifesto recebia cena tech neon Futurista).
+  const tmplId = body.designTemplate
+    ? normalizeDesignTemplate(body.designTemplate)
+    : null;
+  const tmplMeta = tmplId ? getDesignTemplateMeta(tmplId) : null;
 
   const geminiKey = process.env.GEMINI_API_KEY;
   if (!geminiKey) {
@@ -107,10 +121,21 @@ export async function POST(request: Request) {
   //   [textures]. [Aspect ratio]."
   // We output field-by-field so the image route can assemble a tight,
   // well-structured prompt for Imagen.
+  const templateBlock = tmplMeta
+    ? `\nTEMPLATE VISUAL ESCOLHIDO (REGRA INVIOLÁVEL — não improvise):
+- Nome: "${tmplMeta.name}" (id: ${tmplMeta.id})
+- Style guide: ${tmplMeta.styleGuidePrompt}
+- Modifier estético OBRIGATÓRIO em todas as imagens deste carrossel: "${tmplMeta.slideAestheticModifier}"
+- Paleta preferida: ${tmplMeta.preferPalette.join(", ")}
+- Paleta proibida: ${tmplMeta.avoidPalette.join(", ") || "(nenhuma)"}
+
+A cena cinematográfica deve estar dentro do mood + paleta + textura do template acima. Se o tema do briefing parecer pedir um mood diferente do template, o TEMPLATE VENCE.\n`
+    : "";
+
   const prompt = `Você é um diretor de arte editorial cinematográfico. Receba o tema do slide de capa de um carrossel e devolva uma DESCRIÇÃO VISUAL estruturada pra alimentar um gerador de imagem (Imagen 4 / Gemini Image).
 
 O resultado precisa parecer CAPA DE REVISTA ou POSTER DE NETFLIX, não stock photo. Reference: BrandsDecoded Instagram (editorial premium, composição narrativa forte, iluminação dramática, metáforas visuais).
-
+${templateBlock}
 TEMA DA CAPA:
 """
 Título: ${heading}

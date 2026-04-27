@@ -321,6 +321,8 @@ export async function POST(request: Request) {
           tone,
           brandAesthetic: brandAesthetic || undefined,
           imageRules: imageRules.length > 0 ? imageRules : undefined,
+          // Template lock — decider respeita paleta + modifier estético do template.
+          designTemplate: tmplId,
           facts: factsFromBody
             ? {
                 entities: Array.isArray(factsFromBody.entities)
@@ -573,6 +575,8 @@ export async function POST(request: Request) {
                     niche,
                     tone,
                     brandAesthetic: brandAesthetic || undefined,
+                    // Template lock — cover-scene respeita style guide visual.
+                    designTemplate: tmplId,
                   }),
                   signal: AbortSignal.timeout(12_000),
                 }
@@ -627,6 +631,15 @@ export async function POST(request: Request) {
           const NEGATIVE_PROMPT =
             "text, letters, numbers, words, typography, captions, titles, subtitles, headlines, logos, watermarks, brand names, signs, billboards, book covers, magazine covers, newspaper, screen UI, phone UI, app UI, website screenshot, t-shirt print, road sign, license plate, poster text, neon sign, street sign, shop sign, written language, readable characters";
 
+          // Modifier estético único do template — repete em TODAS as 8
+          // imagens do mesmo carrossel pra coerência visual entre slides.
+          // Sem isso, cada slide saía com mood/lighting próprios e o
+          // carrossel parecia uma colagem de templates diferentes.
+          // Bloco STYLE GUIDE + MODIFIER agora vai em TODAS as branches
+          // (cover, structured, inner, twitter) — antes só ia em cover/structured.
+          const styleGuideLine = `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`;
+          const modifierLine = `SHARED AESTHETIC MODIFIER (must be applied to EVERY slide in this carousel for visual consistency): ${tmplMeta.slideAestheticModifier}.`;
+
           let imagePrompt: string;
           if (structuredPromptOverride) {
             // DECIDER OVERRIDE: prompt veio do image-decider como
@@ -641,7 +654,8 @@ export async function POST(request: Request) {
               NO_TEXT_HEADER,
               aestheticPrefix,
               userImageRulesBlock,
-              `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
+              styleGuideLine,
+              modifierLine,
               isCover && !isTwitterTpl ? cinematicBase : "",
               isCover && !isTwitterTpl ? coverBoost : "",
               structuredBody,
@@ -660,7 +674,8 @@ export async function POST(request: Request) {
               NO_TEXT_HEADER,
               aestheticPrefix,
               userImageRulesBlock,
-              `TEMPLATE STYLE GUIDE (${tmplMeta.name}): ${tmplMeta.styleGuidePrompt}`,
+              styleGuideLine,
+              modifierLine,
               cinematicBase,
               coverBoost,
               "FORMAT: A photorealistic cinematic medium shot.",
@@ -683,6 +698,10 @@ export async function POST(request: Request) {
               .join(" ");
           } else {
             // Inner slide OR twitter template — lean prompt for speed.
+            // 2026-04-25: agora também recebe styleGuide + modifier completos.
+            // Antes só passava o nome do template, o que deixava a Imagen
+            // livre pra inventar mood/paleta/textura — quebrava a coerência
+            // visual do carrossel inteiro.
             const coreSubject = slideThemeHint
               ? `${slideThemeHint}. Visual focus: ${query}.`
               : query;
@@ -690,7 +709,8 @@ export async function POST(request: Request) {
               NO_TEXT_HEADER,
               aestheticPrefix,
               userImageRulesBlock,
-              `TEMPLATE STYLE: ${tmplMeta.name}.`,
+              styleGuideLine,
+              modifierLine,
               `Subject: ${coreSubject}`,
               isTwitterTpl
                 ? "Clean documentary photography, natural light, sharp focus on subject, neutral background, 1:1 Instagram square."

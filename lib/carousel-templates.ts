@@ -3,6 +3,20 @@
  * - Render visual (em components/app/templates/)
  * - Style guide de imagem (Imagen + Serper qualifiers)
  * - Paleta e mood coerentes entre os 8 slides de um carrossel
+ *
+ * REGRA INVIOLÁVEL: ao renderizar um carrossel, o conteúdo (texto, variants,
+ * imageQuery) e as imagens (Imagen/Flash/Stock) DEVEM seguir EXATAMENTE os
+ * campos abaixo. NUNCA improvisar tipografia, paleta ou layout fora dessas
+ * specs. Se o briefing do user contradiz o template, o TEMPLATE VENCE — o
+ * briefing é adaptado.
+ *
+ * Campos críticos (todos obrigatórios pra fidelidade):
+ *   - styleGuidePrompt   → injetado em TODOS os prompts de imagem (cover/inner/structured)
+ *   - slideAestheticModifier → modifier curto que repete em TODAS as 8 imagens do mesmo
+ *                              carrossel pra coerência visual entre slides
+ *   - preferPalette      → cores que o Imagen DEVE favorecer
+ *   - avoidPalette       → cores que o Imagen JAMAIS pode usar (conflitam com accent)
+ *   - blockCount         → número alvo de slides do template (writer respeita)
  */
 
 export type DesignTemplateId =
@@ -201,6 +215,51 @@ export const EDITORIAL_BG_LIGHT = "#fafafa";
 
 export function getDesignTemplateMeta(id: DesignTemplateId) {
   return DESIGN_TEMPLATES.find((t) => t.id === id) ?? DESIGN_TEMPLATES[0];
+}
+
+/**
+ * Bloco de regras INVIOLÁVEIS do template — injetado no system prompt do
+ * Gemini writer ANTES de qualquer outra regra estética. Garante que o conteúdo
+ * gerado (heading, body, variants, imageQuery) segue EXATAMENTE o template
+ * escolhido pelo usuário. Sem isso, o writer "improvisa" e o carrossel sai
+ * fora da referência visual.
+ *
+ * Use em `app/api/generate/route.ts` antes do bloco de archetypes.
+ */
+export function buildTemplateLockBlock(id: DesignTemplateId): string {
+  const meta = getDesignTemplateMeta(id);
+  const blocks = meta.blockCount;
+  const palettePrefer = meta.preferPalette.join(", ");
+  const paletteAvoid =
+    meta.avoidPalette.length > 0
+      ? meta.avoidPalette.join(", ")
+      : "(nenhuma restrição extra)";
+  return `# 🔒 REGRA INVIOLÁVEL DE TEMPLATE — "${meta.name}" (id: ${id})
+O usuário escolheu o template "${meta.name}". Cada slide e cada imagem DEVEM seguir EXATAMENTE essas specs. Você NÃO PODE inventar tipografia, paleta, layout ou modifier fora delas.
+
+ESTRUTURA:
+- Quantidade de slides alvo: ${blocks} (aceita 6-10, mas mire em ${blocks}).
+- Slide 1 SEMPRE variant="cover". Último slide SEMPRE variant="cta".
+
+STYLE GUIDE (vai pro Imagen, não cole literalmente no body do slide):
+${meta.styleGuidePrompt}
+
+MODIFIER ESTÉTICO ÚNICO (use o MESMO em todos os ${blocks} slides — image consistency):
+"${meta.slideAestheticModifier}"
+
+PALETA:
+- USAR APENAS: ${palettePrefer}
+- NUNCA usar: ${paletteAvoid}
+
+IMAGE QUERY (campo imageQuery do JSON):
+- 4-8 palavras em inglês, cena concreta DESSE slide.
+- Termina SEMPRE com o modifier acima (todas as 8 image queries do carrossel devem terminar com a mesma sequência).
+- Exemplo: "founder late night laptop ${meta.slideAestheticModifier}".
+
+DESCRIÇÃO DO TEMPLATE:
+${meta.desc}
+
+Se o briefing do user contradiz alguma dessas specs, o TEMPLATE VENCE. Adapte o briefing ao template, não o contrário.`;
 }
 
 const VALID_TEMPLATE_IDS: readonly DesignTemplateId[] = [
