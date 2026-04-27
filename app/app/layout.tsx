@@ -86,6 +86,180 @@ function planShortLabel(plan: string | undefined): string {
   return p;
 }
 
+/**
+ * Card de plano + barra de uso. Cores da barra:
+ *  - 0-69% verde (sv-green)
+ *  - 70-89% amarelo (sv-yellow ou amber 400)
+ *  - 90-100% laranja/accent (alert)
+ * Business é "ilimitado" (limit costuma ser >= 9999) — esconde a barra.
+ */
+function PlanCard({
+  profile,
+  planIsFree,
+  onNavigate,
+}: {
+  profile: ReturnType<typeof useAuth>["profile"];
+  planIsFree: boolean;
+  onNavigate: () => void;
+}) {
+  const used = profile?.usage_count ?? 0;
+  const limit = profile?.usage_limit ?? 5;
+  // Plano business tem limit >= 9999 ou plan === "business" — tratamos como ∞.
+  const isUnlimited = profile?.plan === "business" || limit >= 9999;
+  const ratio = isUnlimited
+    ? 0
+    : Math.min(1, Math.max(0, used / Math.max(1, limit)));
+  const pct = Math.round(ratio * 100);
+
+  // Cor progressiva: verde até 70%, amber até 90%, accent acima.
+  let barColor = "var(--sv-green)";
+  let barText = "var(--sv-ink)";
+  if (ratio >= 0.9) {
+    barColor = "#FF5842"; // accent laranja Kaleidos — sinaliza limite
+    barText = "var(--sv-paper)";
+  } else if (ratio >= 0.7) {
+    barColor = "#F4C453"; // amber 400 — atenção
+    barText = "var(--sv-ink)";
+  }
+
+  if (planIsFree) {
+    return (
+      <Link
+        href="/app/plans"
+        onClick={onNavigate}
+        className="block rounded-lg p-3.5 mb-2 transition-all"
+        style={{
+          background: "var(--sv-green)",
+          color: "var(--sv-ink)",
+          border: "1.5px solid var(--sv-paper)",
+          boxShadow: "3px 3px 0 0 rgba(255,255,255,0.15)",
+        }}
+      >
+        <div
+          className="mb-1"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: "8.5px",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            opacity: 0.75,
+            fontWeight: 700,
+          }}
+        >
+          Plano Grátis
+        </div>
+        <div
+          className="flex items-center justify-between gap-2"
+          style={{
+            fontFamily: "var(--sv-sans)",
+            fontSize: "13px",
+            fontWeight: 700,
+          }}
+        >
+          <span>
+            {used}/{limit} carrosséis
+          </span>
+          <span>→</span>
+        </div>
+        {/* Usage bar — só free tem barra (free=5/mês, evidente o limite) */}
+        <div
+          className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
+          style={{ background: "rgba(10,10,10,0.18)" }}
+          aria-label={`Uso: ${used} de ${limit} carrosséis (${pct}%)`}
+        >
+          <div
+            style={{
+              width: `${Math.max(4, pct)}%`,
+              height: "100%",
+              background: barColor,
+              transition: "width 0.4s ease",
+            }}
+          />
+        </div>
+      </Link>
+    );
+  }
+
+  // Pro/Business — não-link (já está em plano pago).
+  return (
+    <div
+      className="rounded-lg p-3 mb-2"
+      style={{
+        background: "transparent",
+        border: "1.5px solid rgba(247,245,239,0.18)",
+        color: "var(--sv-paper)",
+      }}
+    >
+      <div
+        className="mb-1 flex items-center justify-between gap-2"
+        style={{
+          fontFamily: "var(--sv-mono)",
+          fontSize: "8.5px",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "rgba(247,245,239,0.55)",
+          fontWeight: 700,
+        }}
+      >
+        <span>Plano {planShortLabel(profile?.plan)}</span>
+        {!isUnlimited && (
+          <span style={{ color: "rgba(247,245,239,0.85)" }}>
+            {used}/{limit}
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--sv-sans)",
+          fontSize: "13px",
+          fontWeight: 700,
+        }}
+      >
+        {isUnlimited
+          ? "Uso ilimitado ∞"
+          : profile?.plan === "pro"
+            ? "Pro ativo"
+            : "Plano ativo"}
+      </div>
+      {/* Pro também mostra barra (30/mês) — vira sinal de upgrade pra business */}
+      {!isUnlimited && (
+        <div
+          className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
+          style={{ background: "rgba(247,245,239,0.12)" }}
+          aria-label={`Uso: ${used} de ${limit} carrosséis (${pct}%)`}
+        >
+          <div
+            style={{
+              width: `${Math.max(4, pct)}%`,
+              height: "100%",
+              background: barColor,
+              transition: "width 0.4s ease",
+            }}
+          />
+        </div>
+      )}
+      {/* Aviso quando >= 90% — sugere upgrade no card pro */}
+      {!isUnlimited && ratio >= 0.9 && profile?.plan === "pro" && (
+        <Link
+          href="/app/plans"
+          onClick={onNavigate}
+          className="mt-2 block text-center"
+          style={{
+            fontFamily: "var(--sv-mono)",
+            fontSize: "9px",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: barText === "var(--sv-paper)" ? "#FF5842" : "var(--sv-green)",
+            fontWeight: 700,
+          }}
+        >
+          → Subir pra Business
+        </Link>
+      )}
+    </div>
+  );
+}
+
 function breadcrumbFor(pathname: string): { kicker: string; title: string } {
   // Mapa exato
   const map: Record<string, { kicker: string; title: string }> = {
@@ -344,77 +518,8 @@ function SidebarContent({
       {/* Spacer */}
       <div className="flex-1 min-h-[20px]" />
 
-      {/* Plan card */}
-      {planIsFree ? (
-        <Link
-          href="/app/plans"
-          onClick={onNavigate}
-          className="block rounded-lg p-3.5 mb-2 transition-all"
-          style={{
-            background: "var(--sv-green)",
-            color: "var(--sv-ink)",
-            border: "1.5px solid var(--sv-paper)",
-            boxShadow: "3px 3px 0 0 rgba(255,255,255,0.15)",
-          }}
-        >
-          <div
-            className="mb-1"
-            style={{
-              fontFamily: "var(--sv-mono)",
-              fontSize: "8.5px",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              opacity: 0.75,
-              fontWeight: 700,
-            }}
-          >
-            Plano Grátis
-          </div>
-          <div
-            className="flex items-center justify-between gap-2"
-            style={{
-              fontFamily: "var(--sv-sans)",
-              fontSize: "13px",
-              fontWeight: 700,
-            }}
-          >
-            <span>Ver planos</span>
-            <span>→</span>
-          </div>
-        </Link>
-      ) : (
-        <div
-          className="rounded-lg p-3 mb-2"
-          style={{
-            background: "transparent",
-            border: "1.5px solid rgba(247,245,239,0.18)",
-            color: "var(--sv-paper)",
-          }}
-        >
-          <div
-            className="mb-1"
-            style={{
-              fontFamily: "var(--sv-mono)",
-              fontSize: "8.5px",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "rgba(247,245,239,0.55)",
-              fontWeight: 700,
-            }}
-          >
-            Plano {planShortLabel(profile?.plan)}
-          </div>
-          <div
-            style={{
-              fontFamily: "var(--sv-sans)",
-              fontSize: "13px",
-              fontWeight: 700,
-            }}
-          >
-            {profile?.plan === "pro" ? "Pro ativo" : "Business ativo"}
-          </div>
-        </div>
-      )}
+      {/* Plan card + usage indicator (bar verde→amarelo→vermelho) */}
+      <PlanCard profile={profile} planIsFree={planIsFree} onNavigate={onNavigate} />
 
       {/* User row */}
       <div
