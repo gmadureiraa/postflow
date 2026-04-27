@@ -135,8 +135,11 @@ type Step =
   | "dna"
   | "photo"
   | "visual"
-  | "ideas"
-  | "generating"
+  // "ideas" e "generating" temporariamente desativados (2026-04-27):
+  // /api/suggestions tava lento e atrasava o end-to-end do onboarding.
+  // Componentes StepIdeas e StepGenerating ficam no código pra reativar
+  // quando o backend de sugestões ficar performant. Fluxo agora vai
+  // visual → done direto.
   | "done";
 
 const STEP_ORDER: Step[] = [
@@ -147,8 +150,6 @@ const STEP_ORDER: Step[] = [
   "dna",
   "photo",
   "visual",
-  "ideas",
-  "generating",
   "done",
 ];
 
@@ -581,9 +582,12 @@ export default function OnboardingPage() {
     }
   }, [session, dnaNiches, dnaTone, updateProfile]);
 
-  useEffect(() => {
-    if (step === "ideas" && ideas.length === 0) void regenIdeas();
-  }, [step, ideas.length, regenIdeas]);
+  // Auto-fetch de ideias quando step="ideas" — desativado em 2026-04-27
+  // junto com a remoção do step do fluxo. Mantido como void uso pra evitar
+  // unused-var warnings quando reativar.
+  void ideas;
+  void ideasLoading;
+  void regenIdeas;
 
   const toggleIdea = (idea: Suggestion) => {
     setApprovedIdeas((prev) => {
@@ -594,19 +598,10 @@ export default function OnboardingPage() {
     });
   };
 
-  // ─── Save profile + generate 3 carousels ───
-  const generationStartedRef = useRef(false);
-  useEffect(() => {
-    if (step !== "generating" || generationStartedRef.current) return;
-    generationStartedRef.current = true;
-    void runGeneration();
-    // Reset quando sair de "generating" — se user voltar ou remount, tenta
-    // de novo em vez de skip silencioso.
-    return () => {
-      if (step !== "generating") generationStartedRef.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  // ─── Auto-trigger de generation quando entra em step="generating" —
+  // desativado em 2026-04-27 (step removido do fluxo). runGeneration
+  // continua disponível pra eventual reativação manual.
+  void runGeneration;
 
   async function saveProfileBeforeGeneration() {
     const pillars = dnaPillars
@@ -893,28 +888,32 @@ export default function OnboardingPage() {
                 aestheticAnalyzing={aestheticAnalyzing}
                 aestheticError={aestheticError}
                 onBack={() => goto("photo")}
-                onNext={() => goto("ideas")}
+                onNext={async () => {
+                  // Salvamos o perfil antes de fechar onboarding — antes
+                  // o save vinha embutido no `runGeneration`, mas como o
+                  // step generating foi removido (2026-04-27), garantimos
+                  // a persistência aqui no último passo do fluxo ativo.
+                  setSaving(true);
+                  try {
+                    await saveProfileBeforeGeneration();
+                  } catch (err) {
+                    toast.error(
+                      err instanceof Error
+                        ? err.message
+                        : "Falha ao salvar perfil."
+                    );
+                    setSaving(false);
+                    return;
+                  }
+                  setSaving(false);
+                  goto("done");
+                }}
               />
             )}
-            {step === "ideas" && (
-              <StepIdeas
-                key="ideas"
-                ideas={ideas}
-                approvedIdeas={approvedIdeas}
-                loading={ideasLoading}
-                onToggle={toggleIdea}
-                onRegen={regenIdeas}
-                onBack={() => goto("visual")}
-                onNext={() => goto("generating")}
-              />
-            )}
-            {step === "generating" && (
-              <StepGenerating
-                key="gen"
-                progress={genProgress}
-                saving={saving}
-              />
-            )}
+            {/* Steps "ideas" e "generating" temporariamente removidos do fluxo
+                (2026-04-27, lentidão de /api/suggestions). Componentes
+                preservados no arquivo pra reativar quando o backend de
+                sugestões estiver mais rápido. */}
             {step === "done" && (
               <StepDone
                 key="done"
