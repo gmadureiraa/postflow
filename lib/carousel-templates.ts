@@ -25,7 +25,8 @@ export type DesignTemplateId =
   | "futurista"
   | "autoral"
   | "ambitious"
-  | "blank";
+  | "blank"
+  | "bohdan";
 
 /** Template default quando nada é especificado. */
 export const DEFAULT_DESIGN_TEMPLATE: DesignTemplateId = "manifesto";
@@ -189,6 +190,25 @@ export const DESIGN_TEMPLATES: DesignTemplateMeta[] = [
     avoidPalette: ["#00F0A0", "#1D9BF0", "#7CF067"],
   },
   {
+    id: "bohdan",
+    emoji: "◐",
+    name: "Bohdan Editorial",
+    desc: "Editorial design-forward: foto B&W contraste alto + serif italic dramático em lime + handwritten accents (ref: @jeremybohdan).",
+    color: "#C8FF3D",
+    blockCount: 10,
+    figmaLabel: "Template Bohdan",
+    imageSearchStyleHint:
+      "high contrast black and white photography editorial portrait designer studio creative process film grain monochrome -watermark -shutterstock -getty -istock",
+    imageGenRealismFragment:
+      "High contrast black and white editorial photograph, deep shadows, bright highlights, monochrome only — no color tint anywhere. Looks like a real photo from a design magazine, not illustration, not 3D render.",
+    styleGuidePrompt:
+      "High contrast black and white editorial photography in design / creative reference aesthetic: pure monochrome (no color tint), deep blacks, crisp highlights, soft mid-greys, gentle film grain. Subjects: designer at work, hands sketching, creative studio detail, model portrait dramatic light, IG mockup flat lays, paper and pen workspace, single solo figure intense focus. Camera: medium format mono (Hasselblad 500CM), f/2.8, single hard light source. Mood: silent, intentional, design-forward, magazine cover. Composition: centered or rule-of-thirds, generous negative space, room for typography overlay. STRICTLY MONOCHROME — never any colored objects, never sepia, never blue tone. Keep it true black-and-white so the lime accent in typography pops. AVOID: full color photography, sepia tone, blue cast, 3D render, illustration, anime, stock corporate smiling.",
+    slideAestheticModifier:
+      "high contrast black and white photography monochrome film grain editorial design studio mood",
+    preferPalette: ["#0E0E0E", "#C8FF3D", "#FAFAF7", "#FFFFFF"],
+    avoidPalette: ["#1D9BF0", "#D262B2", "#00F0A0", "#EACB7C", "#7CF067"],
+  },
+  {
     id: "blank",
     emoji: "✦",
     name: "Blank Editorial",
@@ -269,6 +289,7 @@ const VALID_TEMPLATE_IDS: readonly DesignTemplateId[] = [
   "twitter",
   "ambitious",
   "blank",
+  "bohdan",
 ];
 
 /** Normaliza qualquer string em um DesignTemplateId válido (default: manifesto). */
@@ -295,6 +316,7 @@ export const CONTENT_MACHINE_RENDER_SPECS: Record<
   twitter: { blocks: 10, rules: CONTENT_MACHINE_NARRATIVE_RULES },
   ambitious: { blocks: 8, rules: CONTENT_MACHINE_NARRATIVE_RULES },
   blank: { blocks: 10, rules: CONTENT_MACHINE_NARRATIVE_RULES },
+  bohdan: { blocks: 10, rules: CONTENT_MACHINE_NARRATIVE_RULES },
 };
 
 export function usesNativeSlidePreview(_template: DesignTemplateId): boolean {

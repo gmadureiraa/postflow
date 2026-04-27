@@ -111,6 +111,23 @@ const BLANK: string[] = [
   IMG("photo-1513623935135-c896b59073c1"), // field creative
 ];
 
+/**
+ * Bohdan — fotografia design-forward B&W contraste alto: designer no
+ * estúdio, mockups, esboços, retratos editoriais (ref: @jeremybohdan).
+ */
+const BOHDAN: string[] = [
+  IMG("photo-1494389945381-d9b18b9a2cef"), // dramatic portrait B&W
+  IMG("photo-1542038784456-1ea8e935640e"), // designer hands sketching
+  IMG("photo-1455849318743-b2233052fcff"), // editorial portrait
+  IMG("photo-1517649763962-0c623066013b"), // model contrast shadow
+  IMG("photo-1453928582365-b6ad33cbcf64"), // creative studio detail
+  IMG("photo-1491895200222-0fc4a4c35e18"), // designer at desk B&W
+  IMG("photo-1542736667-069246bdbc6d"), // mockups flat lay
+  IMG("photo-1503342217505-b0a15ec3261c"), // intense portrait close
+  IMG("photo-1516214104703-d870798883c5"), // hands typing dramatic
+  IMG("photo-1517363898874-737b62a7db91"), // creative lab B&W
+];
+
 const POOLS: Record<TemplateId, string[]> = {
   manifesto: MANIFESTO,
   futurista: FUTURISTA,
@@ -118,6 +135,7 @@ const POOLS: Record<TemplateId, string[]> = {
   twitter: TWITTER,
   ambitious: AMBITIOUS,
   blank: BLANK,
+  bohdan: BOHDAN,
 };
 
 /**

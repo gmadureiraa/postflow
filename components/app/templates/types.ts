@@ -11,7 +11,8 @@ export type TemplateId =
   | "autoral"
   | "twitter"
   | "ambitious"
-  | "blank";
+  | "blank"
+  | "bohdan";
 
 export type SlideVariantName =
   | "cover"

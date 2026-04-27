@@ -7,6 +7,7 @@ import TemplateAutoral from "./template-autoral";
 import TemplateTwitter from "./template-twitter";
 import TemplateAmbitious from "./template-ambitious";
 import TemplateBlank from "./template-blank";
+import TemplateBohdan from "./template-bohdan";
 import type { SlideProps, TemplateId, TemplateMeta } from "./types";
 
 export type { SlideProps, TemplateId, TemplateMeta } from "./types";
@@ -32,6 +33,8 @@ export const TemplateRenderer = forwardRef<
       return <TemplateAmbitious ref={ref} {...rest} />;
     case "blank":
       return <TemplateBlank ref={ref} {...rest} />;
+    case "bohdan":
+      return <TemplateBohdan ref={ref} {...rest} />;
     default:
       return <TemplateTwitter ref={ref} {...rest} />;
   }
@@ -75,6 +78,12 @@ export const TEMPLATES_META: TemplateMeta[] = [
     kicker: "Nº 06 · EDITORIAL MIX",
     palette: ["#F9F9F9", "#222222", "#111111"],
   },
+  {
+    id: "bohdan",
+    name: "Bohdan",
+    kicker: "Nº 07 · DESIGN-FORWARD",
+    palette: ["#0E0E0E", "#C8FF3D", "#FAFAF7"],
+  },
 ];
 
 export {
@@ -84,4 +93,5 @@ export {
   TemplateTwitter,
   TemplateAmbitious,
   TemplateBlank,
+  TemplateBohdan,
 };

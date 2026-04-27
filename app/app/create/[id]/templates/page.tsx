@@ -15,6 +15,7 @@ import { upsertUserCarousel } from "@/lib/carousel-storage";
 import { useDraft } from "@/lib/create/use-draft";
 import { defaultImagesForTemplate } from "@/lib/create/default-images";
 import type { SlideVariant } from "@/lib/create/types";
+import { isAdminEmail } from "@/lib/admin-emails";
 
 /**
  * Distribuição narrativa default quando um slide vem sem `variant` (rascunhos
@@ -52,15 +53,16 @@ function fillVariants<T extends { variant?: SlideVariant }>(slides: T[]): T[] {
  * usando os slides do rascunho. Baseado em `v-templates` do handoff.
  */
 
-// 4 templates disponíveis — Futurista (id interno "manifesto"), Twitter,
-// Ambitious (motivacional @anajords) e Blank (editorial @blankschoolbr).
-// Autoral + Futurista antigo (dark tech) escondidos mas ainda renderizáveis
-// se o user tem draft salvo com visualTemplate dessas variantes.
+// 5 templates disponíveis — Futurista (id interno "manifesto"), Twitter,
+// Ambitious (motivacional @anajords), Blank (editorial @blankschoolbr) e
+// Bohdan (design-forward @jeremybohdan). Autoral + Futurista antigo (dark
+// tech) escondidos mas ainda renderizáveis se o user tem draft salvo.
 const TEMPLATE_ORDER: TemplateId[] = [
   "manifesto",
   "twitter",
   "ambitious",
   "blank",
+  "bohdan",
 ];
 
 const TEMPLATE_DESC: Record<TemplateId, string> = {
@@ -70,6 +72,7 @@ const TEMPLATE_DESC: Record<TemplateId, string> = {
   twitter: "Mockup de tweet · avatar + handle limpo",
   ambitious: "Motivacional · foto moody full-bleed · sans bold altura variável",
   blank: "Editorial educativo · serif Playfair + sans · cada slide um layout",
+  bohdan: "Design-forward · B&W contraste alto · serif italic lime · handwritten",
 };
 
 const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {
@@ -78,13 +81,17 @@ const TEMPLATE_NAME_OVERRIDE: Partial<Record<TemplateId, string>> = {
 
 /**
  * Templates em dev — visíveis no picker com badge "em breve" mas NÃO
- * selecionáveis. Pedido Gabriel 24/04: Ambição precisa diminuir fonte
- * bastante e Editorial ainda tá em ajuste de variantes. Soltos assim
- * que estabilizarem.
+ * selecionáveis pra usuários comuns. Admin (gf.madureiraa@gmail.com etc)
+ * pode usar normalmente, sem badge — pra testar antes de soltar geral.
+ *
+ * Pedido Gabriel 24/04: Ambição precisa diminuir fonte bastante e
+ * Editorial ainda tá em ajuste de variantes. Bohdan recém-criado
+ * (25/04) — admin testa, geral espera estabilizar.
  */
-const COMING_SOON: Partial<Record<TemplateId, true>> = {
+const COMING_SOON_BASE: Partial<Record<TemplateId, true>> = {
   ambitious: true,
   blank: true,
+  bohdan: true,
 };
 
 function buildPreviewProfile(profile: {
@@ -116,6 +123,13 @@ export default function TemplatesPage(props: {
 
   const [selected, setSelected] = useState<TemplateId | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const isAdmin = isAdminEmail(user?.email);
+  // Admin ignora badges "em breve" — pode usar todos os templates pra
+  // validar antes de liberar pra geral.
+  const COMING_SOON: Partial<Record<TemplateId, true>> = isAdmin
+    ? {}
+    : COMING_SOON_BASE;
 
   useEffect(() => {
     if (draft?.visualTemplate) setSelected(draft.visualTemplate);
