@@ -10,7 +10,15 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:3002",
 ]);
 
-export function middleware(request: NextRequest) {
+/**
+ * Next 16 renomeou `middleware.ts` para `proxy.ts` (nome atual da
+ * convenção de arquivo). API é a mesma — exportar uma função `proxy`
+ * (ou default) que recebe `NextRequest` e devolve `NextResponse`. O
+ * matcher continua igual via `export const config = { matcher: [...] }`.
+ *
+ * Ver `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`.
+ */
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Block /api/debug in production
