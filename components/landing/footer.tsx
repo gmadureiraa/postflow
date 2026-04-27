@@ -23,7 +23,7 @@ function FooterCol({
       >
         {title}
       </h4>
-      <ul className="flex flex-col gap-2" style={{ listStyle: "none" }}>
+      <ul className="flex flex-col gap-1" style={{ listStyle: "none" }}>
         {links.map((l) => {
           const external = l.href.startsWith("http") || l.href.startsWith("mailto:");
           const Comp: React.ElementType = external ? "a" : Link;
@@ -38,7 +38,7 @@ function FooterCol({
             <li key={l.label}>
               <Comp
                 {...extraProps}
-                className="transition-colors hover:bg-[var(--sv-green)]"
+                className="inline-flex min-h-[36px] items-center transition-colors hover:bg-[var(--sv-green)]"
               >
                 {l.label}
               </Comp>
@@ -56,13 +56,13 @@ export function Footer() {
       style={{
         background: "var(--sv-paper)",
         borderTop: "1.5px solid var(--sv-ink)",
-        padding: "56px 0 24px",
+        padding: "clamp(40px, 7vw, 56px) 0 24px",
         fontSize: 12.5,
       }}
     >
-      <div className="mx-auto max-w-[1240px] px-6">
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <div
-          className="grid gap-8"
+          className="grid gap-8 sv-footer-grid"
           style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr" }}
         >
           <div>
@@ -75,7 +75,7 @@ export function Footer() {
                   alignItems: "baseline",
                   gap: 10,
                   fontFamily: "var(--sv-display)",
-                  fontSize: 44,
+                  fontSize: "clamp(28px, 6.4vw, 44px)",
                   fontStyle: "italic",
                   letterSpacing: "-0.02em",
                   color: "var(--sv-ink)",
@@ -88,11 +88,11 @@ export function Footer() {
                   aria-hidden
                   style={{
                     display: "inline-block",
-                    width: 14,
-                    height: 14,
+                    width: 12,
+                    height: 12,
                     background: "var(--sv-pink)",
                     border: "1.5px solid var(--sv-ink)",
-                    transform: "translateY(-4px)",
+                    transform: "translateY(-3px)",
                   }}
                 />
               </div>
@@ -185,8 +185,13 @@ export function Footer() {
         </div>
       </div>
       <style>{`
-        @media (max-width: 700px) {
-          footer > div > div:first-of-type { grid-template-columns: 1fr 1fr !important; }
+        @media (max-width: 900px) {
+          .sv-footer-grid { grid-template-columns: 1fr 1fr 1fr !important; }
+          .sv-footer-grid > div:first-child { grid-column: 1 / -1; }
+        }
+        @media (max-width: 560px) {
+          .sv-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 28px !important; }
+          .sv-footer-grid > div:first-child { grid-column: 1 / -1; }
         }
       `}</style>
     </footer>

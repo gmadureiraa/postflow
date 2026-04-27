@@ -102,6 +102,7 @@ export function WelcomePopup() {
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] overflow-y-auto p-5 sm:p-8"
             style={{
               position: "relative",
               width: "100%",
@@ -109,7 +110,6 @@ export function WelcomePopup() {
               background: "var(--sv-paper)",
               border: "1.5px solid var(--sv-ink)",
               boxShadow: "8px 8px 0 0 var(--sv-ink)",
-              padding: 32,
             }}
           >
             {/* Fechar */}
@@ -119,19 +119,20 @@ export function WelcomePopup() {
               aria-label="Fechar"
               style={{
                 position: "absolute",
-                top: 12,
-                right: 12,
-                width: 30,
-                height: 30,
+                top: 10,
+                right: 10,
+                width: 36,
+                height: 36,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 border: "1.5px solid var(--sv-ink)",
                 background: "var(--sv-white)",
                 cursor: "pointer",
+                zIndex: 2,
               }}
             >
-              <X size={14} strokeWidth={2} />
+              <X size={16} strokeWidth={2} />
             </button>
 
             {/* Eyebrow */}
@@ -157,8 +158,8 @@ export function WelcomePopup() {
               className="mt-5"
               style={{
                 fontFamily: "var(--sv-display)",
-                fontSize: "clamp(32px, 4.5vw, 44px)",
-                lineHeight: 1.02,
+                fontSize: "clamp(26px, 6.4vw, 44px)",
+                lineHeight: 1.05,
                 letterSpacing: "-0.02em",
                 color: "var(--sv-ink)",
                 fontWeight: 400,
@@ -242,8 +243,9 @@ export function WelcomePopup() {
                 style={{
                   flex: 1,
                   justifyContent: "center",
-                  padding: "13px 18px",
-                  fontSize: 11.5,
+                  padding: "14px 18px",
+                  fontSize: 12,
+                  minHeight: 48,
                 }}
               >
                 Resgatar 50% →
@@ -254,8 +256,9 @@ export function WelcomePopup() {
                 className="sv-btn"
                 style={{
                   flex: "0 0 auto",
-                  padding: "13px 18px",
-                  fontSize: 11.5,
+                  padding: "14px 18px",
+                  fontSize: 12,
+                  minHeight: 48,
                   background: "transparent",
                 }}
               >
