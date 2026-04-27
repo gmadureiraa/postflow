@@ -1480,13 +1480,14 @@ function StepAnalyze({
   return (
     <Card pad={0}>
       <div
-        className="grid"
-        style={{ gridTemplateColumns: "260px 1fr", minHeight: 540 }}
+        className="grid grid-cols-1 lg:grid-cols-[260px_1fr]"
+        style={{ minHeight: 540 }}
       >
         <aside
+          className="border-b-[1.5px] lg:border-b-0 lg:border-r-[1.5px]"
           style={{
             padding: 28,
-            borderRight: "1.5px solid var(--sv-ink)",
+            borderColor: "var(--sv-ink)",
             background: "var(--sv-soft)",
           }}
         >
@@ -1573,7 +1574,7 @@ function StepAnalyze({
           </button>
         </aside>
 
-        <div style={{ padding: 28 }}>
+        <div style={{ padding: 28, minWidth: 0 }}>
           {scrapedProfile ? (
             <ProfileHeader sp={scrapedProfile} />
           ) : (
@@ -1598,7 +1599,7 @@ function StepAnalyze({
           >
             Posts analisados ({scrapedProfile?.recentPosts.length ?? 0})
           </div>
-          <div className="grid grid-cols-3 gap-3 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
             {Array.from({ length: 9 }).map((_, i) => {
               const post = displayPosts[i];
               const src = post ? proxyImage(post.imageUrl) : null;
