@@ -140,6 +140,16 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-feature-settings: "ss01", "ss02", "cv01";
+  /* Evita scroll horizontal em mobile quando algum elemento decorativo
+     vaza viewport (rotações, posições absolutas). Desktop continua igual. */
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Touch targets — força mínimo 44px em CTAs principais via classe utility. */
+.sv-tap {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 ::selection {
@@ -1172,12 +1182,18 @@ select:focus-visible {
 }
 .sv-ticker-track {
   display: flex;
-  gap: 40px;
+  gap: 28px;
   font-family: var(--sv-display);
-  font-size: 22px;
+  font-size: 16px;
   letter-spacing: -0.01em;
   white-space: nowrap;
   animation: sv-marquee-x 40s linear infinite;
+}
+@media (min-width: 768px) {
+  .sv-ticker-track {
+    gap: 40px;
+    font-size: 22px;
+  }
 }
 .sv-ticker-track .sv-hl {
   color: var(--sv-green);

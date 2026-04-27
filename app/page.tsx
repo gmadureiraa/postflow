@@ -28,10 +28,12 @@ export default function HomePage() {
         color: "var(--sv-ink)",
         fontFamily: "var(--sv-sans)",
         minHeight: "100vh",
-        overflow: "hidden",
-        // Compensar o TopNav fixed (~64px de altura) pra primeira dobra nao
-        // ficar encostada no topo da viewport.
-        paddingTop: 68,
+        // overflow:hidden cortava conteudos que excediam viewport em mobile.
+        // Substituido por overflow-x:hidden global no body — vertical livre.
+        overflowX: "hidden",
+        // Compensar o TopNav fixed. Mobile usa altura ~56px (nav menor),
+        // desktop ~64px. clamp pra ajustar suavemente.
+        paddingTop: "clamp(56px, 8vw, 68px)",
       }}
     >
       <TopNav />
