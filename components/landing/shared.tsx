@@ -23,14 +23,30 @@ export function SectionHead({
   tag?: string;
 }) {
   return (
-    <div
-      className="mb-12 grid items-end gap-x-9 gap-y-6"
-      style={{ gridTemplateColumns: "auto 1fr auto" }}
-    >
+    <div className="sv-section-head mb-8 md:mb-12">
+      <style>{`
+        .sv-section-head {
+          display: grid;
+          align-items: end;
+          row-gap: 14px;
+          column-gap: 22px;
+          grid-template-columns: auto 1fr;
+          grid-template-areas: "num tag" "title title";
+        }
+        @media (min-width: 768px) {
+          .sv-section-head {
+            row-gap: 24px;
+            column-gap: 36px;
+            grid-template-columns: auto 1fr auto;
+            grid-template-areas: "num title tag";
+          }
+        }
+      `}</style>
       <div
         style={{
+          gridArea: "num",
           fontFamily: "var(--sv-display)",
-          fontSize: 64,
+          fontSize: "clamp(40px, 9vw, 64px)",
           lineHeight: 0.85,
           color: "var(--sv-pink)",
           fontStyle: "italic",
@@ -58,8 +74,9 @@ export function SectionHead({
         {...REVEAL}
         className="sv-display"
         style={{
-          fontSize: "clamp(28px, 3.8vw, 48px)",
-          lineHeight: 1.02,
+          gridArea: "title",
+          fontSize: "clamp(24px, 5.4vw, 48px)",
+          lineHeight: 1.05,
           letterSpacing: "-0.02em",
           fontWeight: 400,
           maxWidth: 820,
@@ -69,8 +86,10 @@ export function SectionHead({
       </motion.h2>
       {tag && (
         <span
-          className="justify-self-end self-start whitespace-nowrap"
+          className="self-start whitespace-nowrap md:justify-self-end"
           style={{
+            gridArea: "tag",
+            justifySelf: "end",
             fontFamily: "var(--sv-mono)",
             fontSize: 9,
             letterSpacing: "0.2em",

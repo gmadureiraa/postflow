@@ -31,17 +31,22 @@ export function TopNav() {
         borderBottom: "1px solid var(--sv-ink)",
       }}
     >
-      <div className="mx-auto flex max-w-[1240px] items-center justify-between px-6 py-3">
-        <Link href="/" className="flex items-center" aria-label="Sequência Viral">
+      <div className="mx-auto flex max-w-[1240px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center"
+          aria-label="Sequência Viral"
+        >
           {/* Wordmark tipográfico — Instrument Serif italic + dot pink.
-              Mais legível que o mark antigo e alinhado à estética editorial. */}
+              Mais legível que o mark antigo e alinhado à estética editorial.
+              Mobile: 18px, desktop: 22px. */}
           <span
             style={{
               display: "inline-flex",
               alignItems: "baseline",
               gap: 6,
               fontFamily: "var(--sv-display)",
-              fontSize: 22,
+              fontSize: "clamp(18px, 4.4vw, 22px)",
               fontStyle: "italic",
               letterSpacing: "-0.02em",
               color: "var(--sv-ink)",
@@ -108,15 +113,14 @@ export function TopNav() {
           aria-expanded={open}
           aria-controls="sv-mobile-menu"
           onClick={() => setOpen((v) => !v)}
-          className="md:hidden"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center md:hidden"
           style={{
             border: "1.5px solid var(--sv-ink)",
-            padding: 8,
             background: "var(--sv-white)",
             boxShadow: "2px 2px 0 0 var(--sv-ink)",
           }}
         >
-          {open ? <X size={18} /> : <Menu size={18} />}
+          {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
@@ -141,10 +145,10 @@ export function TopNav() {
                   <a
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="block px-6 py-3"
+                    className="flex min-h-[48px] items-center px-4 py-3 sm:px-6"
                     style={{
                       fontFamily: "var(--sv-mono)",
-                      fontSize: 11,
+                      fontSize: 12,
                       letterSpacing: "0.16em",
                       textTransform: "uppercase",
                       borderBottom: "1px solid rgba(10,10,10,0.1)",
@@ -154,20 +158,22 @@ export function TopNav() {
                   </a>
                 </li>
               ))}
-              <li className="flex gap-2 px-6 py-4">
+              <li className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:px-6">
                 {!isLoggedIn && (
                   <Link
                     href="/app/login"
-                    className="sv-btn sv-btn-outline"
-                    style={{ padding: "10px 16px", fontSize: 11 }}
+                    onClick={() => setOpen(false)}
+                    className="sv-btn sv-btn-outline w-full sm:w-auto"
+                    style={{ padding: "12px 16px", fontSize: 11, minHeight: 44 }}
                   >
                     Entrar
                   </Link>
                 )}
                 <Link
                   href={primaryHref}
-                  className="sv-btn sv-btn-primary"
-                  style={{ padding: "10px 16px", fontSize: 11 }}
+                  onClick={() => setOpen(false)}
+                  className="sv-btn sv-btn-primary w-full sm:w-auto"
+                  style={{ padding: "12px 16px", fontSize: 11, minHeight: 44 }}
                 >
                   {primaryLabel}
                 </Link>
