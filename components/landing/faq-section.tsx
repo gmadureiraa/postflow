@@ -36,8 +36,8 @@ export function FAQSection(props: FAQSectionProps = {}) {
   const [openIdx, setOpenIdx] = useState(0);
 
   return (
-    <section id="faq" style={{ padding: "0 0 96px" }}>
-      <div className="mx-auto max-w-[1240px] px-6">
+    <section id="faq" style={{ padding: "0 0 clamp(56px, 9vw, 96px)" }}>
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <SectionHead num="07" sub={sub} tag={tag}>
           {heading ?? (
             <>
@@ -71,13 +71,14 @@ export function FAQSection(props: FAQSectionProps = {}) {
                 }}
               >
                 <div
-                  className="flex items-center justify-between gap-5"
+                  className="flex items-center justify-between gap-3 sm:gap-5"
                   style={{
                     fontFamily: "var(--sv-display)",
-                    fontSize: 22,
+                    fontSize: "clamp(18px, 4.4vw, 22px)",
                     fontWeight: 400,
                     letterSpacing: "-0.012em",
-                    lineHeight: 1.25,
+                    lineHeight: 1.3,
+                    minHeight: 44,
                   }}
                 >
                   <span className="flex-1">{item.q}</span>
@@ -105,9 +106,9 @@ export function FAQSection(props: FAQSectionProps = {}) {
                   style={{
                     overflow: "hidden",
                     color: "var(--sv-muted)",
-                    fontSize: 14,
+                    fontSize: "clamp(13px, 3.6vw, 14px)",
                     lineHeight: 1.6,
-                    paddingRight: 48,
+                    paddingRight: 16,
                   }}
                 >
                   <div>{item.a}</div>

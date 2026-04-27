@@ -58,12 +58,11 @@ function PlanCard({
   return (
     <motion.article
       {...REVEAL}
-      className={`relative flex flex-col gap-[14px] ${featured ? "sv-plan-featured" : ""}`}
+      className={`relative flex flex-col gap-[14px] p-5 sm:p-7 ${featured ? "sv-plan-featured" : ""}`}
       style={{
         background: featured ? "var(--sv-ink)" : "var(--sv-white)",
         color: featured ? "var(--sv-paper)" : "var(--sv-ink)",
         border: "1.5px solid var(--sv-ink)",
-        padding: 28,
         boxShadow: featured ? "5px 5px 0 0 var(--sv-green)" : "5px 5px 0 0 var(--sv-ink)",
         transform: featured ? "translateY(-8px)" : undefined,
         transition: "transform .25s, box-shadow .25s",
@@ -183,7 +182,8 @@ function PlanCard({
       </ul>
       <Link
         href={ctaHref}
-        className={`sv-btn sv-btn-${ctaVariant === "primary" ? "primary" : "outline"} mt-auto`}
+        className={`sv-btn sv-btn-${ctaVariant === "primary" ? "primary" : "outline"} mt-auto w-full justify-center`}
+        style={{ minHeight: 48, padding: "14px 20px", fontSize: 11.5 }}
       >
         {cta}
       </Link>
@@ -218,10 +218,11 @@ function IntervalToggle({
             onClick={() => onChange(v)}
             className="uppercase"
             style={{
-              padding: "8px 16px",
+              padding: "10px 16px",
+              minHeight: 40,
               fontFamily: "var(--sv-mono)",
-              fontSize: 10.5,
-              letterSpacing: "0.18em",
+              fontSize: 11,
+              letterSpacing: "0.16em",
               fontWeight: 700,
               background: on ? "var(--sv-ink)" : "transparent",
               color: on ? "var(--sv-paper)" : "var(--sv-ink)",
@@ -271,13 +272,13 @@ export function PricingSection() {
   const proAnchor = "R$ 199,90";
 
   return (
-    <section id="pricing" style={{ padding: "0 0 96px" }}>
+    <section id="pricing" style={{ padding: "0 0 clamp(56px, 9vw, 96px)" }}>
       <style>{`
         @media (max-width: 768px) {
           #pricing .sv-plan-featured { transform: none !important; }
         }
       `}</style>
-      <div className="mx-auto max-w-[1240px] px-6">
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <SectionHead num="05" sub="Pricing" tag="Preço de lançamento">
           Preço <em>honesto</em>.{" "}
           <span style={{ color: "var(--sv-muted)" }}>Em real, sem pegadinha.</span>

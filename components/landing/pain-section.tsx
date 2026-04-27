@@ -82,13 +82,13 @@ export function PainSection(props: PainSectionProps = {}) {
     <section
       id="dor"
       style={{
-        padding: "96px 0",
+        padding: "clamp(56px, 9vw, 96px) 0",
         background: "var(--sv-soft)",
         borderTop: "1px solid var(--sv-ink)",
         borderBottom: "1px solid var(--sv-ink)",
       }}
     >
-      <div className="mx-auto max-w-[1240px] px-6">
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <SectionHead num="01" sub={sub} tag={tag}>
           {heading ?? (
             <>
@@ -101,9 +101,9 @@ export function PainSection(props: PainSectionProps = {}) {
         </SectionHead>
 
         <div
-          className="grid gap-5"
+          className="grid gap-4 md:gap-5"
           style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
           }}
         >
           {pains.map((p, i) => (
@@ -116,8 +116,8 @@ export function PainSection(props: PainSectionProps = {}) {
                 background: "var(--sv-white)",
                 border: "1.5px solid var(--sv-ink)",
                 boxShadow: "4px 4px 0 0 var(--sv-ink)",
-                padding: "26px 24px 22px",
-                minHeight: 240,
+                padding: "22px 20px 20px",
+                minHeight: 200,
               }}
             >
               <div>
@@ -200,9 +200,9 @@ export function PainSection(props: PainSectionProps = {}) {
 
         <motion.div
           {...REVEAL}
-          className="mt-10 flex flex-wrap items-center justify-between gap-6"
+          className="mt-10 flex flex-col flex-wrap items-start justify-between gap-5 md:flex-row md:items-center md:gap-6"
           style={{
-            padding: "28px 28px",
+            padding: "22px 20px",
             background: "var(--sv-green)",
             color: "var(--sv-ink)",
             border: "1.5px solid var(--sv-ink)",
@@ -226,8 +226,8 @@ export function PainSection(props: PainSectionProps = {}) {
             <p
               className="sv-display mt-2"
               style={{
-                fontSize: 26,
-                lineHeight: 1.15,
+                fontSize: "clamp(20px, 4.6vw, 26px)",
+                lineHeight: 1.18,
                 letterSpacing: "-0.015em",
                 maxWidth: 720,
                 color: "var(--sv-ink)",
@@ -253,7 +253,7 @@ export function PainSection(props: PainSectionProps = {}) {
             </p>
           </div>
           <div
-            className="flex flex-col text-right"
+            className="flex flex-col text-left md:text-right"
             style={{
               fontFamily: "var(--sv-mono)",
               fontSize: 9.5,

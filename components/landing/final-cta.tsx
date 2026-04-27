@@ -31,7 +31,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
       style={{
         background: "var(--sv-ink)",
         color: "var(--sv-paper)",
-        padding: "108px 0",
+        padding: "clamp(64px, 12vw, 108px) 0",
         borderTop: "1px solid var(--sv-ink)",
       }}
     >
@@ -51,7 +51,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="sv-anim-float-slow absolute"
+        className="sv-anim-float-slow absolute hidden sm:block"
         style={
           {
             top: 40,
@@ -69,7 +69,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="sv-anim-float absolute"
+        className="sv-anim-float absolute hidden sm:block"
         style={
           {
             bottom: 30,
@@ -87,12 +87,12 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="sv-anim-spin-med pointer-events-none absolute"
+        className="sv-anim-spin-med pointer-events-none absolute hidden md:block"
         style={{ top: "18%", left: "12%", width: 48 }}
       />
 
       <motion.div
-        className="relative mx-auto max-w-[1240px] px-6"
+        className="relative mx-auto max-w-[1240px] px-4 sm:px-6"
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
@@ -133,8 +133,8 @@ export function FinalCTA(props: FinalCTAProps = {}) {
           transition={{ duration: 0.6, delay: 0.2 }}
           style={{
             fontFamily: "var(--sv-display)",
-            fontSize: "clamp(40px, 5.6vw, 80px)",
-            lineHeight: 1.02,
+            fontSize: "clamp(32px, 8vw, 80px)",
+            lineHeight: 1.04,
             letterSpacing: "-0.025em",
             fontWeight: 400,
           }}
@@ -163,7 +163,7 @@ export function FinalCTA(props: FinalCTAProps = {}) {
           {subtitle ?? "Cole um link, um texto ou uma ideia. A IA faz o resto, com a sua voz."}
         </motion.p>
         <motion.div
-          className="relative mt-7 flex flex-wrap justify-center gap-[10px]"
+          className="relative mt-7 flex flex-col flex-wrap items-stretch justify-center gap-3 sm:flex-row sm:items-center sm:gap-[10px]"
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -171,17 +171,18 @@ export function FinalCTA(props: FinalCTAProps = {}) {
         >
           <Link
             href={primaryHref}
-            className="sv-btn sv-btn-primary"
-            style={{ padding: "14px 22px", fontSize: 11.5 }}
+            className="sv-btn sv-btn-primary w-full sm:w-auto"
+            style={{ padding: "16px 24px", fontSize: 12, minHeight: 48 }}
           >
             {primaryLabel}
           </Link>
           <Link
             href="/roadmap"
-            className="sv-btn"
+            className="sv-btn w-full sm:w-auto"
             style={{
-              padding: "14px 22px",
-              fontSize: 11.5,
+              padding: "16px 24px",
+              fontSize: 12,
+              minHeight: 48,
               background: "transparent",
               color: "var(--sv-paper)",
               borderColor: "var(--sv-paper)",
@@ -191,15 +192,15 @@ export function FinalCTA(props: FinalCTAProps = {}) {
           </Link>
         </motion.div>
         <motion.div
-          className="relative mt-6 flex flex-wrap justify-center gap-[22px]"
+          className="relative mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 sm:gap-[22px]"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.6 }}
           style={{
             fontFamily: "var(--sv-mono)",
-            fontSize: 9.5,
-            letterSpacing: "0.2em",
+            fontSize: "clamp(8.5px, 2.2vw, 9.5px)",
+            letterSpacing: "0.18em",
             textTransform: "uppercase",
             color: "rgba(245,243,236,.45)",
           }}

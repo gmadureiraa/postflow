@@ -253,7 +253,7 @@ export function Hero(props: HeroProps = {}) {
   return (
     <header
       className="sv-hero relative overflow-hidden"
-      style={{ padding: "clamp(32px, 4.2vw, 56px) 0 clamp(16px, 3vw, 40px)" }}
+      style={{ padding: "clamp(20px, 4.2vw, 56px) 0 clamp(16px, 3vw, 40px)" }}
     >
       <style>{`
         @media (max-width: 860px) {
@@ -262,14 +262,15 @@ export function Hero(props: HeroProps = {}) {
             gap: 28px !important;
           }
           .sv-hero .sv-hero-visual {
-            max-width: 420px !important;
+            max-width: 360px !important;
             margin: 0 auto !important;
+            aspect-ratio: 1 / 1 !important;
           }
         }
       `}</style>
 
       <div
-        className="sv-hero-grid mx-auto grid max-w-[1240px] items-center gap-10 px-6"
+        className="sv-hero-grid mx-auto grid max-w-[1240px] items-center gap-10 px-4 sm:px-6"
         style={{
           gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 0.95fr)",
         }}
@@ -283,8 +284,8 @@ export function Hero(props: HeroProps = {}) {
           <h1
             className="sv-display mt-4"
             style={{
-              fontSize: "clamp(36px, 5vw, 68px)",
-              lineHeight: 1.02,
+              fontSize: "clamp(32px, 7.4vw, 68px)",
+              lineHeight: 1.04,
               letterSpacing: "-0.025em",
               fontWeight: 400,
             }}
@@ -304,7 +305,7 @@ export function Hero(props: HeroProps = {}) {
           <p
             className="mt-[22px]"
             style={{
-              fontSize: 14.5,
+              fontSize: "clamp(14px, 3.6vw, 15px)",
               lineHeight: 1.55,
               color: "var(--sv-muted)",
               maxWidth: 460,
@@ -323,23 +324,23 @@ export function Hero(props: HeroProps = {}) {
             )}
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-[10px]">
+          <div className="mt-6 flex flex-col flex-wrap gap-[10px] sm:flex-row">
             <Link
               href={primaryHref}
-              className="sv-btn sv-btn-primary"
-              style={{ padding: "14px 22px", fontSize: 11.5 }}
+              className="sv-btn sv-btn-primary w-full sm:w-auto"
+              style={{ padding: "16px 24px", fontSize: 12, minHeight: 48 }}
             >
               {primaryLabel}
-              <ArrowRight size={12} strokeWidth={2.5} />
+              <ArrowRight size={14} strokeWidth={2.5} />
             </Link>
           </div>
 
           <div
-            className="mt-[22px] flex flex-wrap gap-x-6 gap-y-[18px]"
+            className="mt-[22px] flex flex-wrap gap-x-4 gap-y-[12px] sm:gap-x-6 sm:gap-y-[18px]"
             style={{
               fontFamily: "var(--sv-mono)",
-              fontSize: 9.5,
-              letterSpacing: "0.18em",
+              fontSize: "clamp(8.5px, 2.2vw, 9.5px)",
+              letterSpacing: "0.16em",
               textTransform: "uppercase",
               color: "var(--sv-muted)",
             }}
@@ -444,7 +445,8 @@ export function Hero(props: HeroProps = {}) {
             }
           />
 
-          {/* Megaphone decorativo lateral direita (mantem a silhueta original). */}
+          {/* Megaphone decorativo lateral direita (mantem a silhueta original).
+              Escondido em mobile pra evitar overflow visual + clutter. */}
           <Image
             src={`${BASE_ASSET}/hero-megaphone.webp`}
             alt=""
@@ -454,7 +456,7 @@ export function Hero(props: HeroProps = {}) {
             loading="lazy"
             decoding="async"
             sizes="(max-width: 860px) 140px, 140px"
-            className="sv-anim-float-slow absolute"
+            className="sv-anim-float-slow absolute hidden md:block"
             style={
               {
                 top: "42%",
@@ -505,17 +507,18 @@ export function Hero(props: HeroProps = {}) {
             style={
               {
                 top: "2%",
-                right: "8%",
+                right: "4%",
                 transform: "rotate(6deg)",
-                padding: "6px 11px",
+                padding: "5px 9px",
                 background: "var(--sv-green)",
                 border: "1.5px solid var(--sv-ink)",
                 boxShadow: "3px 3px 0 0 var(--sv-ink)",
                 fontFamily: "var(--sv-mono)",
-                fontSize: 9,
-                letterSpacing: "0.16em",
+                fontSize: "clamp(7.5px, 1.6vw, 9px)",
+                letterSpacing: "0.14em",
                 textTransform: "uppercase",
                 zIndex: 6,
+                whiteSpace: "nowrap",
                 ["--sv-r" as string]: "6deg",
               } as React.CSSProperties
             }
@@ -523,22 +526,23 @@ export function Hero(props: HeroProps = {}) {
             {topBadge}
           </span>
           <span
-            className="sv-anim-float absolute"
+            className="sv-anim-float absolute max-w-[60%]"
             style={
               {
-                bottom: "14%",
-                left: "4%",
+                bottom: "10%",
+                left: "2%",
                 transform: "rotate(-5deg)",
-                padding: "6px 11px",
+                padding: "5px 9px",
                 background: "var(--sv-pink)",
                 color: "var(--sv-ink)",
                 border: "1.5px solid var(--sv-ink)",
                 boxShadow: "3px 3px 0 0 var(--sv-ink)",
                 fontFamily: "var(--sv-mono)",
-                fontSize: 9,
-                letterSpacing: "0.16em",
+                fontSize: "clamp(7.5px, 1.6vw, 9px)",
+                letterSpacing: "0.14em",
                 textTransform: "uppercase",
                 zIndex: 6,
+                lineHeight: 1.3,
                 ["--sv-r" as string]: "-5deg",
               } as React.CSSProperties
             }

@@ -270,8 +270,8 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
   const { sub = "Features", tag = "Produto", heading } = props;
 
   return (
-    <section id="features" style={{ padding: "96px 0" }}>
-      <div className="mx-auto max-w-[1240px] px-6">
+    <section id="features" style={{ padding: "clamp(56px, 9vw, 96px) 0" }}>
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <SectionHead num="03" sub={sub} tag={tag}>
           {heading ?? (
             <>
@@ -326,8 +326,8 @@ export function FeaturesSection(props: FeaturesSectionProps = {}) {
       </div>
       <style>{`
         @media (max-width: 900px) {
-          #features .sv-bento { grid-template-columns: 1fr !important; }
-          #features .sv-feat { grid-column: auto !important; }
+          #features .sv-bento { grid-template-columns: 1fr !important; gap: 16px !important; }
+          #features .sv-feat { grid-column: auto !important; padding: 22px !important; }
         }
       `}</style>
     </section>

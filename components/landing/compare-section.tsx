@@ -60,8 +60,8 @@ export function CompareSection(props: CompareSectionProps = {}) {
   } = props;
 
   return (
-    <section id="compare" style={{ padding: "0 0 96px" }}>
-      <div className="mx-auto max-w-[1240px] px-6">
+    <section id="compare" style={{ padding: "0 0 clamp(56px, 9vw, 96px)" }}>
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <SectionHead num="04" sub={sub} tag={tag}>
           {heading ?? (
             <>
@@ -77,6 +77,7 @@ export function CompareSection(props: CompareSectionProps = {}) {
             border: "1.5px solid var(--sv-ink)",
             background: "var(--sv-white)",
             boxShadow: "5px 5px 0 0 var(--sv-ink)",
+            WebkitOverflowScrolling: "touch",
           }}
         >
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>

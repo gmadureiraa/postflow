@@ -63,8 +63,8 @@ export function HowItWorks(props: HowItWorksProps = {}) {
   } = props;
 
   return (
-    <section id="como" style={{ padding: "96px 0" }}>
-      <div className="mx-auto max-w-[1240px] px-6">
+    <section id="como" style={{ padding: "clamp(56px, 9vw, 96px) 0" }}>
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
         <SectionHead num="02" sub={sub} tag={tag}>
           {heading ?? (
             <>
@@ -76,10 +76,10 @@ export function HowItWorks(props: HowItWorksProps = {}) {
         </SectionHead>
 
         <style>{`
-          @media (max-width: 760px) {
+          @media (max-width: 768px) {
             #como .sv-how-grid { grid-template-columns: 1fr !important; }
-            #como .sv-how-grid > article { border-right: none !important; border-bottom: 1px solid var(--sv-ink); }
-            #como .sv-how-grid > article:last-child { border-bottom: none; }
+            #como .sv-how-grid > article { border-right: none !important; border-bottom: 1px solid var(--sv-ink) !important; padding: 24px 20px !important; }
+            #como .sv-how-grid > article:last-child { border-bottom: none !important; }
           }
         `}</style>
         <div
@@ -101,11 +101,11 @@ export function HowItWorks(props: HowItWorksProps = {}) {
                   i < steps.length - 1 ? "1px solid var(--sv-ink)" : "none",
               }}
             >
-              <div className="mb-14 flex items-start justify-between gap-4">
+              <div className="mb-10 flex items-start justify-between gap-4 md:mb-14">
                 <div
                   style={{
                     fontFamily: "var(--sv-display)",
-                    fontSize: 64,
+                    fontSize: "clamp(48px, 9vw, 64px)",
                     lineHeight: 0.82,
                     fontStyle: "italic",
                     color: "var(--sv-ink)",
@@ -116,8 +116,8 @@ export function HowItWorks(props: HowItWorksProps = {}) {
                 <div
                   className="relative flex-shrink-0 transition-transform duration-300 group-hover:rotate-[4deg] group-hover:scale-105"
                   style={{
-                    width: 78,
-                    height: 78,
+                    width: 64,
+                    height: 64,
                     transform: "rotate(-6deg)",
                   }}
                 >
@@ -136,10 +136,10 @@ export function HowItWorks(props: HowItWorksProps = {}) {
               <h3
                 className="sv-display"
                 style={{
-                  fontSize: 22,
+                  fontSize: "clamp(20px, 4.4vw, 22px)",
                   fontWeight: 400,
                   letterSpacing: "-0.015em",
-                  lineHeight: 1.05,
+                  lineHeight: 1.1,
                   marginBottom: 8,
                 }}
               >
@@ -148,9 +148,9 @@ export function HowItWorks(props: HowItWorksProps = {}) {
               <p
                 style={{
                   color: "var(--sv-muted)",
-                  fontSize: 13.5,
+                  fontSize: "clamp(13px, 3.4vw, 13.5px)",
                   lineHeight: 1.55,
-                  maxWidth: 280,
+                  maxWidth: 320,
                 }}
               >
                 {s.body}
@@ -159,13 +159,6 @@ export function HowItWorks(props: HowItWorksProps = {}) {
           ))}
         </div>
       </div>
-      <style>{`
-        @media (max-width: 900px) {
-          #como .grid { grid-template-columns: 1fr !important; }
-          #como .grid > article { border-right: none !important; border-bottom: 1px solid var(--sv-ink); }
-          #como .grid > article:last-child { border-bottom: none; }
-        }
-      `}</style>
     </section>
   );
 }
