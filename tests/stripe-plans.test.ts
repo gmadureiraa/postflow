@@ -19,7 +19,7 @@ describe("stripe plans", () => {
   it("centraliza limites e valores de cobrança", () => {
     expect(FREE_PLAN_USAGE_LIMIT).toBe(5);
     expect(usageLimitForPaidPlan("pro")).toBe(10);
-    expect(usageLimitForPaidPlan("business")).toBe(30);
+    expect(usageLimitForPaidPlan("business")).toBe(300);
     expect(stripePaymentAmount("pro")).toBe(49.9);
     expect(stripePaymentAmount("business")).toBe(97.9);
     // Alias historico ainda aponta pro mesmo valor BRL.

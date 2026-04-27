@@ -68,6 +68,7 @@ import { perplexityQuery, isPerplexityConfigured } from "@/lib/perplexity";
 import { requireAuthenticatedUser, createServiceRoleSupabaseClient } from "@/lib/server/auth";
 import { rateLimit, getRateLimitKey, getRequestIp } from "@/lib/server/rate-limit";
 import { captureRouteError } from "@/lib/server/sentry";
+import { PLANS, FREE_PLAN_USAGE_LIMIT } from "@/lib/pricing";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
   geminiWithRetry,
@@ -333,7 +334,17 @@ export async function POST(request: Request) {
         .eq("id", user.id)
         .single();
       if (prof) {
-        const limit = prof.usage_limit ?? 5;
+        // Cap automático por plano — fonte de verdade é `lib/pricing.ts`.
+        // Se o usage_limit no banco vier desalinhado (user legado com 9999,
+        // overrides manuais, etc), aplicamos o cap do plano por cima.
+        const dbLimit = prof.usage_limit ?? 5;
+        const planCap =
+          prof.plan === "business"
+            ? PLANS.business.carouselsPerMonth
+            : prof.plan === "pro"
+              ? PLANS.pro.carouselsPerMonth
+              : FREE_PLAN_USAGE_LIMIT;
+        const limit = Math.min(dbLimit, planCap);
         const count = prof.usage_count ?? 0;
         if (!usageAlreadyIncremented && count >= limit) {
           return Response.json(

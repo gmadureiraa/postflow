@@ -3539,7 +3539,7 @@ function StepDone({
                 lineHeight: 1.6,
               }}
             >
-              <li>30 carrosséis / mês</li>
+              <li>300 carrosséis / mês</li>
               <li>Até 12 slides por carrossel</li>
               <li>Imagens IA + stock + cache</li>
               <li>Suporte prioritário</li>
