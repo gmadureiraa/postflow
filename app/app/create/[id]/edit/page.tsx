@@ -216,6 +216,9 @@ const FONTS_PER_TEMPLATE: Record<string, string[]> = {
   ambitious: ["inter-black", "archivo"],
   // Editorial: serif elegante + sans clean
   blank: ["serif", "inter-black", "archivo"],
+  // Bohdan: design-forward B&W + lime — serif italic dramático + sans bold
+  // (mesma família estética do Manifesto mas com presença de italic).
+  bohdan: ["serif", "inter-black", "archivo", "anton"],
 };
 
 function fontsForTemplate(templateId: string | null | undefined): typeof FONT_OPTS {

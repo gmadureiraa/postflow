@@ -15,6 +15,7 @@ const VISUAL_TEMPLATE_IDS = [
   "twitter",
   "ambitious",
   "blank",
+  "bohdan",
 ] as const;
 
 function normalizeVisualTemplate(raw: unknown): VisualTemplateId | undefined {
